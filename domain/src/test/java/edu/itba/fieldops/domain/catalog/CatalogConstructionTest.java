@@ -1,6 +1,10 @@
 package edu.itba.fieldops.domain.catalog;
 
-import edu.itba.fieldops.domain.shared.Quantity;
+import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.identity.PermitId;
+import edu.itba.fieldops.domain.identity.PersonId;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import org.junit.jupiter.api.Test;
@@ -21,29 +25,29 @@ class CatalogConstructionTest {
 
     @Test
     void personHoldsCertificationAndAvailability() {
-        Certification sampling = new Certification(UUID.randomUUID(), "Sampling");
-        Person person = new Person(UUID.randomUUID(), "Ada", List.of(sampling), Availability.always());
+        Certification sampling = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(sampling), Availability.always());
 
         assertAll(
                 () -> assertTrue(person.holds(sampling.id())),
-                () -> assertFalse(person.holds(UUID.randomUUID())),
+                () -> assertFalse(person.holds(new CertificationId(UUID.randomUUID()))),
                 () -> assertTrue(person.availableDuring(WEEK))
         );
     }
 
     @Test
     void consumableComparesAgainstStock() {
-        Consumable vials = new Consumable(UUID.randomUUID(), "vials", new Quantity(20));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(20));
 
         assertAll(
-                () -> assertTrue(vials.hasAtLeast(new Quantity(20))),
-                () -> assertFalse(vials.hasAtLeast(new Quantity(21)))
+                () -> assertTrue(vials.hasAtLeast(new Stock(20))),
+                () -> assertFalse(vials.hasAtLeast(new Stock(21)))
         );
     }
 
     @Test
     void permitCoversMatchingZoneAndWindow() {
-        Permit permit = new Permit(UUID.randomUUID(), new WorkZone("Delta"), WEEK);
+        Permit permit = new Permit(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK);
 
         assertAll(
                 () -> assertTrue(permit.covers(new WorkZone("Delta"), WEEK)),

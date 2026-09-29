@@ -2,46 +2,48 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
-import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.Catalog;
-import edu.itba.fieldops.domain.expedition.Assignment;
+import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.shared.Quantity;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.Stock;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class StockRule implements ValidationRule {
     @Override
     public List<ValidationIssue> check(ValidationContext context) {
         Catalog catalog = context.catalog();
-        Map<UUID, Quantity> needed = Stream.concat(Stream.of(context.expedition()), context.occupying().stream())
-                .map(Expedition::assignments)
-                .flatMap(List::stream)
-                .map(Assignment::consumption)
-                .map(Map::entrySet)
-                .flatMap(Set::stream)
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Quantity::plus));
-        return needed.entrySet().stream()
-                .map(entry -> catalog.consumable(entry.getKey())
-                        .filter(consumable -> !consumable.hasAtLeast(entry.getValue()))
-                        .map(consumable -> stockIssue(consumable, entry.getValue())))
-                .flatMap(Optional::stream)
-                .toList();
+        Map<ConsumableId, Stock> needed = new HashMap<>();
+        add(needed, context.expedition());
+        for (Expedition peer : context.occupying().plans()) {
+            add(needed, peer);
+        }
+        List<ValidationIssue> issues = new ArrayList<>();
+        for (Map.Entry<ConsumableId, Stock> entry : needed.entrySet()) {
+            Optional<Consumable> consumable = catalog.consumable(entry.getKey());
+            if (consumable.isPresent() && !consumable.get().hasAtLeast(entry.getValue())) {
+                issues.add(stockIssue(consumable.get(), entry.getValue()));
+            }
+        }
+        return issues;
     }
 
-    private static ValidationIssue stockIssue(Consumable consumable, Quantity needed) {
+    private static void add(Map<ConsumableId, Stock> needed, Expedition expedition) {
+        expedition.assignments().consumption().forEach((id, quantity) -> needed.merge(id, quantity, Stock::plus));
+    }
+
+    private static ValidationIssue stockIssue(Consumable consumable, Stock needed) {
         return new ValidationIssue(
                 IssueSeverity.CRITICAL,
                 "STOCK",
                 "consumable " + consumable.name()
-                        + " stock " + consumable.stock().value()
-                        + " is less than assigned " + needed.value()
+                        + " stock " + consumable.stock().amount()
+                        + " is less than assigned " + needed.amount()
         );
     }
 }

@@ -1,24 +1,24 @@
 package edu.itba.fieldops.domain.tracking;
 
+import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.shared.Texts;
 
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
 public final class ActivityExecution {
-    private final UUID activityId;
+    private final ActivityId activityId;
     private final Instant startedAt;
     private final Optional<Completion> completion;
 
-    public ActivityExecution(UUID activityId, Instant startedAt) {
+    public ActivityExecution(ActivityId activityId, Instant startedAt) {
         this.activityId = Objects.requireNonNull(activityId, "activity id");
         this.startedAt = Objects.requireNonNull(startedAt, "started at");
         this.completion = Optional.empty();
     }
 
-    private ActivityExecution(UUID activityId, Instant startedAt, Completion completion) {
+    private ActivityExecution(ActivityId activityId, Instant startedAt, Completion completion) {
         this.activityId = activityId;
         this.startedAt = startedAt;
         this.completion = Optional.of(completion);
@@ -30,12 +30,12 @@ public final class ActivityExecution {
         }
         Objects.requireNonNull(finishedAt, "finished at");
         if (finishedAt.isBefore(startedAt)) {
-            throw new IllegalArgumentException("finish must not be before start");
+            throw new InvalidActivityExecution("finish must not be before start");
         }
         return new ActivityExecution(activityId, startedAt, new Completion(finishedAt, result));
     }
 
-    public UUID activityId() {
+    public ActivityId activityId() {
         return activityId;
     }
 

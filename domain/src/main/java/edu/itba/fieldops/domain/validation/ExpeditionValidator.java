@@ -3,6 +3,7 @@ package edu.itba.fieldops.domain.validation;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Catalog;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,8 +26,8 @@ public final class ExpeditionValidator {
         ));
     }
 
-    public ValidationResult validate(Expedition expedition, Catalog catalog, List<Expedition> others) {
-        return validate(ValidationContext.of(expedition, catalog, others));
+    public ValidationResult validate(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
+        return validate(new ValidationContext(expedition, catalog, peers));
     }
 
     public ValidationResult validate(ValidationContext context) {

@@ -1,23 +1,43 @@
 package edu.itba.fieldops.domain.report;
 
+import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.Instrument;
+import edu.itba.fieldops.domain.catalog.Permit;
+import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.ResourceCatalog;
+import edu.itba.fieldops.domain.expedition.ApproveExpedition;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionLifecycle;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
+import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
+import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
+import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.Restriction;
+import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.InstrumentId;
+import edu.itba.fieldops.domain.identity.PermitId;
+import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.itinerary.MeasurementPolicy;
-import edu.itba.fieldops.domain.shared.Quantity;
+import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.validation.ExpeditionValidator;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -25,18 +45,22 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class OperationalReportTest {
+    private final ExpeditionLifecycle lifecycle = new ExpeditionLifecycle();
+    private final ApproveExpedition approve = new ApproveExpedition(ExpeditionValidator.withDefaultRules());
+
     private static final Instant START = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
+    private static final InstrumentKind PROBE = new InstrumentKind("probe");
 
     @Test
     void derivesDurationRiskAndConsumptionFromExpedition() {
-        Expedition expedition = draftWithMeasurement();
-        Activity activity = expedition.itinerary().getFirst();
-        UUID vials = UUID.randomUUID();
-        expedition.addAssignment(new ConsumableAssignment(activity.id(), vials, new Quantity(5)));
-        expedition.addAssignment(new ConsumableAssignment(activity.id(), vials, new Quantity(2)));
+        ConsumableId vials = new ConsumableId(UUID.randomUUID());
+        Prepared prepared = draftWithMeasurement(Map.of(vials, new Stock(3)));
+        Activity activity = prepared.activity();
+        prepared.expedition().addAssignment(new ConsumableAssignment(activity.id(), vials, new Stock(5)));
+        prepared.expedition().addAssignment(new ConsumableAssignment(activity.id(), vials, new Stock(2)));
 
-        OperationalReport report = OperationalReport.of(expedition);
+        OperationalReport report = OperationalReport.of(prepared.expedition());
 
         assertAll(
                 () -> assertEquals(ExpeditionStatus.DRAFT, report.status()),
@@ -45,63 +69,82 @@ class OperationalReportTest {
                 () -> assertEquals(0, report.finishedActivities()),
                 () -> assertEquals(Duration.ofHours(3), report.duration()),
                 () -> assertEquals(RiskLevel.HIGH, report.risk()),
-                () -> assertEquals(new Quantity(7), report.consumption().get(vials)),
+                () -> assertEquals(new Stock(7), report.consumption().get(vials)),
+                () -> assertEquals(new Stock(3), report.estimatedConsumption().get(vials)),
                 () -> assertEquals(List.of(), report.activityResults())
         );
     }
 
     @Test
     void includesFinishedActivityResults() {
-        Expedition expedition = draftWithMeasurement();
-        Activity activity = expedition.itinerary().getFirst();
-        expedition.submitForReview();
-        expedition.approve(ValidationResult.empty());
-        expedition.start();
-        expedition.startActivity(activity.id(), START);
-        expedition.finishActivity(activity.id(), START.plus(Duration.ofHours(3)), "samples stored");
+        Prepared prepared = draftWithMeasurement(Map.of());
+        prepared.expedition().submitForReview();
+        approve.approve(prepared.expedition(), prepared.catalog(), OccupyingExpeditions.none());
+        ExpeditionExecution execution = lifecycle.start(prepared.expedition(), null);
+        lifecycle.startActivity(prepared.expedition(), execution, prepared.activity().id(), START);
+        execution.finishActivity(prepared.activity().id(), START.plus(Duration.ofHours(3)), "samples stored");
 
-        OperationalReport report = OperationalReport.of(expedition);
+        OperationalReport report = OperationalReport.of(prepared.expedition(), execution);
 
         assertAll(
-                () -> assertEquals(ExpeditionStatus.IN_PROGRESS, report.status()),
+                () -> assertEquals(ExpeditionStatus.APPROVED, report.status()),
                 () -> assertEquals(1, report.plannedActivities()),
                 () -> assertEquals(1, report.startedActivities()),
                 () -> assertEquals(1, report.finishedActivities()),
-                () -> assertEquals(List.of(new ActivityResult(activity.id(), "samples stored")), report.activityResults())
+                () -> assertEquals(List.of(new ActivityResult(prepared.activity().id(), "samples stored")), report.activityResults())
         );
     }
 
     @Test
     void includesIncidents() {
-        Expedition expedition = draftWithMeasurement();
-        expedition.submitForReview();
-        expedition.approve(ValidationResult.empty());
-        expedition.start();
+        Prepared prepared = draftWithMeasurement(Map.of());
+        prepared.expedition().submitForReview();
+        approve.approve(prepared.expedition(), prepared.catalog(), OccupyingExpeditions.none());
+        ExpeditionExecution execution = lifecycle.start(prepared.expedition(), null);
         Incident incident = Incident.of("ventisca en el frente", START);
-        expedition.addIncident(incident);
+        execution.addIncident(incident);
 
-        OperationalReport report = OperationalReport.of(expedition);
+        OperationalReport report = OperationalReport.of(prepared.expedition(), execution);
 
         assertEquals(List.of(incident), report.incidents());
     }
 
-    private static Expedition draftWithMeasurement() {
+    private static Prepared draftWithMeasurement(Map<ConsumableId, Stock> estimated) {
+        CertificationId certificationId = new CertificationId(UUID.randomUUID());
+        PersonId personId = new PersonId(UUID.randomUUID());
+        InstrumentId instrumentId = new InstrumentId(UUID.randomUUID());
+        Activity activity = Activity.measurement(
+                new ActivityId(UUID.randomUUID()),
+                "measure",
+                Duration.ofHours(3),
+                RiskLevel.HIGH,
+                new TimePeriod(START, START.plus(Duration.ofHours(3))),
+                Set.of(),
+                DELTA,
+                certificationId,
+                PROBE,
+                estimated
+        );
+        Permit permit = new Permit(new PermitId(UUID.randomUUID()), DELTA, activity.window());
         Expedition expedition = Expedition.draft(
-                UUID.randomUUID(),
+                new ExpeditionId(UUID.randomUUID()),
                 List.of(new Objective("Measure water")),
                 new TimePeriod(START, START.plus(Duration.ofDays(2))),
                 List.of(DELTA),
-                List.of(UUID.randomUUID()),
+                List.of(new PersonId(UUID.randomUUID())),
                 List.of(new Restriction("Daylight only"))
         );
-        expedition.addActivity(new Activity(
-                UUID.randomUUID(),
-                "measure",
-                new MeasurementPolicy(UUID.randomUUID()),
-                new TimePeriod(START, START.plus(Duration.ofHours(3))),
-                Set.of(),
-                DELTA
-        ));
-        return expedition;
+        expedition.addActivity(activity);
+        expedition.addAssignment(new PersonAssignment(activity.id(), personId));
+        expedition.addAssignment(new InstrumentAssignment(activity.id(), instrumentId));
+        expedition.addPermit(permit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(new Person(personId, "Ada", List.of(new Certification(certificationId, "Operator")), Availability.always()));
+        catalog.add(new Instrument(instrumentId, PROBE, Availability.always()));
+        catalog.add(permit);
+        return new Prepared(expedition, catalog, activity);
+    }
+
+    private record Prepared(Expedition expedition, ResourceCatalog catalog, Activity activity) {
     }
 }

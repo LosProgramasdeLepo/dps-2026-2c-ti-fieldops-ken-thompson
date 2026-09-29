@@ -1,5 +1,6 @@
 package edu.itba.fieldops.domain.itinerary;
 
+import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.time.Duration;
@@ -9,7 +10,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 
 public final class Itinerary {
     private final List<Activity> activities = new ArrayList<>();
@@ -23,7 +23,7 @@ public final class Itinerary {
         activities.add(activity);
     }
 
-    public void remove(UUID activityId) {
+    public void remove(ActivityId activityId) {
         activityOf(activityId);
         for (int index = 0; index < activities.size(); index++) {
             Activity activity = activities.get(index);
@@ -34,22 +34,22 @@ public final class Itinerary {
         activities.removeIf(activity -> activity.id().equals(activityId));
     }
 
-    public void reorder(List<UUID> orderedIds) {
+    public void reorder(List<ActivityId> orderedIds) {
         Objects.requireNonNull(orderedIds, "activity order");
         if (orderedIds.size() != activities.size() || Set.copyOf(orderedIds).size() != activities.size()) {
-            throw new IllegalArgumentException("activity order must list each itinerary activity once");
+            throw new InvalidItinerary("activity order must list each itinerary activity once");
         }
         List<Activity> reordered = orderedIds.stream().map(this::activityOf).toList();
         activities.clear();
         activities.addAll(reordered);
     }
 
-    public void addDependency(UUID activityId, UUID predecessorId) {
+    public void addDependency(ActivityId activityId, ActivityId predecessorId) {
         Objects.requireNonNull(predecessorId, "predecessor id");
         Activity activity = activityOf(activityId);
         Activity predecessor = activityOf(predecessorId);
         if (activity.predecessors().contains(predecessor.id())) {
-            throw new IllegalArgumentException("duplicate predecessor: " + predecessorId);
+            throw new InvalidItinerary("duplicate predecessor: " + predecessorId);
         }
         Activity updated = activity.withPredecessor(predecessor.id());
         requireAcyclic(updated);
@@ -57,13 +57,13 @@ public final class Itinerary {
         replace(updated);
     }
 
-    public void delay(UUID activityId, Duration delay) {
+    public void delay(ActivityId activityId, Duration delay) {
         List<Activity> next = delayed(activityId, delay);
         activities.clear();
         activities.addAll(next);
     }
 
-    public List<Activity> delayed(UUID activityId, Duration delay) {
+    public List<Activity> delayed(ActivityId activityId, Duration delay) {
         Objects.requireNonNull(delay, "delay");
         List<Activity> next = new ArrayList<>(activities);
         Activity target = in(next, activityId);
@@ -84,7 +84,7 @@ public final class Itinerary {
         return List.copyOf(next);
     }
 
-    public Activity activityOf(UUID activityId) {
+    public Activity activityOf(ActivityId activityId) {
         return activities.get(indexOf(activityId));
     }
 
@@ -98,9 +98,9 @@ public final class Itinerary {
         return copy;
     }
 
-    private void requireUnknown(UUID activityId) {
+    private void requireUnknown(ActivityId activityId) {
         if (activities.stream().anyMatch(activity -> activity.id().equals(activityId))) {
-            throw new IllegalArgumentException("duplicate activity: " + activityId);
+            throw new InvalidItinerary("duplicate activity: " + activityId);
         }
     }
 
@@ -110,12 +110,12 @@ public final class Itinerary {
 
     private void requireAcyclic(Activity activity) {
         if (reaches(activity.id(), activity.predecessors(), new HashSet<>())) {
-            throw new IllegalArgumentException("activity dependencies form a cycle");
+            throw new InvalidItinerary("activity dependencies form a cycle");
         }
     }
 
-    private boolean reaches(UUID target, Set<UUID> from, Set<UUID> seen) {
-        for (UUID predecessorId : from) {
+    private boolean reaches(ActivityId target, Set<ActivityId> from, Set<ActivityId> seen) {
+        for (ActivityId predecessorId : from) {
             if (predecessorId.equals(target)) {
                 return true;
             }
@@ -130,17 +130,17 @@ public final class Itinerary {
     }
 
     private void requirePredecessorsFinishBefore(Activity activity) {
-        for (UUID predecessorId : activity.predecessors()) {
+        for (ActivityId predecessorId : activity.predecessors()) {
             Activity predecessor = activityOf(predecessorId);
             if (!predecessor.window().finishesBeforeStartOf(activity.window())) {
-                throw new IllegalArgumentException("predecessor must finish before activity starts: " + predecessorId);
+                throw new InvalidItinerary("predecessor must finish before activity starts: " + predecessorId);
             }
         }
     }
 
     private static Instant readyToStart(Activity activity, List<Activity> source) {
         Instant ready = activity.window().start();
-        for (UUID predecessorId : activity.predecessors()) {
+        for (ActivityId predecessorId : activity.predecessors()) {
             Instant end = in(source, predecessorId).window().end();
             if (end.isAfter(ready)) {
                 ready = end;
@@ -149,7 +149,7 @@ public final class Itinerary {
         return ready;
     }
 
-    private static Activity in(List<Activity> source, UUID activityId) {
+    private static Activity in(List<Activity> source, ActivityId activityId) {
         return source.get(indexIn(source, activityId));
     }
 
@@ -157,16 +157,16 @@ public final class Itinerary {
         activities.set(indexOf(updated.id()), updated);
     }
 
-    private int indexOf(UUID activityId) {
+    private int indexOf(ActivityId activityId) {
         return indexIn(activities, activityId);
     }
 
-    private static int indexIn(List<Activity> source, UUID activityId) {
+    private static int indexIn(List<Activity> source, ActivityId activityId) {
         for (int index = 0; index < source.size(); index++) {
             if (source.get(index).id().equals(activityId)) {
                 return index;
             }
         }
-        throw new IllegalArgumentException("unknown activity: " + activityId);
+        throw new InvalidItinerary("unknown activity: " + activityId);
     }
 }

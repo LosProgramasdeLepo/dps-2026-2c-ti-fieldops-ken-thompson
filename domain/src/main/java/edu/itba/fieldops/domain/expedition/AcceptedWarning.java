@@ -1,16 +1,17 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.shared.Texts;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
+import edu.itba.fieldops.domain.identity.PersonId;
+import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.Texts;
 
 import java.util.Objects;
-import java.util.UUID;
 
-public record AcceptedWarning(ValidationIssue issue, String justification, UUID acceptedBy) {
+public record AcceptedWarning(ValidationIssue issue, String justification, PersonId acceptedBy) {
     public AcceptedWarning {
         Objects.requireNonNull(issue, "accepted issue");
         if (issue.isCritical()) {
-            throw new IllegalArgumentException("critical issues cannot be accepted as warnings");
+            throw new InvalidValue("critical issues cannot be accepted as warnings");
         }
         justification = Texts.required(justification, "justification");
         Objects.requireNonNull(acceptedBy, "accepted by");

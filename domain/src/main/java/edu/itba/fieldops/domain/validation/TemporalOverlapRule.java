@@ -8,29 +8,30 @@ import edu.itba.fieldops.domain.expedition.TemporalBooking;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 public final class TemporalOverlapRule implements ValidationRule {
     @Override
     public List<ValidationIssue> check(ValidationContext context) {
         Catalog catalog = context.catalog();
-        List<Expedition> occupying = context.occupying();
         List<TemporalBooking> own = TemporalBooking.of(context.expedition());
-        Stream<ValidationIssue> unavailable = own.stream()
-                .filter(booking -> booking.unavailableIn(catalog))
-                .map(booking -> critical(
+        List<ValidationIssue> issues = new ArrayList<>();
+        for (TemporalBooking booking : own) {
+            if (booking.unavailableIn(catalog)) {
+                issues.add(critical(
                         "AVAILABILITY",
                         booking.label() + " is not available during "
                                 + booking.window().start() + "/" + booking.window().end()
                 ));
-        Stream<ValidationIssue> intra = conflicts(own, own, true);
-        Stream<ValidationIssue> inter = occupying.stream()
-                .map(TemporalBooking::of)
-                .flatMap(other -> conflicts(own, other, false));
-        return Stream.of(unavailable, intra, inter).flatMap(issues -> issues).toList();
+            }
+        }
+        issues.addAll(conflicts(own, own, true));
+        for (Expedition peer : context.occupying().plans()) {
+            issues.addAll(conflicts(own, TemporalBooking.of(peer), false));
+        }
+        return issues;
     }
 
-    private static Stream<ValidationIssue> conflicts(
+    private static List<ValidationIssue> conflicts(
             List<TemporalBooking> left,
             List<TemporalBooking> right,
             boolean intra
@@ -48,7 +49,7 @@ public final class TemporalOverlapRule implements ValidationRule {
                 }
             }
         }
-        return issues.stream();
+        return issues;
     }
 
     private static ValidationIssue critical(String code, String message) {

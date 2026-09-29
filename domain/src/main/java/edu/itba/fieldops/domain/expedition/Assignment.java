@@ -1,14 +1,15 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.shared.Quantity;
+import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.shared.TimePeriod;
 
-import java.util.Map;
-import java.util.UUID;
+import java.util.Optional;
 
 public sealed interface Assignment permits PersonAssignment, VehicleAssignment, InstrumentAssignment, ConsumableAssignment {
-    UUID activityId();
+    ActivityId activityId();
 
-    default Map<UUID, Quantity> consumption() {
-        return Map.of();
-    }
+    Optional<TemporalBooking> booking(TimePeriod window);
+
+    Optional<String> unknownIn(Catalog catalog);
 }

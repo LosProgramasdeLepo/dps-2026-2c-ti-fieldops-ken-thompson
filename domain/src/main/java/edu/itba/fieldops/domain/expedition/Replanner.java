@@ -1,13 +1,13 @@
 package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.identity.ActivityId;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
 public final class Replanner {
     private final AssignmentSuggester suggester;
@@ -16,37 +16,40 @@ public final class Replanner {
         this.suggester = Objects.requireNonNull(suggester, "assignment suggester");
     }
 
-    public Expedition cancel(Expedition expedition, UUID activityId, Catalog catalog, List<Expedition> others) {
+    public Expedition cancel(Expedition expedition, ActivityId activityId, Catalog catalog, OccupyingExpeditions peers) {
         Objects.requireNonNull(expedition, "expedition");
         Objects.requireNonNull(catalog, "catalog");
+        Objects.requireNonNull(peers, "peers");
         Expedition plan = editablePlanFor(expedition);
         plan.removeActivity(activityId);
-        refill(plan, catalog, others);
+        refill(plan, catalog, peers);
         return plan;
     }
 
     public Expedition delay(
             Expedition expedition,
-            UUID activityId,
+            ActivityId activityId,
             Duration delay,
             Catalog catalog,
-            List<Expedition> others
+            OccupyingExpeditions peers
     ) {
         Objects.requireNonNull(expedition, "expedition");
         Objects.requireNonNull(catalog, "catalog");
+        Objects.requireNonNull(peers, "peers");
         Expedition plan = editablePlanFor(expedition);
         plan.delay(activityId, delay);
-        dropInvalid(plan, catalog, others);
-        refill(plan, catalog, others);
+        dropInvalid(plan, catalog, peers);
+        refill(plan, catalog, peers);
         return plan;
     }
 
-    public Expedition replaceUnavailable(Expedition expedition, Catalog catalog, List<Expedition> others) {
+    public Expedition replaceUnavailable(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
         Objects.requireNonNull(expedition, "expedition");
         Objects.requireNonNull(catalog, "catalog");
+        Objects.requireNonNull(peers, "peers");
         Expedition plan = revisionOrSelf(expedition);
-        dropInvalid(plan, catalog, others);
-        refill(plan, catalog, others);
+        dropInvalid(plan, catalog, peers);
+        refill(plan, catalog, peers);
         return plan;
     }
 
@@ -62,22 +65,21 @@ public final class Replanner {
         return expedition.status().hasBeenApproved() ? expedition.reviseAsDraft() : expedition;
     }
 
-    private void refill(Expedition expedition, Catalog catalog, List<Expedition> others) {
-        for (Assignment assignment : suggester.suggest(expedition, catalog, others)) {
+    private void refill(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
+        for (Assignment assignment : suggester.suggest(expedition, catalog, peers)) {
             expedition.addAssignment(assignment);
         }
     }
 
-    private static void dropInvalid(Expedition expedition, Catalog catalog, List<Expedition> others) {
+    private static void dropInvalid(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
         List<TemporalBooking> occupying = new ArrayList<>();
-        for (Expedition peer : expedition.occupyingPeers(others)) {
+        for (Expedition peer : peers.plans()) {
             occupying.addAll(TemporalBooking.of(peer));
         }
         List<TemporalBooking> kept = new ArrayList<>();
         List<Assignment> drop = new ArrayList<>();
-        for (Assignment assignment : expedition.assignments()) {
-            Optional<TemporalBooking> booking = TemporalBooking.of(
-                    assignment,
+        for (Assignment assignment : expedition.assignments().all()) {
+            Optional<TemporalBooking> booking = assignment.booking(
                     expedition.activityOf(assignment.activityId()).window()
             );
             if (booking.isEmpty()) {

@@ -11,14 +11,23 @@ import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.Objective;
+import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.Restriction;
+import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.InstrumentId;
+import edu.itba.fieldops.domain.identity.PermitId;
+import edu.itba.fieldops.domain.identity.PersonId;
+import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.itinerary.TransitPolicy;
+import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +55,7 @@ class ValidationExtensionTest {
                 .toList();
 
         ValidationResult result = new ExpeditionValidator(List.of(everyActivityNeedsABriefing))
-                .validate(expedition, emptyCatalog(), List.of());
+                .validate(expedition, emptyCatalog(), OccupyingExpeditions.none());
 
         assertEquals(1, result.issues().size());
         assertEquals("BRIEFING", result.issues().getFirst().code());
@@ -55,13 +64,13 @@ class ValidationExtensionTest {
     @Test
     void combinesACustomRuleWithAStandardRule() {
         Expedition expedition = expeditionWithTransit();
-        expedition.addAssignment(new PersonAssignment(expedition.itinerary().getFirst().id(), UUID.randomUUID()));
+        expedition.addAssignment(new PersonAssignment(expedition.itinerary().getFirst().id(), new PersonId(UUID.randomUUID())));
         ValidationRule alwaysCritical = context -> List.of(
                 new ValidationIssue(IssueSeverity.CRITICAL, "BRIEFING", "no briefing on file")
         );
 
         ValidationResult result = new ExpeditionValidator(List.of(new MissingResourceRule(), alwaysCritical))
-                .validate(expedition, emptyCatalog(), List.of());
+                .validate(expedition, emptyCatalog(), OccupyingExpeditions.none());
 
         assertTrue(result.hasCritical());
         assertTrue(hasCode(result, "RESOURCE"), () -> "expected RESOURCE in " + result.issues());
@@ -71,10 +80,10 @@ class ValidationExtensionTest {
     @Test
     void validatesAgainstAnyCatalogImplementation() {
         Expedition expedition = expeditionWithTransit();
-        expedition.addAssignment(new PersonAssignment(expedition.itinerary().getFirst().id(), UUID.randomUUID()));
+        expedition.addAssignment(new PersonAssignment(expedition.itinerary().getFirst().id(), new PersonId(UUID.randomUUID())));
 
         ValidationResult result = ExpeditionValidator.withDefaultRules()
-                .validate(expedition, emptyCatalog(), List.of());
+                .validate(expedition, emptyCatalog(), OccupyingExpeditions.none());
 
         assertTrue(hasCode(result, "RESOURCE"), () -> "expected RESOURCE in " + result.issues());
     }
@@ -89,7 +98,7 @@ class ValidationExtensionTest {
         ExpeditionValidator validator = new ExpeditionValidator(mutable);
         mutable.add(noise);
 
-        ValidationResult result = validator.validate(expedition, emptyCatalog(), List.of());
+        ValidationResult result = validator.validate(expedition, emptyCatalog(), OccupyingExpeditions.none());
 
         assertFalse(hasCode(result, "NOISE"), () -> "validator kept a live view of the rule list: " + result.issues());
     }
@@ -100,17 +109,18 @@ class ValidationExtensionTest {
 
     private static Expedition expeditionWithTransit() {
         Expedition expedition = Expedition.draft(
-                UUID.randomUUID(),
+                new ExpeditionId(UUID.randomUUID()),
                 List.of(new Objective("relevar el frente del glaciar")),
                 new TimePeriod(DAY, DAY.plusSeconds(24 * 3600L)),
                 List.of(ZONE),
-                List.of(UUID.randomUUID()),
+                List.of(new PersonId(UUID.randomUUID())),
                 List.of(new Restriction("sin vuelos nocturnos"))
         );
-        expedition.addActivity(new Activity(
-                UUID.randomUUID(),
+        expedition.addActivity(Activity.transit(
+                new ActivityId(UUID.randomUUID()),
                 "Traslado al campamento",
-                new TransitPolicy(),
+                Duration.ofHours(2),
+                RiskLevel.LOW,
                 new TimePeriod(DAY, DAY.plusSeconds(4 * 3600L)),
                 Set.of(),
                 ZONE
@@ -121,27 +131,27 @@ class ValidationExtensionTest {
     private static Catalog emptyCatalog() {
         return new Catalog() {
             @Override
-            public Optional<Person> person(UUID id) {
+            public Optional<Person> person(PersonId id) {
                 return Optional.empty();
             }
 
             @Override
-            public Optional<Vehicle> vehicle(UUID id) {
+            public Optional<Vehicle> vehicle(VehicleId id) {
                 return Optional.empty();
             }
 
             @Override
-            public Optional<Instrument> instrument(UUID id) {
+            public Optional<Instrument> instrument(InstrumentId id) {
                 return Optional.empty();
             }
 
             @Override
-            public Optional<Consumable> consumable(UUID id) {
+            public Optional<Consumable> consumable(ConsumableId id) {
                 return Optional.empty();
             }
 
             @Override
-            public Optional<Permit> permit(UUID id) {
+            public Optional<Permit> permit(PermitId id) {
                 return Optional.empty();
             }
 

@@ -2,19 +2,21 @@ package edu.itba.fieldops.domain.report;
 
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
+import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.shared.Quantity;
 import edu.itba.fieldops.domain.shared.RiskLevel;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
 public record OperationalReport(
         ExpeditionStatus status,
@@ -23,7 +25,8 @@ public record OperationalReport(
         int finishedActivities,
         Duration duration,
         RiskLevel risk,
-        Map<UUID, Quantity> consumption,
+        Map<ConsumableId, Stock> consumption,
+        Map<ConsumableId, Stock> estimatedConsumption,
         List<Incident> incidents,
         List<ActivityResult> activityResults
 ) {
@@ -32,12 +35,18 @@ public record OperationalReport(
         Objects.requireNonNull(duration, "duration");
         Objects.requireNonNull(risk, "risk");
         consumption = Map.copyOf(consumption);
+        estimatedConsumption = Map.copyOf(estimatedConsumption);
         incidents = List.copyOf(incidents);
         activityResults = List.copyOf(activityResults);
     }
 
     public static OperationalReport of(Expedition expedition) {
-        List<ActivityExecution> executions = expedition.executions();
+        return of(expedition, null);
+    }
+
+    public static OperationalReport of(Expedition expedition, ExpeditionExecution execution) {
+        Objects.requireNonNull(expedition, "expedition");
+        List<ActivityExecution> executions = execution == null ? List.of() : execution.executions();
         return new OperationalReport(
                 expedition.status(),
                 expedition.itinerary().size(),
@@ -45,8 +54,9 @@ public record OperationalReport(
                 (int) executions.stream().filter(ActivityExecution::isFinished).count(),
                 totalDuration(expedition),
                 highestRisk(expedition),
-                consumption(expedition),
-                expedition.incidents(),
+                expedition.assignments().consumption(),
+                estimatedConsumption(expedition),
+                execution == null ? List.of() : execution.incidents(),
                 activityResults(executions)
         );
     }
@@ -64,18 +74,20 @@ public record OperationalReport(
                 .orElse(RiskLevel.LOW);
     }
 
-    private static Map<UUID, Quantity> consumption(Expedition expedition) {
-        Map<UUID, Quantity> totals = new HashMap<>();
-        expedition.assignments().forEach(assignment ->
-                assignment.consumption().forEach((id, quantity) -> totals.merge(id, quantity, Quantity::plus)));
+    private static Map<ConsumableId, Stock> estimatedConsumption(Expedition expedition) {
+        Map<ConsumableId, Stock> totals = new HashMap<>();
+        for (Activity activity : expedition.itinerary()) {
+            activity.requirements().estimatedConsumption()
+                    .forEach((id, quantity) -> totals.merge(id, quantity, Stock::plus));
+        }
         return totals;
     }
 
     private static List<ActivityResult> activityResults(List<ActivityExecution> executions) {
-        return executions.stream()
-                .flatMap(execution -> execution.result()
-                        .map(result -> new ActivityResult(execution.activityId(), result))
-                        .stream())
-                .toList();
+        List<ActivityResult> results = new ArrayList<>();
+        for (ActivityExecution execution : executions) {
+            execution.result().ifPresent(result -> results.add(new ActivityResult(execution.activityId(), result)));
+        }
+        return results;
     }
 }

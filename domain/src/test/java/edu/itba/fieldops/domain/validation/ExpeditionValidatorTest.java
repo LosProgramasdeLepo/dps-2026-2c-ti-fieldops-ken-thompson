@@ -1,35 +1,50 @@
 package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
-import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.ResourceCatalog;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
+import edu.itba.fieldops.domain.expedition.ApproveExpedition;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionLifecycle;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
+import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
+import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
+import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.InstrumentId;
+import edu.itba.fieldops.domain.identity.PermitId;
+import edu.itba.fieldops.domain.identity.PersonId;
+import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.itinerary.MeasurementPolicy;
-import edu.itba.fieldops.domain.itinerary.SamplingPolicy;
-import edu.itba.fieldops.domain.itinerary.TransitPolicy;
-import edu.itba.fieldops.domain.shared.Quantity;
+import edu.itba.fieldops.domain.shared.InstrumentKind;
+import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.RiskLevel;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -40,15 +55,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExpeditionValidatorTest {
     private final ExpeditionValidator validator = ExpeditionValidator.withDefaultRules();
+    private final ApproveExpedition approve = new ApproveExpedition(validator);
+    private final ExpeditionLifecycle lifecycle = new ExpeditionLifecycle();
 
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
+    private static final InstrumentKind PROBE = new InstrumentKind("probe");
 
     @Test
     void validSamplingPlanHasNoIssues() {
         SamplingPlan plan = samplingPlan(0, 4);
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertTrue(result.issues().isEmpty());
     }
@@ -59,7 +77,7 @@ class ExpeditionValidatorTest {
         Expedition afternoon = samplingOn(morning, 4, 8);
         morning.expedition.submitForReview();
 
-        ValidationResult result = validator.validate(afternoon, morning.catalog, List.of(morning.expedition));
+        ValidationResult result = validator.validate(afternoon, morning.catalog, peers(afternoon, morning.expedition));
 
         assertTrue(result.issues().isEmpty());
     }
@@ -70,7 +88,7 @@ class ExpeditionValidatorTest {
         Expedition second = samplingOn(first, 0, 4);
         first.expedition.submitForReview();
 
-        ValidationResult result = validator.validate(second, first.catalog, List.of(first.expedition));
+        ValidationResult result = validator.validate(second, first.catalog, peers(second, first.expedition));
 
         assertIssue(result, IssueSeverity.CRITICAL, "OVERLAP");
     }
@@ -80,7 +98,7 @@ class ExpeditionValidatorTest {
         SamplingPlan first = samplingPlan(0, 4);
         Expedition second = samplingOn(first, 0, 4);
 
-        ValidationResult result = validator.validate(second, first.catalog, List.of(first.expedition));
+        ValidationResult result = validator.validate(second, first.catalog, peers(second, first.expedition));
 
         assertNo(result, "OVERLAP");
     }
@@ -89,11 +107,15 @@ class ExpeditionValidatorTest {
     void finishedPeerDoesNotOccupyThePerson() {
         SamplingPlan first = samplingPlan(0, 4);
         Expedition second = samplingOn(first, 0, 4);
-        finish(first.expedition, first.activity);
+        ExpeditionExecution finished = finish(first.expedition, first.activity, first.catalog);
 
-        ValidationResult result = validator.validate(second, first.catalog, List.of(first.expedition));
+        ValidationResult result = validator.validate(
+                second,
+                first.catalog,
+                OccupyingExpeditions.of(second, List.of(first.expedition), Map.of(first.expedition.id(), finished))
+        );
 
-        assertEquals(ExpeditionStatus.FINISHED, first.expedition.status());
+        assertEquals(ExpeditionExecution.Status.FINISHED, finished.status());
         assertNo(result, "OVERLAP");
     }
 
@@ -104,7 +126,7 @@ class ExpeditionValidatorTest {
         plan.expedition.addActivity(later);
         plan.expedition.addAssignment(new PersonAssignment(later.id(), plan.person.id()));
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertNo(result, "OVERLAP");
     }
@@ -116,30 +138,30 @@ class ExpeditionValidatorTest {
         plan.expedition.addActivity(later);
         plan.expedition.addAssignment(new PersonAssignment(later.id(), plan.person.id()));
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "OVERLAP");
     }
 
     @Test
     void catalogUnavailabilityIsCritical() {
-        Certification certification = new Certification(UUID.randomUUID(), "Sampling");
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
         Person person = new Person(
-                UUID.randomUUID(),
+                new PersonId(UUID.randomUUID()),
                 "Ada",
                 List.of(certification),
                 new Availability(List.of(window(0, 4)))
         );
         SamplingPlan plan = samplingPlan(person, certification, 4, 8);
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "AVAILABILITY");
     }
 
     @Test
     void samplingWithoutPersonIsResourceNotCertification() {
-        Certification certification = new Certification(UUID.randomUUID(), "Sampling");
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
         Activity activity = sampling(certification.id(), 0, 4);
         Permit permit = permitFor(activity);
         Expedition expedition = draft();
@@ -148,7 +170,7 @@ class ExpeditionValidatorTest {
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(permit);
 
-        ValidationResult result = validator.validate(expedition, catalog, List.of());
+        ValidationResult result = validator.validate(expedition, catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "RESOURCE");
         assertNo(result, "CERTIFICATION");
@@ -164,15 +186,15 @@ class ExpeditionValidatorTest {
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(permit);
 
-        ValidationResult result = validator.validate(expedition, catalog, List.of());
+        ValidationResult result = validator.validate(expedition, catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "RESOURCE");
     }
 
     @Test
     void measurementWithoutInstrumentIsCritical() {
-        Certification operator = new Certification(UUID.randomUUID(), "Operator");
-        Person person = new Person(UUID.randomUUID(), "Ada", List.of(operator), Availability.always());
+        Certification operator = new Certification(new CertificationId(UUID.randomUUID()), "Operator");
+        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(operator), Availability.always());
         Activity activity = measurement(operator.id(), 0, 3);
         Permit permit = permitFor(activity);
         Expedition expedition = draft();
@@ -183,10 +205,32 @@ class ExpeditionValidatorTest {
         catalog.add(person);
         catalog.add(permit);
 
-        ValidationResult result = validator.validate(expedition, catalog, List.of());
+        ValidationResult result = validator.validate(expedition, catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "RESOURCE");
         assertNo(result, "CERTIFICATION");
+    }
+
+    @Test
+    void measurementWithTheWrongInstrumentKindIsCritical() {
+        Certification operator = new Certification(new CertificationId(UUID.randomUUID()), "Operator");
+        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(operator), Availability.always());
+        Instrument thermometer = new Instrument(new InstrumentId(UUID.randomUUID()), new InstrumentKind("thermometer"), Availability.always());
+        Activity activity = measurement(operator.id(), 0, 3);
+        Permit permit = permitFor(activity);
+        Expedition expedition = draft();
+        expedition.addActivity(activity);
+        expedition.addAssignment(new PersonAssignment(activity.id(), person.id()));
+        expedition.addAssignment(new InstrumentAssignment(activity.id(), thermometer.id()));
+        expedition.addPermit(permit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(person);
+        catalog.add(thermometer);
+        catalog.add(permit);
+
+        ValidationResult result = validator.validate(expedition, catalog, OccupyingExpeditions.none());
+
+        assertIssue(result, IssueSeverity.CRITICAL, "RESOURCE");
     }
 
     @Test
@@ -194,9 +238,9 @@ class ExpeditionValidatorTest {
         SamplingPlan plan = samplingPlan(0, 4);
         Activity extra = sampling(plan.certification.id(), 4, 8);
         plan.expedition.addActivity(extra);
-        plan.expedition.addAssignment(new PersonAssignment(extra.id(), UUID.randomUUID()));
+        plan.expedition.addAssignment(new PersonAssignment(extra.id(), new PersonId(UUID.randomUUID())));
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "RESOURCE");
         assertNo(result, "CERTIFICATION");
@@ -206,13 +250,13 @@ class ExpeditionValidatorTest {
     @Test
     void missingCertificationIsCritical() {
         SamplingPlan plan = samplingPlan(0, 4);
-        Person unqualified = new Person(UUID.randomUUID(), "Bob", List.of(), Availability.always());
+        Person unqualified = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(), Availability.always());
         plan.catalog.add(unqualified);
         Activity extra = sampling(plan.certification.id(), 4, 8);
         plan.expedition.addActivity(extra);
         plan.expedition.addAssignment(new PersonAssignment(extra.id(), unqualified.id()));
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "CERTIFICATION");
     }
@@ -220,11 +264,11 @@ class ExpeditionValidatorTest {
     @Test
     void stockShortfallIsCritical() {
         SamplingPlan plan = samplingPlan(0, 4);
-        Consumable vials = new Consumable(UUID.randomUUID(), "vials", new Quantity(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
         plan.catalog.add(vials);
-        plan.expedition.addAssignment(new ConsumableAssignment(plan.activity.id(), vials.id(), new Quantity(15)));
+        plan.expedition.addAssignment(new ConsumableAssignment(plan.activity.id(), vials.id(), new Stock(15)));
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "STOCK");
     }
@@ -232,14 +276,14 @@ class ExpeditionValidatorTest {
     @Test
     void occupyingPeerConsumesStock() {
         SamplingPlan first = samplingPlan(0, 4);
-        Consumable vials = new Consumable(UUID.randomUUID(), "vials", new Quantity(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
         first.catalog.add(vials);
-        first.expedition.addAssignment(new ConsumableAssignment(first.activity.id(), vials.id(), new Quantity(6)));
+        first.expedition.addAssignment(new ConsumableAssignment(first.activity.id(), vials.id(), new Stock(6)));
         first.expedition.submitForReview();
         Expedition second = samplingOn(first, 4, 8);
-        second.addAssignment(new ConsumableAssignment(second.itinerary().getFirst().id(), vials.id(), new Quantity(5)));
+        second.addAssignment(new ConsumableAssignment(second.itinerary().getFirst().id(), vials.id(), new Stock(5)));
 
-        ValidationResult result = validator.validate(second, first.catalog, List.of(first.expedition));
+        ValidationResult result = validator.validate(second, first.catalog, peers(second, first.expedition));
 
         assertIssue(result, IssueSeverity.CRITICAL, "STOCK");
     }
@@ -247,11 +291,11 @@ class ExpeditionValidatorTest {
     @Test
     void selfPassedInOthersDoesNotDoubleCountStock() {
         SamplingPlan plan = samplingPlan(0, 4);
-        Consumable vials = new Consumable(UUID.randomUUID(), "vials", new Quantity(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
         plan.catalog.add(vials);
-        plan.expedition.addAssignment(new ConsumableAssignment(plan.activity.id(), vials.id(), new Quantity(8)));
+        plan.expedition.addAssignment(new ConsumableAssignment(plan.activity.id(), vials.id(), new Stock(8)));
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of(plan.expedition));
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, peers(plan.expedition, plan.expedition));
 
         assertNo(result, "STOCK");
     }
@@ -259,14 +303,18 @@ class ExpeditionValidatorTest {
     @Test
     void finishedPeerDoesNotConsumeStock() {
         SamplingPlan first = samplingPlan(0, 4);
-        Consumable vials = new Consumable(UUID.randomUUID(), "vials", new Quantity(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
         first.catalog.add(vials);
-        first.expedition.addAssignment(new ConsumableAssignment(first.activity.id(), vials.id(), new Quantity(10)));
-        finish(first.expedition, first.activity);
+        first.expedition.addAssignment(new ConsumableAssignment(first.activity.id(), vials.id(), new Stock(10)));
+        ExpeditionExecution finished = finish(first.expedition, first.activity, first.catalog);
         Expedition second = samplingOn(first, 4, 8);
-        second.addAssignment(new ConsumableAssignment(second.itinerary().getFirst().id(), vials.id(), new Quantity(10)));
+        second.addAssignment(new ConsumableAssignment(second.itinerary().getFirst().id(), vials.id(), new Stock(10)));
 
-        ValidationResult result = validator.validate(second, first.catalog, List.of(first.expedition));
+        ValidationResult result = validator.validate(
+                second,
+                first.catalog,
+                OccupyingExpeditions.of(second, List.of(first.expedition), Map.of(first.expedition.id(), finished))
+        );
 
         assertNo(result, "STOCK");
     }
@@ -275,7 +323,7 @@ class ExpeditionValidatorTest {
     void excessCapacityIsAWarning() {
         TransitPlan plan = crowdedTransit();
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.WARNING, "CAPACITY");
         assertFalse(result.hasCritical());
@@ -285,28 +333,28 @@ class ExpeditionValidatorTest {
     void combinedVehicleCapacityCanCarryThePeople() {
         TransitPlan plan = crowdedTransit();
         Activity activity = plan.expedition.itinerary().getFirst();
-        Vehicle extra = new Vehicle(UUID.randomUUID(), new Quantity(1), Availability.always());
+        Vehicle extra = new Vehicle(new VehicleId(UUID.randomUUID()), new Passengers(1), Availability.always());
         plan.catalog.add(extra);
         plan.expedition.addAssignment(new VehicleAssignment(activity.id(), extra.id()));
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertNo(result, "CAPACITY");
     }
 
     @Test
     void unknownPermitIsResourceNotCoverage() {
-        Certification certification = new Certification(UUID.randomUUID(), "Sampling");
-        Person person = new Person(UUID.randomUUID(), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
         Activity activity = sampling(certification.id(), 0, 4);
         Expedition expedition = draft();
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), person.id()));
-        expedition.addPermit(UUID.randomUUID());
+        expedition.addPermit(new PermitId(UUID.randomUUID()));
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(person);
 
-        ValidationResult result = validator.validate(expedition, catalog, List.of());
+        ValidationResult result = validator.validate(expedition, catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "RESOURCE");
         assertNo(result, "PERMIT");
@@ -316,9 +364,9 @@ class ExpeditionValidatorTest {
     void unknownVehicleDoesNotEmitCapacity() {
         TransitPlan plan = crowdedTransit();
         Activity activity = plan.expedition.itinerary().getFirst();
-        plan.expedition.addAssignment(new VehicleAssignment(activity.id(), UUID.randomUUID()));
+        plan.expedition.addAssignment(new VehicleAssignment(activity.id(), new VehicleId(UUID.randomUUID())));
 
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "RESOURCE");
         assertNo(result, "CAPACITY");
@@ -326,8 +374,8 @@ class ExpeditionValidatorTest {
 
     @Test
     void missingPermitIsCritical() {
-        Certification certification = new Certification(UUID.randomUUID(), "Sampling");
-        Person person = new Person(UUID.randomUUID(), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
         Activity activity = sampling(certification.id(), 0, 4);
         Expedition expedition = draft();
         expedition.addActivity(activity);
@@ -335,7 +383,7 @@ class ExpeditionValidatorTest {
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(person);
 
-        ValidationResult result = validator.validate(expedition, catalog, List.of());
+        ValidationResult result = validator.validate(expedition, catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "PERMIT");
     }
@@ -343,23 +391,25 @@ class ExpeditionValidatorTest {
     @Test
     void permitDoesNotCoverADifferentZone() {
         WorkZone coast = new WorkZone("Coast");
-        Certification certification = new Certification(UUID.randomUUID(), "Sampling");
-        Person person = new Person(UUID.randomUUID(), "Ada", List.of(certification), Availability.always());
-        Activity activity = new Activity(
-                UUID.randomUUID(),
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Activity activity = Activity.sampling(
+                new ActivityId(UUID.randomUUID()),
                 "coast sample",
-                new SamplingPolicy(certification.id()),
+                Duration.ofHours(4),
+                RiskLevel.MEDIUM,
                 window(0, 4),
                 Set.of(),
-                coast
+                coast,
+                certification.id()
         );
-        Permit deltaPermit = new Permit(UUID.randomUUID(), DELTA, activity.window());
+        Permit deltaPermit = new Permit(new PermitId(UUID.randomUUID()), DELTA, activity.window());
         Expedition expedition = Expedition.draft(
-                UUID.randomUUID(),
+                new ExpeditionId(UUID.randomUUID()),
                 List.of(new Objective("Map wetland biodiversity")),
                 week(),
                 List.of(DELTA, coast),
-                List.of(UUID.randomUUID()),
+                List.of(new PersonId(UUID.randomUUID())),
                 List.of(new Restriction("No night work"))
         );
         expedition.addActivity(activity);
@@ -369,17 +419,17 @@ class ExpeditionValidatorTest {
         catalog.add(person);
         catalog.add(deltaPermit);
 
-        ValidationResult result = validator.validate(expedition, catalog, List.of());
+        ValidationResult result = validator.validate(expedition, catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "PERMIT");
     }
 
     @Test
     void permitThatDoesNotCoverTheWindowIsCritical() {
-        Certification certification = new Certification(UUID.randomUUID(), "Sampling");
-        Person person = new Person(UUID.randomUUID(), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
         Activity activity = sampling(certification.id(), 4, 8);
-        Permit morningOnly = new Permit(UUID.randomUUID(), DELTA, window(0, 4));
+        Permit morningOnly = new Permit(new PermitId(UUID.randomUUID()), DELTA, window(0, 4));
         Expedition expedition = draft();
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), person.id()));
@@ -388,15 +438,15 @@ class ExpeditionValidatorTest {
         catalog.add(person);
         catalog.add(morningOnly);
 
-        ValidationResult result = validator.validate(expedition, catalog, List.of());
+        ValidationResult result = validator.validate(expedition, catalog, OccupyingExpeditions.none());
 
         assertIssue(result, IssueSeverity.CRITICAL, "PERMIT");
     }
 
     @Test
     void approveUsesValidatorResult() {
-        Certification certification = new Certification(UUID.randomUUID(), "Sampling");
-        Person person = new Person(UUID.randomUUID(), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
         Activity activity = sampling(certification.id(), 0, 4);
         Expedition expedition = draft();
         expedition.addActivity(activity);
@@ -404,9 +454,11 @@ class ExpeditionValidatorTest {
         expedition.submitForReview();
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(person);
-        ValidationResult result = validator.validate(expedition, catalog, List.of());
 
-        assertThrows(ExpeditionNotApprovable.class, () -> expedition.approve(result));
+        assertThrows(
+                ExpeditionNotApprovable.class,
+                () -> approve.approve(expedition, catalog, OccupyingExpeditions.none())
+        );
         assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
     }
 
@@ -414,23 +466,28 @@ class ExpeditionValidatorTest {
     void capacityWarningCanBeJustifiedAndApproved() {
         TransitPlan plan = crowdedTransit();
         plan.expedition.submitForReview();
-        ValidationResult result = validator.validate(plan.expedition, plan.catalog, List.of());
+        ValidationResult result = validator.validate(plan.expedition, plan.catalog, OccupyingExpeditions.none());
         result.warnings().forEach(warning -> plan.expedition.acceptWarning(
-                new AcceptedWarning(warning, "extra trailer available", UUID.randomUUID())
+                new AcceptedWarning(warning, "extra trailer available", new PersonId(UUID.randomUUID()))
         ));
 
-        plan.expedition.approve(result);
+        approve.approve(plan.expedition, plan.catalog, OccupyingExpeditions.none());
 
         assertEquals(ExpeditionStatus.APPROVED, plan.expedition.status());
     }
 
-    private static void finish(Expedition expedition, Activity activity) {
+    private ExpeditionExecution finish(Expedition expedition, Activity activity, ResourceCatalog catalog) {
         expedition.submitForReview();
-        expedition.approve(ValidationResult.empty());
-        expedition.start();
-        expedition.startActivity(activity.id(), DAY);
-        expedition.finishActivity(activity.id(), DAY.plusSeconds(4 * 3600L), "samples stored");
-        expedition.finish();
+        approve.approve(expedition, catalog, OccupyingExpeditions.none());
+        ExpeditionExecution execution = lifecycle.start(expedition, null);
+        lifecycle.startActivity(expedition, execution, activity.id(), DAY);
+        execution.finishActivity(activity.id(), DAY.plusSeconds(4 * 3600L), "samples stored");
+        lifecycle.finish(expedition, execution);
+        return execution;
+    }
+
+    private static OccupyingExpeditions peers(Expedition plan, Expedition other) {
+        return OccupyingExpeditions.of(plan, List.of(other));
     }
 
     private static void assertIssue(ValidationResult result, IssueSeverity severity, String code) {
@@ -445,8 +502,8 @@ class ExpeditionValidatorTest {
     }
 
     private static SamplingPlan samplingPlan(int fromHour, int toHour) {
-        Certification certification = new Certification(UUID.randomUUID(), "Sampling");
-        Person person = new Person(UUID.randomUUID(), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
         return samplingPlan(person, certification, fromHour, toHour);
     }
 
@@ -477,9 +534,9 @@ class ExpeditionValidatorTest {
     private static TransitPlan crowdedTransit() {
         Activity activity = transit(4, 6);
         Permit permit = permitFor(activity);
-        Person ada = new Person(UUID.randomUUID(), "Ada", List.of(), Availability.always());
-        Person bob = new Person(UUID.randomUUID(), "Bob", List.of(), Availability.always());
-        Vehicle vehicle = new Vehicle(UUID.randomUUID(), new Quantity(1), Availability.always());
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(), Availability.always());
+        Person bob = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(), Availability.always());
+        Vehicle vehicle = new Vehicle(new VehicleId(UUID.randomUUID()), new Passengers(1), Availability.always());
         Expedition expedition = draft();
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), ada.id()));
@@ -496,50 +553,56 @@ class ExpeditionValidatorTest {
 
     private static Expedition draft() {
         return Expedition.draft(
-                UUID.randomUUID(),
+                new ExpeditionId(UUID.randomUUID()),
                 List.of(new Objective("Map wetland biodiversity")),
                 week(),
                 List.of(DELTA),
-                List.of(UUID.randomUUID()),
+                List.of(new PersonId(UUID.randomUUID())),
                 List.of(new Restriction("No night work"))
         );
     }
 
-    private static Activity sampling(UUID certificationId, int fromHour, int toHour) {
-        return new Activity(
-                UUID.randomUUID(),
+    private static Activity sampling(CertificationId certificationId, int fromHour, int toHour) {
+        return Activity.sampling(
+                new ActivityId(UUID.randomUUID()),
                 "sample",
-                new SamplingPolicy(certificationId),
+                Duration.ofHours(toHour - fromHour),
+                RiskLevel.MEDIUM,
                 window(fromHour, toHour),
                 Set.of(),
-                DELTA
+                DELTA,
+                certificationId
         );
     }
 
     private static Activity transit(int fromHour, int toHour) {
-        return new Activity(
-                UUID.randomUUID(),
+        return Activity.transit(
+                new ActivityId(UUID.randomUUID()),
                 "transit",
-                new TransitPolicy(),
+                Duration.ofHours(toHour - fromHour),
+                RiskLevel.LOW,
                 window(fromHour, toHour),
                 Set.of(),
                 DELTA
         );
     }
 
-    private static Activity measurement(UUID certificationId, int fromHour, int toHour) {
-        return new Activity(
-                UUID.randomUUID(),
+    private static Activity measurement(CertificationId certificationId, int fromHour, int toHour) {
+        return Activity.measurement(
+                new ActivityId(UUID.randomUUID()),
                 "measure",
-                new MeasurementPolicy(certificationId),
+                Duration.ofHours(toHour - fromHour),
+                RiskLevel.HIGH,
                 window(fromHour, toHour),
                 Set.of(),
-                DELTA
+                DELTA,
+                certificationId,
+                PROBE
         );
     }
 
     private static Permit permitFor(Activity activity) {
-        return new Permit(UUID.randomUUID(), activity.zone(), activity.window());
+        return new Permit(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
     }
 
     private static TimePeriod window(int fromHour, int toHour) {

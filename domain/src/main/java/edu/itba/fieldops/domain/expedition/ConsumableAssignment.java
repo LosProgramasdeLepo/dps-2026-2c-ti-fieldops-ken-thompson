@@ -1,12 +1,15 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.shared.Quantity;
+import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.shared.TimePeriod;
 
-import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
+import java.util.Optional;
 
-public record ConsumableAssignment(UUID activityId, UUID consumableId, Quantity quantity) implements Assignment {
+public record ConsumableAssignment(ActivityId activityId, ConsumableId consumableId, Stock quantity) implements Assignment {
     public ConsumableAssignment {
         Objects.requireNonNull(activityId, "activity id");
         Objects.requireNonNull(consumableId, "consumable id");
@@ -14,7 +17,12 @@ public record ConsumableAssignment(UUID activityId, UUID consumableId, Quantity 
     }
 
     @Override
-    public Map<UUID, Quantity> consumption() {
-        return Map.of(consumableId, quantity);
+    public Optional<TemporalBooking> booking(TimePeriod window) {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<String> unknownIn(Catalog catalog) {
+        return catalog.consumable(consumableId).isEmpty() ? Optional.of("consumable " + consumableId) : Optional.empty();
     }
 }

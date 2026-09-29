@@ -1,12 +1,12 @@
 package edu.itba.fieldops.domain.catalog;
 
+import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 
 import java.util.Objects;
-import java.util.UUID;
 
-public record Permit(UUID id, WorkZone zone, TimePeriod validity) {
+public record Permit(PermitId id, WorkZone zone, TimePeriod validity) {
     public Permit {
         Objects.requireNonNull(id, "permit id");
         Objects.requireNonNull(zone, "zone");

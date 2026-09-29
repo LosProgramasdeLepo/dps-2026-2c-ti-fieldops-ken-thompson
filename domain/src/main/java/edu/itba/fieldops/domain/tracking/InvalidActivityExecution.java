@@ -1,7 +1,9 @@
 package edu.itba.fieldops.domain.tracking;
 
-public final class InvalidActivityExecution extends RuntimeException {
-    public InvalidActivityExecution(String reason) {
-        super(reason);
+import edu.itba.fieldops.domain.shared.DomainException;
+
+public final class InvalidActivityExecution extends DomainException {
+    public InvalidActivityExecution(String message) {
+        super(message);
     }
 }

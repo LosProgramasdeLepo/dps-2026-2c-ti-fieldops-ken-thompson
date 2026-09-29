@@ -1,27 +1,27 @@
 package edu.itba.fieldops.domain.catalog;
 
-import edu.itba.fieldops.domain.shared.Texts;
+import edu.itba.fieldops.domain.identity.InstrumentId;
+import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.Objects;
-import java.util.UUID;
 
 public final class Instrument {
-    private final UUID id;
-    private final String kind;
+    private final InstrumentId id;
+    private final InstrumentKind kind;
     private final Availability availability;
 
-    public Instrument(UUID id, String kind, Availability availability) {
+    public Instrument(InstrumentId id, InstrumentKind kind, Availability availability) {
         this.id = Objects.requireNonNull(id, "instrument id");
-        this.kind = Texts.required(kind, "instrument kind");
+        this.kind = Objects.requireNonNull(kind, "instrument kind");
         this.availability = Objects.requireNonNull(availability, "availability");
     }
 
-    public UUID id() {
+    public InstrumentId id() {
         return id;
     }
 
-    public String kind() {
+    public InstrumentKind kind() {
         return kind;
     }
 

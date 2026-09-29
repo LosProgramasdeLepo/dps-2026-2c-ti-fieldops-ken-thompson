@@ -53,7 +53,7 @@ class TimePeriodTest {
 
     @Test
     void rejectsEndBeforeStart() {
-        assertThrows(IllegalArgumentException.class, () -> new TimePeriod(hours(4, 8).end(), hours(0, 4).start()));
+        assertThrows(InvalidValue.class, () -> new TimePeriod(hours(4, 8).end(), hours(0, 4).start()));
     }
 
     private static TimePeriod hours(int from, int to) {

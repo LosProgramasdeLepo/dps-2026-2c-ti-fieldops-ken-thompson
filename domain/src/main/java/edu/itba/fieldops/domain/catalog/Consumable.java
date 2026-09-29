@@ -1,23 +1,23 @@
 package edu.itba.fieldops.domain.catalog;
 
-import edu.itba.fieldops.domain.shared.Quantity;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.Texts;
 
 import java.util.Objects;
-import java.util.UUID;
 
 public final class Consumable {
-    private final UUID id;
+    private final ConsumableId id;
     private final String name;
-    private final Quantity stock;
+    private final Stock stock;
 
-    public Consumable(UUID id, String name, Quantity stock) {
+    public Consumable(ConsumableId id, String name, Stock stock) {
         this.id = Objects.requireNonNull(id, "consumable id");
         this.name = Texts.required(name, "consumable name");
         this.stock = Objects.requireNonNull(stock, "stock");
     }
 
-    public UUID id() {
+    public ConsumableId id() {
         return id;
     }
 
@@ -25,11 +25,11 @@ public final class Consumable {
         return name;
     }
 
-    public Quantity stock() {
+    public Stock stock() {
         return stock;
     }
 
-    public boolean hasAtLeast(Quantity needed) {
+    public boolean hasAtLeast(Stock needed) {
         return stock.isAtLeast(needed);
     }
 }

@@ -4,60 +4,52 @@ import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.catalog.Catalog;
 import edu.itba.fieldops.domain.catalog.Vehicle;
-import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.shared.Quantity;
+import edu.itba.fieldops.domain.shared.Passengers;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 public final class CapacityRule implements ValidationRule {
     @Override
     public List<ValidationIssue> check(ValidationContext context) {
         Expedition expedition = context.expedition();
         Catalog catalog = context.catalog();
-        return expedition.itinerary().stream()
-                .map(activity -> issueFor(expedition, catalog, activity))
-                .flatMap(Optional::stream)
-                .toList();
+        List<ValidationIssue> issues = new ArrayList<>();
+        for (Activity activity : expedition.itinerary()) {
+            issueFor(expedition, catalog, activity).ifPresent(issues::add);
+        }
+        return issues;
     }
 
     private static Optional<ValidationIssue> issueFor(Expedition expedition, Catalog catalog, Activity activity) {
-        List<Assignment> assigned = expedition.assignmentsOf(activity.id());
-        boolean unknownVehicle = assigned.stream()
-                .anyMatch(assignment -> assignment instanceof VehicleAssignment vehicle
-                        && catalog.vehicle(vehicle.vehicleId()).isEmpty());
-        if (unknownVehicle) {
+        List<VehicleAssignment> assigned = expedition.assignments().vehiclesOf(activity.id());
+        for (VehicleAssignment assignment : assigned) {
+            if (catalog.vehicle(assignment.vehicleId()).isEmpty()) {
+                return Optional.empty();
+            }
+        }
+        if (assigned.isEmpty()) {
             return Optional.empty();
         }
-        List<Vehicle> vehicles = assigned.stream()
-                .flatMap(assignment -> switch (assignment) {
-                    case VehicleAssignment vehicle -> catalog.vehicle(vehicle.vehicleId()).stream();
-                    default -> Stream.<Vehicle>empty();
-                })
-                .toList();
-        if (vehicles.isEmpty()) {
-            return Optional.empty();
+        Passengers capacity = Passengers.ZERO;
+        for (VehicleAssignment assignment : assigned) {
+            Vehicle vehicle = catalog.vehicle(assignment.vehicleId()).orElseThrow();
+            capacity = capacity.plus(vehicle.capacity());
         }
-        int passengers = (int) assigned.stream()
-                .filter(PersonAssignment.class::isInstance)
-                .count();
-        Quantity capacity = vehicles.stream()
-                .map(Vehicle::capacity)
-                .reduce(new Quantity(0), Quantity::plus);
-        if (capacity.isAtLeast(new Quantity(passengers))) {
+        Passengers passengers = new Passengers(expedition.assignments().peopleOf(activity.id()).size());
+        if (capacity.isAtLeast(passengers)) {
             return Optional.empty();
         }
         return Optional.of(new ValidationIssue(
                 IssueSeverity.WARNING,
                 "CAPACITY",
                 "activity " + activity.name()
-                        + " assigned " + passengers
-                        + " people but vehicles can carry " + capacity.value()
+                        + " assigned " + passengers.count()
+                        + " people but vehicles can carry " + capacity.count()
         ));
     }
 }

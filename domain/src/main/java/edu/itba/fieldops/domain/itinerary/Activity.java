@@ -1,43 +1,186 @@
 package edu.itba.fieldops.domain.itinerary;
 
+import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.Texts;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 
 public final class Activity {
-    private final UUID id;
+    private final ActivityId id;
     private final String name;
-    private final ActivityPolicy policy;
+    private final Duration estimatedDuration;
+    private final RiskLevel risk;
+    private final ResourceRequirements requirements;
     private final TimePeriod window;
-    private final Set<UUID> predecessors;
+    private final Set<ActivityId> predecessors;
     private final WorkZone zone;
 
-    public Activity(
-            UUID id,
+    private Activity(
+            ActivityId id,
             String name,
-            ActivityPolicy policy,
+            Duration estimatedDuration,
+            RiskLevel risk,
+            ResourceRequirements requirements,
             TimePeriod window,
-            Set<UUID> predecessors,
+            Set<ActivityId> predecessors,
             WorkZone zone
     ) {
         this.id = Objects.requireNonNull(id, "activity id");
         this.name = Texts.required(name, "activity name");
-        this.policy = Objects.requireNonNull(policy, "activity policy");
+        this.estimatedDuration = Objects.requireNonNull(estimatedDuration, "estimated duration");
+        this.risk = Objects.requireNonNull(risk, "risk");
+        this.requirements = Objects.requireNonNull(requirements, "requirements");
         this.window = Objects.requireNonNull(window, "activity window");
         this.predecessors = Set.copyOf(predecessors);
         this.zone = Objects.requireNonNull(zone, "activity zone");
-        requireNoSelfPredecessor();
-        requireWindowFitsEstimate();
+        if (estimatedDuration.isNegative() || estimatedDuration.isZero()) {
+            throw new InvalidItinerary("estimated duration must be positive");
+        }
+        if (predecessors.contains(id)) {
+            throw new InvalidItinerary("activity cannot precede itself");
+        }
+        if (Duration.between(window.start(), window.end()).compareTo(estimatedDuration) < 0) {
+            throw new InvalidItinerary("activity window is shorter than estimated duration");
+        }
     }
 
-    public UUID id() {
+    public static Activity sampling(
+            ActivityId id,
+            String name,
+            Duration estimatedDuration,
+            RiskLevel risk,
+            TimePeriod window,
+            Set<ActivityId> predecessors,
+            WorkZone zone,
+            CertificationId certification
+    ) {
+        return sampling(id, name, estimatedDuration, risk, window, predecessors, zone, certification, Map.of());
+    }
+
+    public static Activity sampling(
+            ActivityId id,
+            String name,
+            Duration estimatedDuration,
+            RiskLevel risk,
+            TimePeriod window,
+            Set<ActivityId> predecessors,
+            WorkZone zone,
+            CertificationId certification,
+            Map<ConsumableId, Stock> estimatedConsumption
+    ) {
+        Objects.requireNonNull(certification, "sampling certification");
+        return new Activity(
+                id,
+                name,
+                estimatedDuration,
+                risk,
+                new ResourceRequirements(
+                        Set.of(certification),
+                        VehicleRequirement.NONE,
+                        new InstrumentRequirement.None(),
+                        estimatedConsumption
+                ),
+                window,
+                predecessors,
+                zone
+        );
+    }
+
+    public static Activity measurement(
+            ActivityId id,
+            String name,
+            Duration estimatedDuration,
+            RiskLevel risk,
+            TimePeriod window,
+            Set<ActivityId> predecessors,
+            WorkZone zone,
+            CertificationId certification,
+            InstrumentKind instrument
+    ) {
+        return measurement(id, name, estimatedDuration, risk, window, predecessors, zone, certification, instrument, Map.of());
+    }
+
+    public static Activity measurement(
+            ActivityId id,
+            String name,
+            Duration estimatedDuration,
+            RiskLevel risk,
+            TimePeriod window,
+            Set<ActivityId> predecessors,
+            WorkZone zone,
+            CertificationId certification,
+            InstrumentKind instrument,
+            Map<ConsumableId, Stock> estimatedConsumption
+    ) {
+        Objects.requireNonNull(certification, "operator certification");
+        return new Activity(
+                id,
+                name,
+                estimatedDuration,
+                risk,
+                new ResourceRequirements(
+                        Set.of(certification),
+                        VehicleRequirement.NONE,
+                        new InstrumentRequirement.OfKind(instrument),
+                        estimatedConsumption
+                ),
+                window,
+                predecessors,
+                zone
+        );
+    }
+
+    public static Activity transit(
+            ActivityId id,
+            String name,
+            Duration estimatedDuration,
+            RiskLevel risk,
+            TimePeriod window,
+            Set<ActivityId> predecessors,
+            WorkZone zone
+    ) {
+        return transit(id, name, estimatedDuration, risk, window, predecessors, zone, Map.of());
+    }
+
+    public static Activity transit(
+            ActivityId id,
+            String name,
+            Duration estimatedDuration,
+            RiskLevel risk,
+            TimePeriod window,
+            Set<ActivityId> predecessors,
+            WorkZone zone,
+            Map<ConsumableId, Stock> estimatedConsumption
+    ) {
+        return new Activity(
+                id,
+                name,
+                estimatedDuration,
+                risk,
+                new ResourceRequirements(
+                        Set.of(),
+                        VehicleRequirement.REQUIRED,
+                        new InstrumentRequirement.None(),
+                        estimatedConsumption
+                ),
+                window,
+                predecessors,
+                zone
+        );
+    }
+
+    public ActivityId id() {
         return id;
     }
 
@@ -45,11 +188,23 @@ public final class Activity {
         return name;
     }
 
+    public Duration estimatedDuration() {
+        return estimatedDuration;
+    }
+
+    public RiskLevel risk() {
+        return risk;
+    }
+
+    public ResourceRequirements requirements() {
+        return requirements;
+    }
+
     public TimePeriod window() {
         return window;
     }
 
-    public Set<UUID> predecessors() {
+    public Set<ActivityId> predecessors() {
         return predecessors;
     }
 
@@ -57,48 +212,23 @@ public final class Activity {
         return zone;
     }
 
-    public Duration estimatedDuration() {
-        return policy.estimatedDuration();
-    }
-
-    public RiskLevel risk() {
-        return policy.risk();
-    }
-
-    public ResourceRequirements requirements() {
-        return policy.requirements();
-    }
-
     Activity withWindow(TimePeriod window) {
-        return new Activity(id, name, policy, window, predecessors, zone);
+        return new Activity(id, name, estimatedDuration, risk, requirements, window, predecessors, zone);
     }
 
-    Activity withPredecessor(UUID predecessorId) {
+    Activity withPredecessor(ActivityId predecessorId) {
         Objects.requireNonNull(predecessorId, "predecessor id");
-        Set<UUID> next = new HashSet<>(predecessors);
+        Set<ActivityId> next = new HashSet<>(predecessors);
         next.add(predecessorId);
-        return new Activity(id, name, policy, window, next, zone);
+        return new Activity(id, name, estimatedDuration, risk, requirements, window, next, zone);
     }
 
-    Activity withoutPredecessor(UUID predecessorId) {
+    Activity withoutPredecessor(ActivityId predecessorId) {
         Objects.requireNonNull(predecessorId, "predecessor id");
-        Set<UUID> next = new HashSet<>(predecessors);
+        Set<ActivityId> next = new HashSet<>(predecessors);
         if (!next.remove(predecessorId)) {
-            throw new IllegalArgumentException("unknown predecessor: " + predecessorId);
+            throw new InvalidItinerary("unknown predecessor: " + predecessorId);
         }
-        return new Activity(id, name, policy, window, next, zone);
-    }
-
-    private void requireNoSelfPredecessor() {
-        if (predecessors.contains(id)) {
-            throw new IllegalArgumentException("activity cannot precede itself");
-        }
-    }
-
-    private void requireWindowFitsEstimate() {
-        Duration length = Duration.between(window.start(), window.end());
-        if (length.compareTo(policy.estimatedDuration()) < 0) {
-            throw new IllegalArgumentException("activity window is shorter than estimated duration");
-        }
+        return new Activity(id, name, estimatedDuration, risk, requirements, window, next, zone);
     }
 }

@@ -9,7 +9,7 @@ public record TimePeriod(Instant start, Instant end) {
         Objects.requireNonNull(start, "period start");
         Objects.requireNonNull(end, "period end");
         if (end.isBefore(start)) {
-            throw new IllegalArgumentException("period end must not be before start");
+            throw new InvalidValue("period end must not be before start");
         }
     }
 
