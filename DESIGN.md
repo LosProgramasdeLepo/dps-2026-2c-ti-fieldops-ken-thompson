@@ -24,7 +24,7 @@
 
 **Heredar `Activity`, flota en la expedición, supertipo de recurso o de cantidad, `Id<T>`.** Mezclan stock con pasajeros, o un id de persona con uno de vehículo.
 
-**State por estado.** El conjunto es cerrado: un valor del enum y una guarda.
+**State por estado.** No hay un objeto por estado. Cada constante de `ExpeditionStatus` declara qué permite.
 
 **Aprobar un `ValidationResult` ya calculado.** Puede no describir el plan actual.
 
