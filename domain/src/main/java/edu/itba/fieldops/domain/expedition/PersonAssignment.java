@@ -16,7 +16,7 @@ public record PersonAssignment(ActivityId activityId, PersonId personId) impleme
 
     @Override
     public Optional<TemporalBooking> booking(TimePeriod window) {
-        return Optional.of(new TemporalBooking(TemporalBooking.Kind.PERSON, personId.value(), activityId, window));
+        return Optional.of(new TemporalBooking.PersonBooking(personId, activityId, window));
     }
 
     @Override

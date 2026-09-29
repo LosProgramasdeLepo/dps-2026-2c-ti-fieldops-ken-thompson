@@ -16,7 +16,7 @@ public record InstrumentAssignment(ActivityId activityId, InstrumentId instrumen
 
     @Override
     public Optional<TemporalBooking> booking(TimePeriod window) {
-        return Optional.of(new TemporalBooking(TemporalBooking.Kind.INSTRUMENT, instrumentId.value(), activityId, window));
+        return Optional.of(new TemporalBooking.InstrumentBooking(instrumentId, activityId, window));
     }
 
     @Override

@@ -11,17 +11,23 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
-public record TemporalBooking(Kind kind, UUID resourceId, ActivityId activityId, TimePeriod window) {
-    public TemporalBooking {
-        Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(resourceId, "resource id");
-        Objects.requireNonNull(activityId, "activity id");
-        Objects.requireNonNull(window, "window");
-    }
+public sealed interface TemporalBooking
+        permits TemporalBooking.PersonBooking, TemporalBooking.VehicleBooking, TemporalBooking.InstrumentBooking {
 
-    public static List<TemporalBooking> of(Expedition expedition) {
+    ActivityId activityId();
+
+    TimePeriod window();
+
+    String label();
+
+    boolean availableIn(Catalog catalog);
+
+    boolean unavailableIn(Catalog catalog);
+
+    boolean conflicts(TemporalBooking other);
+
+    static List<TemporalBooking> of(Expedition expedition) {
         List<TemporalBooking> bookings = new ArrayList<>();
         for (Assignment assignment : expedition.assignments().all()) {
             assignment.booking(expedition.activityOf(assignment.activityId()).window()).ifPresent(bookings::add);
@@ -29,59 +35,101 @@ public record TemporalBooking(Kind kind, UUID resourceId, ActivityId activityId,
         return bookings;
     }
 
-    public boolean availableIn(Catalog catalog) {
-        return presence(catalog) == Presence.AVAILABLE;
-    }
+    record PersonBooking(PersonId personId, ActivityId activityId, TimePeriod window) implements TemporalBooking {
+        public PersonBooking {
+            Objects.requireNonNull(personId, "person id");
+            Objects.requireNonNull(activityId, "activity id");
+            Objects.requireNonNull(window, "window");
+        }
 
-    public boolean unavailableIn(Catalog catalog) {
-        return presence(catalog) == Presence.UNAVAILABLE;
-    }
+        @Override
+        public String label() {
+            return "person " + personId.value();
+        }
 
-    private Presence presence(Catalog catalog) {
-        Objects.requireNonNull(catalog, "catalog");
-        return kind.in(catalog, resourceId, window);
-    }
+        @Override
+        public boolean availableIn(Catalog catalog) {
+            return isAvailable(catalog.person(personId).map(person -> person.availableDuring(window)));
+        }
 
-    public boolean conflicts(TemporalBooking other) {
-        return conflicts(other.kind, other.resourceId, other.window);
-    }
+        @Override
+        public boolean unavailableIn(Catalog catalog) {
+            return isUnavailable(catalog.person(personId).map(person -> person.availableDuring(window)));
+        }
 
-    boolean conflicts(Kind otherKind, UUID otherId, TimePeriod otherWindow) {
-        return kind == otherKind && resourceId.equals(otherId) && window.overlaps(otherWindow);
-    }
-
-    public String label() {
-        return kind.name().toLowerCase() + " " + resourceId;
-    }
-
-    public enum Kind {
-        PERSON {
-            @Override
-            Presence in(Catalog catalog, UUID resourceId, TimePeriod window) {
-                return listed(catalog.person(new PersonId(resourceId)).map(person -> person.availableDuring(window)));
-            }
-        },
-        VEHICLE {
-            @Override
-            Presence in(Catalog catalog, UUID resourceId, TimePeriod window) {
-                return listed(catalog.vehicle(new VehicleId(resourceId)).map(vehicle -> vehicle.availableDuring(window)));
-            }
-        },
-        INSTRUMENT {
-            @Override
-            Presence in(Catalog catalog, UUID resourceId, TimePeriod window) {
-                return listed(catalog.instrument(new InstrumentId(resourceId)).map(instrument -> instrument.availableDuring(window)));
-            }
-        };
-
-        abstract Presence in(Catalog catalog, UUID resourceId, TimePeriod window);
-
-        private static Presence listed(Optional<Boolean> available) {
-            return available
-                    .map(isAvailable -> isAvailable ? Presence.AVAILABLE : Presence.UNAVAILABLE)
-                    .orElse(Presence.UNKNOWN);
+        @Override
+        public boolean conflicts(TemporalBooking other) {
+            return other instanceof PersonBooking person
+                    && personId.equals(person.personId)
+                    && window.overlaps(person.window);
         }
     }
 
-    private enum Presence { UNKNOWN, AVAILABLE, UNAVAILABLE }
+    record VehicleBooking(VehicleId vehicleId, ActivityId activityId, TimePeriod window) implements TemporalBooking {
+        public VehicleBooking {
+            Objects.requireNonNull(vehicleId, "vehicle id");
+            Objects.requireNonNull(activityId, "activity id");
+            Objects.requireNonNull(window, "window");
+        }
+
+        @Override
+        public String label() {
+            return "vehicle " + vehicleId.value();
+        }
+
+        @Override
+        public boolean availableIn(Catalog catalog) {
+            return isAvailable(catalog.vehicle(vehicleId).map(vehicle -> vehicle.availableDuring(window)));
+        }
+
+        @Override
+        public boolean unavailableIn(Catalog catalog) {
+            return isUnavailable(catalog.vehicle(vehicleId).map(vehicle -> vehicle.availableDuring(window)));
+        }
+
+        @Override
+        public boolean conflicts(TemporalBooking other) {
+            return other instanceof VehicleBooking vehicle
+                    && vehicleId.equals(vehicle.vehicleId)
+                    && window.overlaps(vehicle.window);
+        }
+    }
+
+    record InstrumentBooking(InstrumentId instrumentId, ActivityId activityId, TimePeriod window) implements TemporalBooking {
+        public InstrumentBooking {
+            Objects.requireNonNull(instrumentId, "instrument id");
+            Objects.requireNonNull(activityId, "activity id");
+            Objects.requireNonNull(window, "window");
+        }
+
+        @Override
+        public String label() {
+            return "instrument " + instrumentId.value();
+        }
+
+        @Override
+        public boolean availableIn(Catalog catalog) {
+            return isAvailable(catalog.instrument(instrumentId).map(instrument -> instrument.availableDuring(window)));
+        }
+
+        @Override
+        public boolean unavailableIn(Catalog catalog) {
+            return isUnavailable(catalog.instrument(instrumentId).map(instrument -> instrument.availableDuring(window)));
+        }
+
+        @Override
+        public boolean conflicts(TemporalBooking other) {
+            return other instanceof InstrumentBooking instrument
+                    && instrumentId.equals(instrument.instrumentId)
+                    && window.overlaps(instrument.window);
+        }
+    }
+
+    private static boolean isAvailable(Optional<Boolean> available) {
+        return available.orElse(false);
+    }
+
+    private static boolean isUnavailable(Optional<Boolean> available) {
+        return available.filter(ready -> !ready).isPresent();
+    }
 }

@@ -6,7 +6,7 @@
 
 **Aprobación.** El único camino público es `ApproveExpedition`: exige `IN_REVIEW`, revalida el estado actual y llama a `markApproved`, de paquete. El agregado no recibe un `ValidationResult` ni importa al validador. `ApproveExpedition` vive en `expedition` para poder llamar a `markApproved`; por eso `expedition` y `validation` se referencian.
 
-**Identidad y cantidades.** Cada id es un record distinto sobre un UUID, en `identity`, para que un `PersonId` no entre donde se espera un `VehicleId`. `Stock` y `Passengers` no comparten supertipo. Cero es válido.
+**Identidad y cantidades.** Cada id es un record distinto sobre un UUID, en `identity`, para que un `PersonId` no entre donde se espera un `VehicleId`. La reserva es `PersonBooking`, `VehicleBooking` o `InstrumentBooking`: el id no se aplana. `Stock` y `Passengers` no comparten supertipo. Cero es válido.
 
 **Actividad.** Duración, riesgo, requisitos y consumo estimado son datos. Las fábricas arman el requisito de vehículo (`NONE | REQUIRED`) e instrumento (`None | OfKind`). Una asignación nueva implementa `booking` y `unknownIn`; `None` no pide clase y `OfKind` expone `requiredKind`.
 

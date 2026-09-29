@@ -16,7 +16,7 @@ public record VehicleAssignment(ActivityId activityId, VehicleId vehicleId) impl
 
     @Override
     public Optional<TemporalBooking> booking(TimePeriod window) {
-        return Optional.of(new TemporalBooking(TemporalBooking.Kind.VEHICLE, vehicleId.value(), activityId, window));
+        return Optional.of(new TemporalBooking.VehicleBooking(vehicleId, activityId, window));
     }
 
     @Override

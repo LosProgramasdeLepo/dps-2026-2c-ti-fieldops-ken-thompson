@@ -11,7 +11,6 @@ import edu.itba.fieldops.domain.shared.TimePeriod;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 public class AssignmentSuggester {
     public List<Assignment> suggest(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
@@ -41,7 +40,7 @@ public class AssignmentSuggester {
         if (activity.requirements().vehicle() == VehicleRequirement.REQUIRED && none(current, VehicleAssignment.class)) {
             catalog.vehicles().stream()
                     .filter(vehicle -> vehicle.availableDuring(window))
-                    .filter(vehicle -> free(taken, TemporalBooking.Kind.VEHICLE, vehicle.id().value(), window))
+                    .filter(vehicle -> free(taken, new TemporalBooking.VehicleBooking(vehicle.id(), activity.id(), window)))
                     .findFirst()
                     .ifPresent(vehicle -> take(
                             suggestions,
@@ -55,7 +54,7 @@ public class AssignmentSuggester {
             catalog.instruments().stream()
                     .filter(instrument -> instrument.kind().equals(required.kind()))
                     .filter(instrument -> instrument.availableDuring(window))
-                    .filter(instrument -> free(taken, TemporalBooking.Kind.INSTRUMENT, instrument.id().value(), window))
+                    .filter(instrument -> free(taken, new TemporalBooking.InstrumentBooking(instrument.id(), activity.id(), window)))
                     .findFirst()
                     .ifPresent(instrument -> take(
                             suggestions,
@@ -73,7 +72,7 @@ public class AssignmentSuggester {
                     .filter(person -> person.holds(certificationId))
                     .filter(person -> person.availableDuring(window))
                     .map(Person::id)
-                    .filter(id -> free(taken, TemporalBooking.Kind.PERSON, id.value(), window))
+                    .filter(id -> free(taken, new TemporalBooking.PersonBooking(id, activity.id(), window)))
                     .findFirst()
                     .ifPresent(personId -> take(
                             suggestions,
@@ -120,7 +119,7 @@ public class AssignmentSuggester {
         return current.stream().noneMatch(type::isInstance);
     }
 
-    private static boolean free(List<TemporalBooking> taken, TemporalBooking.Kind kind, UUID resourceId, TimePeriod window) {
-        return taken.stream().noneMatch(slot -> slot.conflicts(kind, resourceId, window));
+    private static boolean free(List<TemporalBooking> taken, TemporalBooking candidate) {
+        return taken.stream().noneMatch(candidate::conflicts);
     }
 }
