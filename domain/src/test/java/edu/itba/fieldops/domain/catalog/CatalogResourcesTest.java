@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class CatalogConstructionTest {
+class CatalogResourcesTest {
     private static final TimePeriod WEEK = new TimePeriod(
             Instant.parse("2026-11-01T00:00:00Z"),
             Instant.parse("2026-11-08T00:00:00Z")

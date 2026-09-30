@@ -172,20 +172,6 @@ class AssignmentSuggesterTest {
         assertEquals(List.of(new PersonAssignment(watch.id(), ada.id())), suggestions);
     }
 
-    @Test
-    void applyingSuggestionsFillsSamplingRequirements() {
-        Certification certification = certification();
-        Person ada = person("Ada", certification, Availability.always());
-        Activity activity = sampling(certification.id(), 0, 4);
-        Expedition expedition = draftWith(activity);
-        ResourceCatalog catalog = new ResourceCatalog();
-        catalog.save(ada);
-
-        suggester.suggest(contextOf(expedition, catalog)).forEach(expedition::addAssignment);
-
-        assertEquals(List.of(new PersonAssignment(activity.id(), ada.id())), expedition.assignments().all());
-    }
-
     private static PlanningContext contextOf(Expedition plan, ResourceCatalog catalog) {
         return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.none());
     }

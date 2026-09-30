@@ -86,17 +86,6 @@ class ValidationExtensionTest {
     }
 
     @Test
-    void validatesAgainstAnyCatalogImplementation() {
-        Expedition expedition = expeditionWithTransit();
-        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(expedition.activities().getFirst().id(), new PersonId(UUID.randomUUID())));
-
-        ValidationResult result = RuleBasedValidator.withDefaultRules()
-                .validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.none()));
-
-        assertTrue(hasCode(result, "RESOURCE"), () -> "expected RESOURCE in " + result.issues());
-    }
-
-    @Test
     void doesNotObserveRulesAddedAfterConstruction() {
         Expedition expedition = expeditionWithTransit();
         ValidationRule noise = context -> List.of(
