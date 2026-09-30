@@ -6,11 +6,29 @@ import edu.itba.fieldops.domain.shared.WorkZone;
 
 import java.util.Objects;
 
-public record Permit(PermitId id, WorkZone zone, TimePeriod validity) {
+public record Permit(PermitId id, WorkZone zone, TimePeriod validity, Kind kind) {
+    public enum Kind {
+        ZONE,
+        NIGHT
+    }
+
     public Permit {
         Objects.requireNonNull(id, "permit id");
         Objects.requireNonNull(zone, "zone");
         Objects.requireNonNull(validity, "validity");
+        Objects.requireNonNull(kind, "permit kind");
+    }
+
+    public static Permit zone(PermitId id, WorkZone zone, TimePeriod validity) {
+        return new Permit(id, zone, validity, Kind.ZONE);
+    }
+
+    public static Permit night(PermitId id, WorkZone zone, TimePeriod validity) {
+        return new Permit(id, zone, validity, Kind.NIGHT);
+    }
+
+    public boolean nightOperation() {
+        return kind == Kind.NIGHT;
     }
 
     public boolean covers(WorkZone workZone, TimePeriod period) {

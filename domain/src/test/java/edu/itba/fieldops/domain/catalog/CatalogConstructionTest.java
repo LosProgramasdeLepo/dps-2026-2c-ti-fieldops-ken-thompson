@@ -47,11 +47,16 @@ class CatalogConstructionTest {
 
     @Test
     void permitCoversMatchingZoneAndWindow() {
-        Permit permit = new Permit(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK);
+        Permit permit = Permit.zone(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK);
+
+        Permit night = Permit.night(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK);
 
         assertAll(
                 () -> assertTrue(permit.covers(new WorkZone("Delta"), WEEK)),
-                () -> assertFalse(permit.covers(new WorkZone("Coast"), WEEK))
+                () -> assertFalse(permit.covers(new WorkZone("Coast"), WEEK)),
+                () -> assertFalse(permit.nightOperation()),
+                () -> assertTrue(night.nightOperation()),
+                () -> assertTrue(night.covers(new WorkZone("Delta"), WEEK))
         );
     }
 

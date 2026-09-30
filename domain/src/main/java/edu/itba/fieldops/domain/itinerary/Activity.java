@@ -87,8 +87,10 @@ public final class Activity {
                 risk,
                 new ResourceRequirements(
                         Set.of(certification),
+                        Set.of(),
                         VehicleRequirement.NONE,
                         new InstrumentRequirement.None(),
+                        NightPermit.NONE,
                         estimatedConsumption
                 ),
                 window,
@@ -131,8 +133,10 @@ public final class Activity {
                 risk,
                 new ResourceRequirements(
                         Set.of(certification),
+                        Set.of(),
                         VehicleRequirement.NONE,
                         new InstrumentRequirement.OfKind(instrument),
+                        NightPermit.NONE,
                         estimatedConsumption
                 ),
                 window,
@@ -170,8 +174,58 @@ public final class Activity {
                 risk,
                 new ResourceRequirements(
                         Set.of(),
+                        Set.of(),
                         VehicleRequirement.REQUIRED,
                         new InstrumentRequirement.None(),
+                        NightPermit.NONE,
+                        estimatedConsumption
+                ),
+                window,
+                predecessors,
+                zone
+        );
+    }
+
+    public static Activity night(
+            ActivityId id,
+            String name,
+            Duration estimatedDuration,
+            RiskLevel risk,
+            TimePeriod window,
+            Set<ActivityId> predecessors,
+            WorkZone zone,
+            CertificationId nightOperation,
+            InstrumentKind lighting
+    ) {
+        return night(id, name, estimatedDuration, risk, window, predecessors, zone, nightOperation, lighting, Map.of());
+    }
+
+    public static Activity night(
+            ActivityId id,
+            String name,
+            Duration estimatedDuration,
+            RiskLevel risk,
+            TimePeriod window,
+            Set<ActivityId> predecessors,
+            WorkZone zone,
+            CertificationId nightOperation,
+            InstrumentKind lighting,
+            Map<ConsumableId, Stock> estimatedConsumption
+    ) {
+        Objects.requireNonNull(risk, "risk");
+        Objects.requireNonNull(nightOperation, "night certification");
+        Objects.requireNonNull(lighting, "lighting");
+        return new Activity(
+                id,
+                name,
+                estimatedDuration,
+                risk.raised(),
+                new ResourceRequirements(
+                        Set.of(),
+                        Set.of(nightOperation),
+                        VehicleRequirement.NONE,
+                        new InstrumentRequirement.OfKind(lighting),
+                        NightPermit.REQUIRED,
                         estimatedConsumption
                 ),
                 window,

@@ -260,6 +260,99 @@ class ExpeditionValidatorTest {
     }
 
     @Test
+    void nightActivityWithoutPersonnelIsResourceNotCertification() {
+        Certification nightOperation = new Certification(new CertificationId(UUID.randomUUID()), "Night operation");
+        Activity activity = night(nightOperation.id(), 0, 4);
+        Instrument lamp = new Instrument(new InstrumentId(UUID.randomUUID()), new InstrumentKind("lighting"), Availability.always());
+        Permit permit = Permit.night(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
+        Expedition expedition = draft();
+        ExpeditionEditing.addActivity(expedition, activity);
+        ExpeditionEditing.addAssignment(expedition, new InstrumentAssignment(activity.id(), lamp.id()));
+        ExpeditionEditing.addPermit(expedition, permit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(lamp);
+        catalog.add(permit);
+
+        ValidationResult result = validator.validate(expedition, catalog.catalogs(), OccupyingExpeditions.none());
+
+        assertIssue(result, IssueSeverity.CRITICAL, "RESOURCE");
+        assertNo(result, "CERTIFICATION");
+    }
+
+    @Test
+    void nightCertificationMustBeHeldByEveryAssignee() {
+        Certification nightOperation = new Certification(new CertificationId(UUID.randomUUID()), "Night operation");
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(nightOperation), Availability.always());
+        Person bob = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(), Availability.always());
+        Activity activity = night(nightOperation.id(), 0, 4);
+        Instrument lamp = new Instrument(new InstrumentId(UUID.randomUUID()), new InstrumentKind("lighting"), Availability.always());
+        Permit permit = Permit.night(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
+        Expedition expedition = draft();
+        ExpeditionEditing.addActivity(expedition, activity);
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(activity.id(), ada.id()));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(activity.id(), bob.id()));
+        ExpeditionEditing.addAssignment(expedition, new InstrumentAssignment(activity.id(), lamp.id()));
+        ExpeditionEditing.addPermit(expedition, permit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(ada);
+        catalog.add(bob);
+        catalog.add(lamp);
+        catalog.add(permit);
+
+        ValidationResult result = validator.validate(expedition, catalog.catalogs(), OccupyingExpeditions.none());
+
+        assertIssue(result, IssueSeverity.CRITICAL, "CERTIFICATION");
+    }
+
+    @Test
+    void zonePermitDoesNotCoverANightActivity() {
+        Certification nightOperation = new Certification(new CertificationId(UUID.randomUUID()), "Night operation");
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(nightOperation), Availability.always());
+        Activity activity = night(nightOperation.id(), 0, 4);
+        Instrument lamp = new Instrument(new InstrumentId(UUID.randomUUID()), new InstrumentKind("lighting"), Availability.always());
+        Permit permit = permitFor(activity);
+        Expedition expedition = draft();
+        ExpeditionEditing.addActivity(expedition, activity);
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(activity.id(), ada.id()));
+        ExpeditionEditing.addAssignment(expedition, new InstrumentAssignment(activity.id(), lamp.id()));
+        ExpeditionEditing.addPermit(expedition, permit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(ada);
+        catalog.add(lamp);
+        catalog.add(permit);
+
+        ValidationResult result = validator.validate(expedition, catalog.catalogs(), OccupyingExpeditions.none());
+
+        assertIssue(result, IssueSeverity.CRITICAL, "PERMIT");
+        assertNo(result, "CERTIFICATION");
+    }
+
+    @Test
+    void nightActivityWithCertificationLightingAndNightPermitHasNoIssues() {
+        Certification nightOperation = new Certification(new CertificationId(UUID.randomUUID()), "Night operation");
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(nightOperation), Availability.always());
+        Person bob = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(nightOperation), Availability.always());
+        Activity activity = night(nightOperation.id(), 0, 4);
+        Instrument lamp = new Instrument(new InstrumentId(UUID.randomUUID()), new InstrumentKind("lighting"), Availability.always());
+        Permit permit = Permit.night(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
+        Expedition expedition = draft();
+        ExpeditionEditing.addActivity(expedition, activity);
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(activity.id(), ada.id()));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(activity.id(), bob.id()));
+        ExpeditionEditing.addAssignment(expedition, new InstrumentAssignment(activity.id(), lamp.id()));
+        ExpeditionEditing.addPermit(expedition, permit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(ada);
+        catalog.add(bob);
+        catalog.add(lamp);
+        catalog.add(permit);
+
+        ValidationResult result = validator.validate(expedition, catalog.catalogs(), OccupyingExpeditions.none());
+
+        assertTrue(result.issues().isEmpty());
+    }
+
+    @Test
     void stockShortfallIsCritical() {
         SamplingPlan plan = samplingPlan(0, 4);
         Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
@@ -401,7 +494,7 @@ class ExpeditionValidatorTest {
                 coast,
                 certification.id()
         );
-        Permit deltaPermit = new Permit(new PermitId(UUID.randomUUID()), DELTA, activity.window());
+        Permit deltaPermit = Permit.zone(new PermitId(UUID.randomUUID()), DELTA, activity.window());
         Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 List.of(new Objective("Map wetland biodiversity")),
@@ -427,7 +520,7 @@ class ExpeditionValidatorTest {
         Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
         Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
         Activity activity = sampling(certification.id(), 4, 8);
-        Permit morningOnly = new Permit(new PermitId(UUID.randomUUID()), DELTA, window(0, 4));
+        Permit morningOnly = Permit.zone(new PermitId(UUID.randomUUID()), DELTA, window(0, 4));
         Expedition expedition = draft();
         ExpeditionEditing.addActivity(expedition, activity);
         ExpeditionEditing.addAssignment(expedition, new PersonAssignment(activity.id(), person.id()));
@@ -560,6 +653,20 @@ class ExpeditionValidatorTest {
         );
     }
 
+    private static Activity night(CertificationId certificationId, int fromHour, int toHour) {
+        return Activity.night(
+                new ActivityId(UUID.randomUUID()),
+                "night survey",
+                Duration.ofHours(toHour - fromHour),
+                RiskLevel.LOW,
+                window(fromHour, toHour),
+                Set.of(),
+                DELTA,
+                certificationId,
+                new InstrumentKind("lighting")
+        );
+    }
+
     private static Activity sampling(CertificationId certificationId, int fromHour, int toHour) {
         return Activity.sampling(
                 new ActivityId(UUID.randomUUID()),
@@ -600,7 +707,7 @@ class ExpeditionValidatorTest {
     }
 
     private static Permit permitFor(Activity activity) {
-        return new Permit(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
+        return Permit.zone(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
     }
 
     private static TimePeriod window(int fromHour, int toHour) {

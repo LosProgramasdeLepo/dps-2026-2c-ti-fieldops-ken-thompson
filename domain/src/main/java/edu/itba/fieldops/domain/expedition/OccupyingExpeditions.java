@@ -36,12 +36,11 @@ public final class OccupyingExpeditions {
             if (peer.id().equals(plan.id())) {
                 continue;
             }
-            ExpeditionExecution execution = executions.get(peer.id());
-            if (execution != null && execution.isFinished()) {
+            if (plan.supersedes().filter(peer.id()::equals).isPresent()) {
                 continue;
             }
-            boolean replaced = plan.supersedes().filter(peer.id()::equals).isPresent();
-            if (replaced && !occupiesWhileRunning(peer, execution)) {
+            ExpeditionExecution execution = executions.get(peer.id());
+            if (execution != null && execution.isFinished()) {
                 continue;
             }
             if (peer.status().occupiesResources() || occupiesWhileRunning(peer, execution)) {

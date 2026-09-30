@@ -16,11 +16,11 @@
 
 **Permiso y certificación.** `Permit` cubre zona y vigencia, adjunto a la expedición. `Certification` vive en la persona y la pide el requisito. Vehículos e instrumentos, por disponibilidad.
 
-**Catálogo y reserva.** Ocupa `IN_REVIEW` o `APPROVED` cuya ejecución no está `FINISHED`. Un `SUPERSEDED` ocupa si su corrida sigue. `OccupyingExpeditions` excluye al propio plan, al que esta revisión supersede si ya no reserva, y a una terminada si el llamador pasa su ejecución. El stock del catálogo es el depósito: lo asignado en el plan y en las que ocupan se compara con ese depósito.
+**Catálogo y reserva.** Ocupa `IN_REVIEW` o `APPROVED` cuya ejecución no está `FINISHED`. Un `SUPERSEDED` ocupa a las demás si su corrida sigue. `OccupyingExpeditions` excluye al propio plan, al que esta revisión supersede, y a una terminada si el llamador pasa su ejecución. El sucesor no compite con el original: copia itinerario y asignaciones. El stock del catálogo es el depósito: lo asignado en el plan y en las que ocupan se compara con ese depósito.
 
 **Assessment.** `ValidationResult`, `ValidationIssue` e `IssueSeverity` viven fuera de `validation` y de `expedition` para no ciclar paquetes. `ValidationContext` lleva expedición, catálogos y las que ocupan. `ExpeditionValidator` recorre las reglas del constructor; `withDefaultRules` arma las seis. Otra regla es otra clase.
 
-**Códigos.** `RESOURCE`: id ausente (asignación o permiso) o actividad que pide persona certificada, vehículo o instrumento y no lo tiene. `CERTIFICATION`: personas conocidas asignadas y ninguna con la certificación. `PERMIT`: actividad no cubierta por los permisos conocidos. Adjuntos vacíos = todas descubiertas. Adjuntos todos desconocidos = solo `RESOURCE`. Un id ya en `RESOURCE` omite disponibilidad, stock, certificación y capacidad. `OVERLAP` y `AVAILABILITY` salen de `TemporalOverlapRule`. `STOCK` compara lo asignado (propio y ocupantes) con el depósito. `CAPACITY` es `WARNING`; el resto, `CRITICAL`. Capacidad = vehículos de esa actividad. Pasajeros = personas de la misma.
+**Códigos.** `RESOURCE`: id ausente (asignación o permiso) o actividad que pide persona certificada, vehículo o instrumento y no lo tiene. `CERTIFICATION`: personas conocidas asignadas y ninguna con la certificación pedida a alguien, o alguna sin la que el requisito pide a todos. `PERMIT`: actividad no cubierta por los permisos conocidos, o sin permiso nocturno si lo pide. Adjuntos vacíos = todas descubiertas. Adjuntos todos desconocidos = solo `RESOURCE`. Un id ya en `RESOURCE` omite disponibilidad, stock, certificación y capacidad. `OVERLAP` y `AVAILABILITY` salen de `TemporalOverlapRule`. `STOCK` compara lo asignado (propio y ocupantes) con el depósito. `CAPACITY` es `WARNING`; el resto, `CRITICAL`. Capacidad = vehículos de esa actividad. Pasajeros = personas de la misma.
 
 **AssignmentSuggester.** Huecos de certificación, vehículo e instrumento. Primer recurso del catálogo disponible y libre frente a asignaciones propias y ocupantes. No toca el plan; `addAssignment` aplica.
 
@@ -51,3 +51,17 @@
 **Reordenar el itinerario.** El orden de la lista no es el del negocio. Lo son las dependencias y las ventanas.
 
 **Módulo Maven de detalles.** El dominio no tiene otro runtime. El adaptador vive en el source de test.
+
+## Entrega 2
+
+### Actividad nocturna
+
+`Activity.night` guarda el riesgo ya subido un nivel (`LOW` pasa a `MEDIUM`, `MEDIUM` y `HIGH` quedan en `HIGH`) y los requisitos. `Estimate` y `OperationalReport` no distinguen el tipo: leen duración, riesgo y consumo.
+
+`ResourceRequirements.heldByEveryone` es la certificación que tiene que tener cada persona asignada. El conjunto `certifications` sigue siendo “alguien la tiene”. `NightPermit` es `NONE | REQUIRED`, igual que el vehículo. `Permit.Kind` separa el permiso de zona del nocturno. `registerPermit` da de alta el de zona; `registerNightPermit`, el nocturno. `PermitRule` exige el nocturno solo si la actividad lo pide. Un permiso de zona de la misma zona no alcanza. La iluminación es `InstrumentRequirement.OfKind`.
+
+Clases agregadas: `NightPermit`. Modificadas: `Activity`, `ResourceRequirements`, `RiskLevel`, `Permit`, `AdministerCatalog`, `AdministerCatalogInteractor`, `CertificationRule`, `MissingResourceRule`, `PermitRule`.
+
+Descartado: un subtipo de `Activity` y reabrir `ActivityPolicy`. El feedback ya sacó la duración y el riesgo de la policy.
+
+Deuda: `AssignmentSuggester` no completa una dotación para `heldByEveryone`. La validación lo exige; la sugerencia sigue cubriendo el hueco de “alguien”.

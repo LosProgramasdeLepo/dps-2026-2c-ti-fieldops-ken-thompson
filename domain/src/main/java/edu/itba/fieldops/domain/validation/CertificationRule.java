@@ -20,32 +20,35 @@ public final class CertificationRule implements ValidationRule {
         People people = context.people();
         List<ValidationIssue> issues = new ArrayList<>();
         for (Activity activity : expedition.itinerary()) {
+            List<Person> known = knownAssignees(expedition, people, activity);
             for (CertificationId certificationId : activity.requirements().certifications()) {
-                if (uncertified(expedition, people, activity, certificationId)) {
-                    issues.add(new ValidationIssue(
-                            IssueSeverity.CRITICAL,
-                            "CERTIFICATION",
-                            "activity " + activity.name()
-                                    + " requires certification " + certificationId
-                                    + " which assigned people do not hold"
-                    ));
+                if (!known.isEmpty() && known.stream().noneMatch(person -> person.holds(certificationId))) {
+                    issues.add(missing(activity, certificationId, "which assigned people do not hold"));
+                }
+            }
+            for (CertificationId certificationId : activity.requirements().heldByEveryone()) {
+                if (!known.isEmpty() && known.stream().anyMatch(person -> !person.holds(certificationId))) {
+                    issues.add(missing(activity, certificationId, "which is not held by every assigned person"));
                 }
             }
         }
         return issues;
     }
 
-    private static boolean uncertified(
-            Expedition expedition,
-            People people,
-            Activity activity,
-            CertificationId certificationId
-    ) {
+    private static List<Person> knownAssignees(Expedition expedition, People people, Activity activity) {
         List<Person> known = new ArrayList<>();
         for (PersonAssignment assignment : expedition.assignments().peopleOf(activity.id())) {
             Optional<Person> person = people.person(assignment.personId());
             person.ifPresent(known::add);
         }
-        return !known.isEmpty() && known.stream().noneMatch(person -> person.holds(certificationId));
+        return known;
+    }
+
+    private static ValidationIssue missing(Activity activity, CertificationId certificationId, String detail) {
+        return new ValidationIssue(
+                IssueSeverity.CRITICAL,
+                "CERTIFICATION",
+                "activity " + activity.name() + " requires certification " + certificationId + " " + detail
+        );
     }
 }

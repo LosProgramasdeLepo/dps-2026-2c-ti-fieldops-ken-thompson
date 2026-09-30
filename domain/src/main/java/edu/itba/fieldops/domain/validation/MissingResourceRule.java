@@ -48,11 +48,15 @@ public final class MissingResourceRule implements ValidationRule {
                 ));
             }
         });
-        if (!activity.requirements().certifications().isEmpty()
-                && expedition.assignments().peopleOf(activity.id()).isEmpty()) {
+        if (needsCertifiedPersonnel(activity) && expedition.assignments().peopleOf(activity.id()).isEmpty()) {
             issues.add(critical("activity " + activity.name() + " requires certified personnel and has none assigned"));
         }
         return issues;
+    }
+
+    private static boolean needsCertifiedPersonnel(Activity activity) {
+        return !activity.requirements().certifications().isEmpty()
+                || !activity.requirements().heldByEveryone().isEmpty();
     }
 
     private static boolean knownInstrumentMissesKind(Instruments instruments, List<InstrumentAssignment> assigned, InstrumentKind kind) {

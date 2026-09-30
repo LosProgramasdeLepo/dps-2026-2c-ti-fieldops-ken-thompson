@@ -14,6 +14,7 @@ import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.DraftExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
@@ -131,6 +132,44 @@ class UseCasesTest {
     }
 
     @Test
+    void plansANightActivityAndTheEstimateUsesItsRaisedRisk() {
+        CertificationId nightOperation = new CertificationId(UUID.randomUUID());
+        PersonId ada = registry.registerPerson("Ada", List.of(new Certification(nightOperation, "Night operation")), Availability.always());
+        InstrumentId lamp = registry.registerInstrument(new InstrumentKind("lighting"), Availability.always());
+        PermitId permitId = registry.registerNightPermit(DELTA, PERIOD);
+        ExpeditionId expeditionId = drafts.draft(
+                List.of(new Objective("Night survey")),
+                PERIOD,
+                List.of(DELTA),
+                List.of(ada),
+                List.of(new Restriction("Stay on the water"))
+        );
+        ActivityId activityId = new ActivityId(UUID.randomUUID());
+        itinerary.addActivity(expeditionId, Activity.night(
+                activityId,
+                "Night survey",
+                Duration.ofHours(3),
+                RiskLevel.MEDIUM,
+                new TimePeriod(DAY, DAY.plus(Duration.ofHours(3))),
+                Set.of(),
+                DELTA,
+                nightOperation,
+                new InstrumentKind("lighting")
+        ));
+        assignments.addAssignment(expeditionId, new PersonAssignment(activityId, ada));
+        assignments.addAssignment(expeditionId, new InstrumentAssignment(activityId, lamp));
+        assignments.addPermit(expeditionId, permitId);
+
+        Estimate estimate = estimates.of(expeditionId);
+        OperationalReport report = reports.of(expeditionId);
+
+        assertEquals(RiskLevel.HIGH, estimate.risk());
+        assertEquals(Duration.ofHours(3), estimate.duration());
+        assertEquals(RiskLevel.HIGH, report.risk());
+        assertEquals(1, report.plannedActivities());
+    }
+
+    @Test
     void estimatesConsumptionFromRequirementsRatherThanAssignments() {
         Prepared prepared = samplingPlan(Map.of(new ConsumableId(UUID.randomUUID()), new Stock(3)));
         ConsumableId vials = registry.registerConsumable("vials", new Stock(20));
@@ -212,8 +251,10 @@ class UseCasesTest {
         tracking.start(running.expeditionId);
         tracking.startActivity(running.expeditionId, running.activityId);
         ExpeditionId next = replan.cancel(running.expeditionId, running.activityId);
+        Prepared other = samplingPlan(Map.of());
         assertEquals(ExpeditionStatus.SUPERSEDED, plans.find(running.expeditionId).orElseThrow().status());
-        assertEquals(List.of(running.expeditionId), occupying(next).plans().stream().map(Expedition::id).toList());
+        assertTrue(occupying(next).plans().isEmpty());
+        assertEquals(List.of(running.expeditionId), occupying(other.expeditionId).plans().stream().map(Expedition::id).toList());
     }
 
     @Test

@@ -375,7 +375,7 @@ class ReplannerTest {
     }
 
     private static Permit permitFor(Activity activity) {
-        return new Permit(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
+        return Permit.zone(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
     }
 
     private static Expedition draftWith(Activity activity) {

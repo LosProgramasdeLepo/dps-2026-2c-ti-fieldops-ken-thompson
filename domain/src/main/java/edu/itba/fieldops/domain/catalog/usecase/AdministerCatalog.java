@@ -25,4 +25,6 @@ public interface AdministerCatalog {
     ConsumableId registerConsumable(String name, Stock stock);
 
     PermitId registerPermit(WorkZone zone, TimePeriod validity);
+
+    PermitId registerNightPermit(WorkZone zone, TimePeriod validity);
 }

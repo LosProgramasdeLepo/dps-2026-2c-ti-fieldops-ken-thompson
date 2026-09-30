@@ -53,7 +53,14 @@ public final class AdministerCatalogInteractor implements AdministerCatalog {
     @Override
     public PermitId registerPermit(WorkZone zone, TimePeriod validity) {
         PermitId id = registry.nextPermitId();
-        registry.add(new Permit(id, zone, validity));
+        registry.add(Permit.zone(id, zone, validity));
+        return id;
+    }
+
+    @Override
+    public PermitId registerNightPermit(WorkZone zone, TimePeriod validity) {
+        PermitId id = registry.nextPermitId();
+        registry.add(Permit.night(id, zone, validity));
         return id;
     }
 }

@@ -74,6 +74,31 @@ class ActivityConstructionTest {
     }
 
     @Test
+    void nightActivityRaisesRiskAndCarriesNightRequirements() {
+        CertificationId nightOperation = certification();
+        InstrumentKind lighting = new InstrumentKind("lighting");
+        Activity night = Activity.night(
+                id(), "watch", Duration.ofHours(2), RiskLevel.LOW, window(Duration.ofHours(2)), Set.of(), DELTA, nightOperation, lighting
+        );
+        Activity raised = Activity.night(
+                id(), "watch", Duration.ofHours(2), RiskLevel.MEDIUM, window(Duration.ofHours(2)), Set.of(), DELTA, nightOperation, lighting
+        );
+        Activity alreadyHigh = Activity.night(
+                id(), "watch", Duration.ofHours(2), RiskLevel.HIGH, window(Duration.ofHours(2)), Set.of(), DELTA, nightOperation, lighting
+        );
+
+        assertAll(
+                () -> assertEquals(RiskLevel.MEDIUM, night.risk()),
+                () -> assertEquals(RiskLevel.HIGH, raised.risk()),
+                () -> assertEquals(RiskLevel.HIGH, alreadyHigh.risk()),
+                () -> assertEquals(NightPermit.REQUIRED, night.requirements().nightPermit()),
+                () -> assertEquals(lighting, night.requirements().instrument().requiredKind().orElseThrow()),
+                () -> assertEquals(Set.of(), night.requirements().certifications()),
+                () -> assertEquals(Set.of(nightOperation), night.requirements().heldByEveryone())
+        );
+    }
+
+    @Test
     void rejectsSelfAsPredecessor() {
         ActivityId activityId = id();
 

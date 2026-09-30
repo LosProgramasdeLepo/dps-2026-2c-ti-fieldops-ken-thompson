@@ -71,6 +71,39 @@ class OperationalReportTest {
     }
 
     @Test
+    void reportReadsTheRaisedRiskStoredOnANightActivity() {
+        CertificationId nightOperation = new CertificationId(UUID.randomUUID());
+        Activity activity = Activity.night(
+                new ActivityId(UUID.randomUUID()),
+                "night survey",
+                Duration.ofHours(2),
+                RiskLevel.LOW,
+                new TimePeriod(START, START.plus(Duration.ofHours(2))),
+                Set.of(),
+                DELTA,
+                nightOperation,
+                new InstrumentKind("lighting")
+        );
+        Expedition expedition = ExpeditionEditing.draft(
+                new ExpeditionId(UUID.randomUUID()),
+                List.of(new Objective("Watch the delta")),
+                new TimePeriod(START, START.plus(Duration.ofDays(2))),
+                List.of(DELTA),
+                List.of(new PersonId(UUID.randomUUID())),
+                List.of(new Restriction("Stay on the water"))
+        );
+        ExpeditionEditing.addActivity(expedition, activity);
+
+        OperationalReport report = OperationalReport.of(expedition);
+
+        assertAll(
+                () -> assertEquals(RiskLevel.MEDIUM, report.risk()),
+                () -> assertEquals(Duration.ofHours(2), report.duration()),
+                () -> assertEquals(1, report.plannedActivities())
+        );
+    }
+
+    @Test
     void includesFinishedActivityResults() {
         Prepared prepared = draftWithMeasurement(Map.of());
         ExpeditionEditing.submitForReview(prepared.expedition());
@@ -136,7 +169,7 @@ class OperationalReportTest {
                 PROBE,
                 estimated
         );
-        Permit permit = new Permit(new PermitId(UUID.randomUUID()), DELTA, activity.window());
+        Permit permit = Permit.zone(new PermitId(UUID.randomUUID()), DELTA, activity.window());
         Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 List.of(new Objective("Measure water")),

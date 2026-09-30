@@ -32,7 +32,7 @@ class ResourceCatalogTest {
         Vehicle vehicle = new Vehicle(new VehicleId(UUID.randomUUID()), new Passengers(4), Availability.always());
         Instrument instrument = new Instrument(new InstrumentId(UUID.randomUUID()), new InstrumentKind("pH meter"), Availability.always());
         Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(20));
-        Permit permit = new Permit(
+        Permit permit = Permit.zone(
                 new PermitId(UUID.randomUUID()),
                 new WorkZone("Delta"),
                 new TimePeriod(Instant.parse("2026-11-01T00:00:00Z"), Instant.parse("2026-11-08T00:00:00Z"))
