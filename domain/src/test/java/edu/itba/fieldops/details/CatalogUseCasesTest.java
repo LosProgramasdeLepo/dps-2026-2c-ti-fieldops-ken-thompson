@@ -27,13 +27,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CatalogUseCasesTest extends UseCaseFixture {
     @Test
     void registersEachCatalogResourceAndKeepsCertificationOnThePerson() {
-        CertificationId sampling = registry.registerCertification("Sampling");
+        CertificationId sampling = personnel.registerCertification("Sampling");
 
-        PersonId personId = registry.registerPerson("Ada", List.of(sampling), Availability.always());
-        VehicleId vehicleId = registry.registerVehicle(new Passengers(4), Availability.always());
-        InstrumentId instrumentId = registry.registerInstrument(new InstrumentKind("probe"), Availability.always());
-        ConsumableId vials = registry.registerConsumable("vials", new Stock(20));
-        PermitId permitId = registry.registerPermit(PermitKind.ZONE, DELTA, PERIOD);
+        PersonId personId = personnel.registerPerson("Ada", List.of(sampling), Availability.always());
+        VehicleId vehicleId = equipment.registerVehicle(new Passengers(4), Availability.always());
+        InstrumentId instrumentId = equipment.registerInstrument(new InstrumentKind("probe"), Availability.always());
+        ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
+        PermitId permitId = permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD);
 
         assertAll(
                 () -> assertTrue(catalog.person(personId).orElseThrow().holds(sampling)),
@@ -46,19 +46,19 @@ class CatalogUseCasesTest extends UseCaseFixture {
 
     @Test
     void changesAvailabilityCertifiesAndChangesStock() {
-        PersonId ada = registry.registerPerson("Ada", List.of(), Availability.always());
-        VehicleId boat = registry.registerVehicle(new Passengers(4), Availability.always());
-        InstrumentId lamp = registry.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
-        ConsumableId vials = registry.registerConsumable("vials", new Stock(20));
-        CertificationId diving = registry.registerCertification("Diving");
+        PersonId ada = personnel.registerPerson("Ada", List.of(), Availability.always());
+        VehicleId boat = equipment.registerVehicle(new Passengers(4), Availability.always());
+        InstrumentId lamp = equipment.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
+        ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
+        CertificationId diving = personnel.registerCertification("Diving");
         Availability afternoon = new Availability(List.of(hours(6, 10)));
         TimePeriod morning = hours(0, 4);
 
-        registry.changeAvailability(ada, afternoon);
-        registry.changeAvailability(boat, afternoon);
-        registry.changeAvailability(lamp, afternoon);
-        registry.certify(ada, diving);
-        registry.changeStock(vials, new Stock(5));
+        personnel.changeAvailability(ada, afternoon);
+        equipment.changeAvailability(boat, afternoon);
+        equipment.changeAvailability(lamp, afternoon);
+        personnel.certify(ada, diving);
+        equipment.changeStock(vials, new Stock(5));
 
         assertAll(
                 () -> assertFalse(catalog.person(ada).orElseThrow().availableDuring(morning)),
@@ -71,23 +71,23 @@ class CatalogUseCasesTest extends UseCaseFixture {
 
     @Test
     void rejectsACertificationThePersonAlreadyHolds() {
-        CertificationId sampling = registry.registerCertification("Sampling");
-        PersonId ada = registry.registerPerson("Ada", List.of(sampling), Availability.always());
+        CertificationId sampling = personnel.registerCertification("Sampling");
+        PersonId ada = personnel.registerPerson("Ada", List.of(sampling), Availability.always());
 
-        assertThrows(InvalidValue.class, () -> registry.certify(ada, sampling));
+        assertThrows(InvalidValue.class, () -> personnel.certify(ada, sampling));
     }
 
     @Test
     void rejectsAnUnknownCertification() {
         CertificationId unknown = new CertificationId(UUID.randomUUID());
 
-        assertThrows(InvalidValue.class, () -> registry.registerPerson("Ada", List.of(unknown), Availability.always()));
+        assertThrows(InvalidValue.class, () -> personnel.registerPerson("Ada", List.of(unknown), Availability.always()));
     }
 
     @Test
     void rejectsChangingAnUnknownResource() {
         VehicleId unknown = new VehicleId(UUID.randomUUID());
 
-        assertThrows(InvalidValue.class, () -> registry.changeAvailability(unknown, Availability.always()));
+        assertThrows(InvalidValue.class, () -> equipment.changeAvailability(unknown, Availability.always()));
     }
 }

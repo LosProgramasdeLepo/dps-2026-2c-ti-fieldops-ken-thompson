@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ReviewUseCasesTest extends UseCaseFixture {
     @Test
     void rejectsSubmittingAnEmptyItinerary() {
-        ExpeditionId expeditionId = draftResponsibleFor(registry.registerPerson("Ada", List.of(), Availability.always()));
+        ExpeditionId expeditionId = draftResponsibleFor(personnel.registerPerson("Ada", List.of(), Availability.always()));
 
         assertThrows(InvalidItinerary.class, () -> review.submit(expeditionId));
     }
@@ -102,7 +102,7 @@ class ReviewUseCasesTest extends UseCaseFixture {
     void cannotApproveOnceACriticalIssueAppearsDuringReview() {
         Sampling sampling = samplingPlan();
         review.submit(sampling.expeditionId());
-        registry.changeAvailability(sampling.responsible(), new Availability(List.of()));
+        personnel.changeAvailability(sampling.responsible(), new Availability(List.of()));
 
         assertThrows(ExpeditionNotApprovable.class, () -> approval.approve(sampling.expeditionId()));
 

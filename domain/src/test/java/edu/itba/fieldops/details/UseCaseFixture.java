@@ -1,8 +1,12 @@
 package edu.itba.fieldops.details;
 
-import edu.itba.fieldops.domain.catalog.AdministerCatalogInteractor;
+import edu.itba.fieldops.domain.catalog.AdministerEquipmentInteractor;
+import edu.itba.fieldops.domain.catalog.AdministerPermitsInteractor;
+import edu.itba.fieldops.domain.catalog.AdministerPersonnelInteractor;
 import edu.itba.fieldops.domain.catalog.Availability;
-import edu.itba.fieldops.domain.catalog.usecase.AdministerCatalog;
+import edu.itba.fieldops.domain.catalog.usecase.AdministerEquipment;
+import edu.itba.fieldops.domain.catalog.usecase.AdministerPermits;
+import edu.itba.fieldops.domain.catalog.usecase.AdministerPersonnel;
 import edu.itba.fieldops.domain.expedition.ApproveExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.AssignResourcesInteractor;
 import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
@@ -68,7 +72,9 @@ abstract class UseCaseFixture {
     private final RuleBasedValidator validator = RuleBasedValidator.withDefaultRules();
     private final Replanner replanner = new Replanner(new AssignmentSuggester());
 
-    final AdministerCatalog registry = new AdministerCatalogInteractor(catalog, catalog.catalogs(), catalog);
+    final AdministerPersonnel personnel = new AdministerPersonnelInteractor(catalog, catalog);
+    final AdministerEquipment equipment = new AdministerEquipmentInteractor(catalog, catalog, catalog);
+    final AdministerPermits permitting = new AdministerPermitsInteractor(catalog);
     final DraftExpedition drafts = new DraftExpeditionInteractor(plans, catalog);
     final PlanItinerary itinerary = new PlanItineraryInteractor(plans);
     final EstimateExpedition estimates = new EstimateExpeditionInteractor(plans);
@@ -93,11 +99,11 @@ abstract class UseCaseFixture {
     }
 
     CertificationId certification() {
-        return registry.registerCertification("Sampling");
+        return personnel.registerCertification("Sampling");
     }
 
     PersonId certifiedPerson(String name, CertificationId certificationId) {
-        return registry.registerPerson(name, List.of(certificationId), Availability.always());
+        return personnel.registerPerson(name, List.of(certificationId), Availability.always());
     }
 
     Sampling unassignedSampling(Map<ConsumableId, Stock> estimated) {
@@ -121,7 +127,7 @@ abstract class UseCaseFixture {
     Sampling samplingPlan(Map<ConsumableId, Stock> estimated) {
         Sampling sampling = unassignedSampling(estimated);
         assignments.addAssignment(sampling.expeditionId(), new PersonAssignment(sampling.activityId(), sampling.responsible()));
-        assignments.addPermit(sampling.expeditionId(), registry.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
+        assignments.addPermit(sampling.expeditionId(), permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
         return sampling;
     }
 
@@ -170,14 +176,14 @@ abstract class UseCaseFixture {
                 .in(DELTA, hours(0, 2))
                 .build());
         assignments.addAssignment(expeditionId, new VehicleAssignment(activityId, vehicle));
-        assignments.addPermit(expeditionId, registry.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
+        assignments.addPermit(expeditionId, permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
         return new Crossing(expeditionId, activityId);
     }
 
     ExpeditionId crowdedCrossingInReview() {
-        PersonId ada = registry.registerPerson("Ada", List.of(), Availability.always());
-        PersonId bob = registry.registerPerson("Bob", List.of(), Availability.always());
-        Crossing crossing = crossing(ada, registry.registerVehicle(new Passengers(1), Availability.always()));
+        PersonId ada = personnel.registerPerson("Ada", List.of(), Availability.always());
+        PersonId bob = personnel.registerPerson("Bob", List.of(), Availability.always());
+        Crossing crossing = crossing(ada, equipment.registerVehicle(new Passengers(1), Availability.always()));
         assignments.addAssignment(crossing.expeditionId(), new PersonAssignment(crossing.activityId(), ada));
         assignments.addAssignment(crossing.expeditionId(), new PersonAssignment(crossing.activityId(), bob));
         review.submit(crossing.expeditionId());

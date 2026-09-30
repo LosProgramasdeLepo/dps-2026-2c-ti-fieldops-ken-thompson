@@ -73,7 +73,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         ));
         assignments.addAssignment(expeditionId, new PersonAssignment(upstream, ada));
         assignments.addAssignment(expeditionId, new PersonAssignment(downstream, ada));
-        assignments.addPermit(expeditionId, registry.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
+        assignments.addPermit(expeditionId, permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
         review.submit(expeditionId);
         approval.approve(expeditionId);
         tracking.start(expeditionId);
@@ -116,7 +116,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
 
     @Test
     void theReportUsesTheActualDurationAndOnlyTheConsumptionOfFinishedActivities() {
-        ConsumableId vials = registry.registerConsumable("vials", new Stock(20));
+        ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
         TwoSamplings plan = approvedTwoSamplingsConsuming(vials);
         tracking.start(plan.expeditionId());
         tracking.startActivity(plan.expeditionId(), plan.first());
