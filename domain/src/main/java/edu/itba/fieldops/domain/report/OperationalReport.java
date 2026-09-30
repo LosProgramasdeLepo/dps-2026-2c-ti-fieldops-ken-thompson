@@ -4,7 +4,6 @@ import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
-import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
@@ -13,7 +12,6 @@ import edu.itba.fieldops.domain.tracking.Incident;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -49,27 +47,23 @@ public record OperationalReport(
 
     public static OperationalReport of(Expedition expedition, ExpeditionExecution execution) {
         Objects.requireNonNull(expedition, "expedition");
+        Estimate estimate = Estimate.of(expedition);
         List<ActivityExecution> executions = execution == null ? List.of() : execution.executions();
         return new OperationalReport(
                 OperationalStatus.of(expedition, execution),
                 expedition.itinerary().size(),
                 executions.size(),
                 (int) executions.stream().filter(ActivityExecution::isFinished).count(),
-                totalDuration(expedition, execution),
-                highestRisk(expedition),
+                execution == null ? estimate.duration() : actualDuration(execution),
+                estimate.risk(),
                 consumed(expedition, execution),
-                estimatedConsumption(expedition),
+                estimate.estimatedConsumption(),
                 execution == null ? List.of() : execution.incidents(),
                 activityResults(executions)
         );
     }
 
-    private static Duration totalDuration(Expedition expedition, ExpeditionExecution execution) {
-        if (execution == null) {
-            return expedition.itinerary().stream()
-                    .map(Activity::estimatedDuration)
-                    .reduce(Duration.ZERO, Duration::plus);
-        }
+    private static Duration actualDuration(ExpeditionExecution execution) {
         Duration total = Duration.ZERO;
         for (ActivityExecution run : execution.executions()) {
             if (run.isFinished()) {
@@ -94,22 +88,6 @@ public record OperationalReport(
             if (finished.contains(assignment.activityId())) {
                 totals.merge(assignment.consumableId(), assignment.quantity(), Stock::plus);
             }
-        }
-        return totals;
-    }
-
-    private static RiskLevel highestRisk(Expedition expedition) {
-        return expedition.itinerary().stream()
-                .map(Activity::risk)
-                .max(Comparator.naturalOrder())
-                .orElse(RiskLevel.LOW);
-    }
-
-    private static Map<ConsumableId, Stock> estimatedConsumption(Expedition expedition) {
-        Map<ConsumableId, Stock> totals = new HashMap<>();
-        for (Activity activity : expedition.itinerary()) {
-            activity.requirements().estimatedConsumption()
-                    .forEach((id, quantity) -> totals.merge(id, quantity, Stock::plus));
         }
         return totals;
     }

@@ -2,8 +2,6 @@ package edu.itba.fieldops.domain.expedition.usecase;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.tracking.Incident;
-import edu.itba.fieldops.domain.tracking.Observation;
 
 public interface TrackExpedition {
     void start(ExpeditionId expeditionId);
@@ -18,7 +16,9 @@ public interface TrackExpedition {
 
     void finishActivity(ExpeditionId expeditionId, ActivityId activityId, String result);
 
-    void addIncident(ExpeditionId expeditionId, Incident incident);
+    void addIncident(ExpeditionId expeditionId, String description);
 
-    void addObservation(ExpeditionId expeditionId, Observation observation);
+    void addIncident(ExpeditionId expeditionId, String description, ActivityId activityId);
+
+    void addObservation(ExpeditionId expeditionId, String text);
 }

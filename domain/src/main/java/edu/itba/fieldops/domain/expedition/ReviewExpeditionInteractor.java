@@ -31,6 +31,10 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
     @Override
     public void submit(ExpeditionId expeditionId) {
         Expedition expedition = require(expeditionId);
+        ValidationResult result = validator.validate(expedition, catalogs, Peers.around(expedition, plans, executions));
+        if (result.hasCritical()) {
+            throw new InvalidValue("critical validation issues remain");
+        }
         expedition.submitForReview();
         plans.save(expedition);
     }

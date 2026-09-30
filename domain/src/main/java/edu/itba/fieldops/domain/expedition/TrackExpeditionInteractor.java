@@ -15,6 +15,7 @@ import edu.itba.fieldops.domain.tracking.Observation;
 
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class TrackExpeditionInteractor implements TrackExpedition {
     private final ExpeditionRepository plans;
@@ -36,6 +37,10 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
         if (plan.status() != ExpeditionStatus.APPROVED) {
             throw new InvalidExpeditionTransition(plan.status(), "start");
         }
+        plan.supersedes().flatMap(executions::find).filter(run -> !run.isFinished()).ifPresent(run -> {
+            throw new InvalidExpeditionTransition(run.status(), "start");
+        });
+        requireInsidePeriod(plan, clock.now());
         executions.save(ExpeditionExecution.started(plan.id()));
     }
 
@@ -57,7 +62,7 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     public void finish(ExpeditionId expeditionId) {
         Expedition plan = requirePlan(expeditionId);
         ExpeditionExecution execution = requireRun(expeditionId, "finish");
-        execution.finish(plan.itinerary());
+        execution.finish(scheduleOf(plan).itinerary());
         executions.save(execution);
     }
 
@@ -65,7 +70,7 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     public void startActivity(ExpeditionId expeditionId, ActivityId activityId) {
         Expedition plan = requirePlan(expeditionId);
         ExpeditionExecution execution = requireRun(expeditionId, "start activity");
-        Activity activity = plan.activityOf(activityId);
+        Activity activity = scheduleOf(plan).activityOf(activityId);
         Instant at = clock.now();
         requireInsideWindow(plan, activity, at);
         execution.startActivity(activityId, at, activity.predecessors());
@@ -76,24 +81,65 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     public void finishActivity(ExpeditionId expeditionId, ActivityId activityId, String result) {
         Expedition plan = requirePlan(expeditionId);
         ExpeditionExecution execution = requireRun(expeditionId, "finish activity");
+        Activity activity = activityOn(scheduleOf(plan), activityId).orElseGet(() -> plan.activityOf(activityId));
         Instant at = clock.now();
-        requireInsideWindow(plan, plan.activityOf(activityId), at);
+        requireInsideWindow(plan, activity, at);
         execution.finishActivity(activityId, at, result);
         executions.save(execution);
     }
 
     @Override
-    public void addIncident(ExpeditionId expeditionId, Incident incident) {
-        ExpeditionExecution execution = requireRun(expeditionId, "record incident");
-        execution.addIncident(incident);
-        executions.save(execution);
+    public void addIncident(ExpeditionId expeditionId, String description) {
+        recordIncident(expeditionId, description, null);
     }
 
     @Override
-    public void addObservation(ExpeditionId expeditionId, Observation observation) {
+    public void addIncident(ExpeditionId expeditionId, String description, ActivityId activityId) {
+        Expedition plan = requirePlan(expeditionId);
+        if (activityOn(plan, activityId).isEmpty() && activityOn(scheduleOf(plan), activityId).isEmpty()) {
+            throw new InvalidActivityExecution("unknown activity: " + activityId);
+        }
+        recordIncident(expeditionId, description, activityId);
+    }
+
+    @Override
+    public void addObservation(ExpeditionId expeditionId, String text) {
         ExpeditionExecution execution = requireRun(expeditionId, "record observation");
-        execution.addObservation(observation);
+        execution.addObservation(new Observation(text, clock.now()));
         executions.save(execution);
+    }
+
+    private void recordIncident(ExpeditionId expeditionId, String description, ActivityId activityId) {
+        ExpeditionExecution execution = requireRun(expeditionId, "record incident");
+        execution.addIncident(new Incident(description, clock.now(), activityId));
+        executions.save(execution);
+    }
+
+    private Expedition scheduleOf(Expedition plan) {
+        Expedition current = plan;
+        while (true) {
+            Expedition next = null;
+            for (Expedition candidate : plans.all()) {
+                if (candidate.supersedes().filter(current.id()::equals).isPresent()) {
+                    next = candidate;
+                    break;
+                }
+            }
+            if (next == null) {
+                return current;
+            }
+            current = next;
+        }
+    }
+
+    private static Optional<Activity> activityOn(Expedition expedition, ActivityId activityId) {
+        return expedition.itinerary().stream().filter(activity -> activity.id().equals(activityId)).findFirst();
+    }
+
+    private static void requireInsidePeriod(Expedition plan, Instant at) {
+        if (!plan.period().contains(at)) {
+            throw new InvalidActivityExecution("start is outside the expedition period");
+        }
     }
 
     private static void requireInsideWindow(Expedition plan, Activity activity, Instant at) {

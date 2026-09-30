@@ -44,9 +44,14 @@ public final class ExpeditionExecution {
         status = Status.IN_PROGRESS;
     }
 
-    public void finish(List<Activity> activities) {
+    public void finish(List<Activity> remaining) {
         requireStatus(Status.IN_PROGRESS, "finish");
-        for (Activity activity : activities) {
+        for (ActivityExecution execution : executions) {
+            if (!execution.isFinished()) {
+                throw new InvalidActivityExecution("activity not finished: " + execution.activityId());
+            }
+        }
+        for (Activity activity : remaining) {
             if (executionOf(activity.id()).filter(ActivityExecution::isFinished).isEmpty()) {
                 throw new InvalidActivityExecution("activity not finished: " + activity.id());
             }

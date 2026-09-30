@@ -19,7 +19,6 @@ public final class EstimateExpeditionInteractor implements EstimateExpedition {
     public Estimate of(ExpeditionId expeditionId) {
         Expedition expedition = plans.find(Objects.requireNonNull(expeditionId, "expedition id"))
                 .orElseThrow(() -> new InvalidValue("unknown expedition: " + expeditionId));
-        OperationalReport report = OperationalReport.of(expedition);
-        return new Estimate(report.duration(), report.risk(), report.estimatedConsumption());
+        return Estimate.of(expedition);
     }
 }
