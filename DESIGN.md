@@ -44,6 +44,8 @@
 
 **Errores.** Todo extiende `DomainException`. `InvalidValue`: dato inválido, id desconocido, no responsable, advertencia inexistente, duplicado o propuesta ya decidida. `InvalidItinerary`: grafo, ventanas y bloques. `InvalidAssignment`: asignación repetida, desconocida o sin cantidad. `InvalidActivityExecution`: seguimiento ilegal. `InvalidExpeditionTransition` está en `shared` para que `tracking` no dependa de `expedition`. `ExpeditionNotApprovable`: críticos o advertencias sin justificar. Un nulo en un constructor o un paso faltante del builder lanza `NullPointerException`.
 
+**Tests.** Unitarios por componente, cada uno con lo mínimo que la regla necesita: el seguimiento se prueba sin armar un plan y el informe sin aprobarlo. `ExpeditionEditing` expone las operaciones package-private a los tests de otros paquetes. Los casos de uso se prueban por grupo (`CatalogUseCasesTest`, `PlanningUseCasesTest`, `ReviewUseCasesTest`, `TrackingUseCasesTest`, `ReplanningUseCasesTest`) sobre `UseCaseFixture`, que arma los interactors con los adaptadores en memoria y los escenarios comunes. La aprobación se prueba solo con los casos de uso, porque la ejecuta el interactor.
+
 ## Descartadas
 
 **Política por tipo o herencia de `Activity`.** Los tipos difieren en datos. Un tipo nuevo es una fábrica.

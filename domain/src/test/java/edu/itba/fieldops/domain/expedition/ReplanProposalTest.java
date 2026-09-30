@@ -37,14 +37,14 @@ class ReplanProposalTest {
     }
 
     @Test
-    void rejectKeepsTheIncident() {
+    void rejectRecordsTheResponsible() {
+        PersonId ada = new PersonId(UUID.randomUUID());
         ReplanProposal proposal = pending();
-        Incident incident = proposal.incident();
 
-        proposal.reject(new PersonId(UUID.randomUUID()), DAY);
+        proposal.reject(ada, DAY);
 
         assertEquals(ReplanProposal.Decision.REJECTED, proposal.decision());
-        assertEquals(incident, proposal.incident());
+        assertEquals(Optional.of(ada), proposal.decidedBy());
     }
 
     @Test

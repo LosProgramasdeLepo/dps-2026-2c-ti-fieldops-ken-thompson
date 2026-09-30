@@ -29,11 +29,11 @@ public final class ExpeditionEditing {
         expedition.addPermit(permitId);
     }
 
-    public static void acceptWarning(Expedition expedition, AcceptedWarning warning) {
-        expedition.acceptWarning(warning);
-    }
-
     public static void submitForReview(Expedition expedition) {
         expedition.submitForReview();
+    }
+
+    public static void markApproved(Expedition expedition) {
+        expedition.markApproved();
     }
 }

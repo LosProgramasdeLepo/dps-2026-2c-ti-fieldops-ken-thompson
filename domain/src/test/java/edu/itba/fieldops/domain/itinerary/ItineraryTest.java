@@ -36,7 +36,7 @@ class ItineraryTest {
     }
 
     @Test
-    void sequentialDurationIsTheSumAndParallelDurationIsTheMax() {
+    void aNestedBlockCombinesDurationsAndKeepsTheHighestRisk() {
         Activity first = transit("approach", 0, 2);
         Activity left = sampling("left", 2, 6, RiskLevel.MEDIUM);
         Activity right = sampling("right", 2, 5, RiskLevel.HIGH);
