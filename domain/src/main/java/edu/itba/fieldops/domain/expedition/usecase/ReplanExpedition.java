@@ -6,9 +6,11 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import java.time.Duration;
 
 public interface ReplanExpedition {
-    ExpeditionId cancel(ExpeditionId expeditionId, ActivityId activityId);
+    ExpeditionId revise(ExpeditionId approvedId);
 
-    ExpeditionId delay(ExpeditionId expeditionId, ActivityId activityId, Duration delay);
+    void cancel(ExpeditionId draftId, ActivityId activityId);
 
-    ExpeditionId replaceUnavailable(ExpeditionId expeditionId);
+    void delay(ExpeditionId draftId, ActivityId activityId, Duration delay);
+
+    void replaceUnavailable(ExpeditionId draftId);
 }

@@ -3,6 +3,8 @@ package edu.itba.fieldops.details;
 import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.catalog.CatalogRegistry;
 import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.Certifications;
 import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.catalog.Instrument;
@@ -13,6 +15,7 @@ import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.Vehicles;
+import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
@@ -26,12 +29,18 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-public final class ResourceCatalog implements People, Vehicles, Instruments, Consumables, Permits, CatalogRegistry {
+public final class ResourceCatalog implements People, Vehicles, Instruments, Consumables, Permits, Certifications, CatalogRegistry {
+    private final Map<CertificationId, Certification> certifications = new LinkedHashMap<>();
     private final Map<PersonId, Person> people = new LinkedHashMap<>();
     private final Map<VehicleId, Vehicle> vehicles = new LinkedHashMap<>();
     private final Map<InstrumentId, Instrument> instruments = new LinkedHashMap<>();
     private final Map<ConsumableId, Consumable> consumables = new LinkedHashMap<>();
     private final Map<PermitId, Permit> permits = new LinkedHashMap<>();
+
+    @Override
+    public CertificationId nextCertificationId() {
+        return new CertificationId(UUID.randomUUID());
+    }
 
     @Override
     public PersonId nextPersonId() {
@@ -59,6 +68,11 @@ public final class ResourceCatalog implements People, Vehicles, Instruments, Con
     }
 
     @Override
+    public void save(Certification certification) {
+        put(certifications, certification.id(), certification, "certification");
+    }
+
+    @Override
     public void save(Person person) {
         put(people, person.id(), person, "person");
     }
@@ -81,6 +95,11 @@ public final class ResourceCatalog implements People, Vehicles, Instruments, Con
     @Override
     public void save(Permit permit) {
         put(permits, permit.id(), permit, "permit");
+    }
+
+    @Override
+    public Optional<Certification> certification(CertificationId id) {
+        return find(certifications, id);
     }
 
     @Override

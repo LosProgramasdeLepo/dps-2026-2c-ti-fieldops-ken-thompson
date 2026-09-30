@@ -9,7 +9,6 @@ import edu.itba.fieldops.domain.expedition.Assignments;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.itinerary.VehicleRequirement;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 
 import java.util.ArrayList;
@@ -26,32 +25,31 @@ public final class MissingResourceRule implements ValidationRule {
         }
         for (Activity activity : context.plan().activities()) {
             missingVehicle(activity, assignments).ifPresent(issues::add);
-            missingInstrument(activity, assignments, context.instruments()).ifPresent(issues::add);
+            issues.addAll(missingInstruments(activity, assignments, context.instruments()));
             missingPersonnel(activity, assignments).ifPresent(issues::add);
         }
         return issues;
     }
 
     private static Optional<ValidationIssue> missingVehicle(Activity activity, Assignments assignments) {
-        if (activity.requirements().vehicle() == VehicleRequirement.REQUIRED
-                && assignments.vehiclesOf(activity.id()).isEmpty()) {
-            return Optional.of(critical("activity " + activity.name() + " requires a vehicle and has none assigned"));
+        int required = activity.requirements().vehicles();
+        if (assignments.vehiclesOf(activity.id()).size() < required) {
+            return Optional.of(critical("activity " + activity.name() + " requires " + required + " vehicles and has fewer assigned"));
         }
         return Optional.empty();
     }
 
-    private static Optional<ValidationIssue> missingInstrument(Activity activity, Assignments assignments, Instruments instruments) {
-        return activity.requirements().instrument().requiredKind()
+    private static List<ValidationIssue> missingInstruments(Activity activity, Assignments assignments, Instruments instruments) {
+        return activity.requirements().instruments().stream()
                 .filter(kind -> lacksInstrumentOf(kind, assignments.instrumentsOf(activity.id()), instruments))
                 .map(kind -> critical(
                         "activity " + activity.name() + " requires an instrument of kind " + kind.name() + " and has none assigned"
-                ));
+                ))
+                .toList();
     }
 
     private static Optional<ValidationIssue> missingPersonnel(Activity activity, Assignments assignments) {
-        boolean needsCertifiedPersonnel = !activity.requirements().certifications().isEmpty()
-                || !activity.requirements().heldByEveryone().isEmpty();
-        if (needsCertifiedPersonnel && assignments.peopleOf(activity.id()).isEmpty()) {
+        if (activity.requirements().needsCertifiedPersonnel() && assignments.peopleOf(activity.id()).isEmpty()) {
             return Optional.of(critical("activity " + activity.name() + " requires certified personnel and has none assigned"));
         }
         return Optional.empty();

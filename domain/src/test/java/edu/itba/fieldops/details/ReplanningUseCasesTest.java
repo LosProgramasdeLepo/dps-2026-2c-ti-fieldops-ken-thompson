@@ -9,6 +9,7 @@ import edu.itba.fieldops.domain.expedition.usecase.ProposalSnapshot;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
+import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.tracking.Incident;
@@ -95,25 +96,34 @@ class ReplanningUseCasesTest extends UseCaseFixture {
     }
 
     @Test
-    void delayingAPlanUnderReviewReturnsItToDraft() {
+    void replanningRequiresADraft() {
         Sampling sampling = samplingPlan();
         review.submit(sampling.expeditionId());
 
-        ExpeditionId delayed = replan.delay(sampling.expeditionId(), sampling.activityId(), Duration.ofHours(1));
+        assertThrows(
+                InvalidExpeditionTransition.class,
+                () -> replan.delay(sampling.expeditionId(), sampling.activityId(), Duration.ofHours(1))
+        );
+    }
 
-        PlanSnapshot plan = consult.of(delayed);
+    @Test
+    void delayingADraftShiftsItInPlace() {
+        Sampling sampling = samplingPlan();
+
+        replan.delay(sampling.expeditionId(), sampling.activityId(), Duration.ofHours(1));
+
+        PlanSnapshot plan = consult.of(sampling.expeditionId());
         assertAll(
-                () -> assertEquals(sampling.expeditionId(), delayed),
                 () -> assertEquals(ExpeditionStatus.DRAFT, plan.status()),
                 () -> assertEquals(hours(1, 5), plan.itinerary().getFirst().activities().getFirst().window())
         );
     }
 
     @Test
-    void replanningAnApprovedPlanCreatesTheNextRevision() {
+    void revisingAnApprovedPlanCreatesTheNextDraftVersion() {
         Sampling sampling = approvedSampling();
 
-        ExpeditionId revision = replan.replaceUnavailable(sampling.expeditionId());
+        ExpeditionId revision = replan.revise(sampling.expeditionId());
 
         assertAll(
                 () -> assertEquals(ExpeditionStatus.APPROVED, consult.of(sampling.expeditionId()).status()),
@@ -131,8 +141,9 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         review.submit(crossing.expeditionId());
         approval.approve(crossing.expeditionId());
         registry.changeAvailability(boat, new Availability(List.of()));
+        ExpeditionId revision = replan.revise(crossing.expeditionId());
 
-        ExpeditionId revision = replan.replaceUnavailable(crossing.expeditionId());
+        replan.replaceUnavailable(revision);
 
         assertEquals(List.of(new VehicleAssignment(crossing.activityId(), spare)), consult.of(revision).assignments());
     }

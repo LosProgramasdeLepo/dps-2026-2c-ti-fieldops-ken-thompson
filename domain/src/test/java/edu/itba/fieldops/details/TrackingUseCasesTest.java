@@ -13,6 +13,7 @@ import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
@@ -21,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -65,15 +65,15 @@ class TrackingUseCasesTest extends UseCaseFixture {
         CertificationId certificationId = certification();
         PersonId ada = certifiedPerson("Ada", certificationId);
         ExpeditionId expeditionId = draftResponsibleFor(ada);
-        ActivityId upstream = new ActivityId(UUID.randomUUID());
-        ActivityId downstream = new ActivityId(UUID.randomUUID());
+        ActivityId upstream = itinerary.nextActivityId();
+        ActivityId downstream = itinerary.nextActivityId();
         itinerary.addBlock(expeditionId, ActivityBlock.sequential(
                 sampling(certificationId, upstream, hours(0, 2)),
                 sampling(certificationId, downstream, hours(2, 4))
         ));
         assignments.addAssignment(expeditionId, new PersonAssignment(upstream, ada));
         assignments.addAssignment(expeditionId, new PersonAssignment(downstream, ada));
-        assignments.addPermit(expeditionId, registry.registerPermit(DELTA, PERIOD));
+        assignments.addPermit(expeditionId, registry.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
         review.submit(expeditionId);
         approval.approve(expeditionId);
         tracking.start(expeditionId);
@@ -132,7 +132,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
     @Test
     void theRunFollowsTheOriginalWhileTheRevisionIsADraft() {
         TwoSamplings plan = startedTwoSamplings();
-        replan.cancel(plan.expeditionId(), plan.later());
+        revisionWithout(plan.expeditionId(), plan.later());
         clock.set(at(4));
         tracking.finishActivity(plan.expeditionId(), plan.first(), "samples stored");
 
@@ -144,7 +144,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
     @Test
     void theRunFollowsTheApprovedRevisionAndStillClosesStartedWork() {
         TwoSamplings plan = startedTwoSamplings();
-        ExpeditionId revision = replan.cancel(plan.expeditionId(), plan.later());
+        ExpeditionId revision = revisionWithout(plan.expeditionId(), plan.later());
         review.submit(revision);
         approval.approve(revision);
         assertThrows(InvalidItinerary.class, () -> tracking.startActivity(plan.expeditionId(), plan.later()));
@@ -159,8 +159,8 @@ class TrackingUseCasesTest extends UseCaseFixture {
     @Test
     void theRunFollowsTheApprovedRevisionEvenWhenAnotherRevisionIsADraft() {
         TwoSamplings plan = startedTwoSamplings();
-        replan.cancel(plan.expeditionId(), plan.first());
-        ExpeditionId approvedRevision = replan.cancel(plan.expeditionId(), plan.later());
+        revisionWithout(plan.expeditionId(), plan.first());
+        ExpeditionId approvedRevision = revisionWithout(plan.expeditionId(), plan.later());
         review.submit(approvedRevision);
         approval.approve(approvedRevision);
         clock.set(at(4));
@@ -174,10 +174,11 @@ class TrackingUseCasesTest extends UseCaseFixture {
     @Test
     void aRevisionOfARevisionIsApprovedButNeverStartsASecondRun() {
         TwoSamplings plan = startedTwoSamplings();
-        ExpeditionId first = replan.cancel(plan.expeditionId(), plan.first());
+        ExpeditionId first = revisionWithout(plan.expeditionId(), plan.first());
         review.submit(first);
         approval.approve(first);
-        ExpeditionId second = replan.delay(first, plan.later(), Duration.ofHours(1));
+        ExpeditionId second = replan.revise(first);
+        replan.delay(second, plan.later(), Duration.ofHours(1));
         review.submit(second);
 
         approval.approve(second);
@@ -190,7 +191,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
     @Test
     void aSupersededPlanOccupiesItsPeopleOnlyWhileItsRunContinues() {
         TwoSamplings plan = startedTwoSamplings();
-        ExpeditionId revision = replan.cancel(plan.expeditionId(), plan.first());
+        ExpeditionId revision = revisionWithout(plan.expeditionId(), plan.first());
         review.submit(revision);
         approval.approve(revision);
         Sampling other = unassignedSampling(Map.of());

@@ -1,7 +1,7 @@
 package edu.itba.fieldops.domain.catalog.usecase;
 
 import edu.itba.fieldops.domain.catalog.Availability;
-import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
@@ -9,6 +9,7 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
@@ -16,7 +17,9 @@ import edu.itba.fieldops.domain.shared.WorkZone;
 import java.util.List;
 
 public interface AdministerCatalog {
-    PersonId registerPerson(String name, List<Certification> certifications, Availability availability);
+    CertificationId registerCertification(String name);
+
+    PersonId registerPerson(String name, List<CertificationId> certifications, Availability availability);
 
     VehicleId registerVehicle(Passengers capacity, Availability availability);
 
@@ -24,9 +27,7 @@ public interface AdministerCatalog {
 
     ConsumableId registerConsumable(String name, Stock stock);
 
-    PermitId registerPermit(WorkZone zone, TimePeriod validity);
-
-    PermitId registerNightPermit(WorkZone zone, TimePeriod validity);
+    PermitId registerPermit(PermitKind kind, WorkZone zone, TimePeriod validity);
 
     void changeAvailability(PersonId personId, Availability availability);
 
@@ -34,7 +35,7 @@ public interface AdministerCatalog {
 
     void changeAvailability(InstrumentId instrumentId, Availability availability);
 
-    void certify(PersonId personId, Certification certification);
+    void certify(PersonId personId, CertificationId certificationId);
 
     void changeStock(ConsumableId consumableId, Stock stock);
 }

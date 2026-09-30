@@ -2,7 +2,6 @@ package edu.itba.fieldops.details;
 
 import edu.itba.fieldops.domain.catalog.AdministerCatalogInteractor;
 import edu.itba.fieldops.domain.catalog.Availability;
-import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.usecase.AdministerCatalog;
 import edu.itba.fieldops.domain.expedition.ApproveExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.AssignResourcesInteractor;
@@ -47,13 +46,13 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.validation.RuleBasedValidator;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 abstract class UseCaseFixture {
     static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
@@ -69,7 +68,7 @@ abstract class UseCaseFixture {
     private final RuleBasedValidator validator = RuleBasedValidator.withDefaultRules();
     private final Replanner replanner = new Replanner(new AssignmentSuggester());
 
-    final AdministerCatalog registry = new AdministerCatalogInteractor(catalog, catalog.catalogs());
+    final AdministerCatalog registry = new AdministerCatalogInteractor(catalog, catalog.catalogs(), catalog);
     final DraftExpedition drafts = new DraftExpeditionInteractor(plans, catalog);
     final PlanItinerary itinerary = new PlanItineraryInteractor(plans);
     final EstimateExpedition estimates = new EstimateExpeditionInteractor(plans);
@@ -94,18 +93,18 @@ abstract class UseCaseFixture {
     }
 
     CertificationId certification() {
-        return new CertificationId(UUID.randomUUID());
+        return registry.registerCertification("Sampling");
     }
 
     PersonId certifiedPerson(String name, CertificationId certificationId) {
-        return registry.registerPerson(name, List.of(new Certification(certificationId, "Sampling")), Availability.always());
+        return registry.registerPerson(name, List.of(certificationId), Availability.always());
     }
 
     Sampling unassignedSampling(Map<ConsumableId, Stock> estimated) {
         CertificationId certificationId = certification();
         PersonId ada = certifiedPerson("Ada", certificationId);
         ExpeditionId expeditionId = draftResponsibleFor(ada);
-        ActivityId activityId = new ActivityId(UUID.randomUUID());
+        ActivityId activityId = itinerary.nextActivityId();
         itinerary.addActivity(expeditionId, Activity.sampling(certificationId)
                 .named(activityId, "Soil sampling")
                 .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
@@ -122,7 +121,7 @@ abstract class UseCaseFixture {
     Sampling samplingPlan(Map<ConsumableId, Stock> estimated) {
         Sampling sampling = unassignedSampling(estimated);
         assignments.addAssignment(sampling.expeditionId(), new PersonAssignment(sampling.activityId(), sampling.responsible()));
-        assignments.addPermit(sampling.expeditionId(), registry.registerPermit(DELTA, PERIOD));
+        assignments.addPermit(sampling.expeditionId(), registry.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
         return sampling;
     }
 
@@ -150,22 +149,28 @@ abstract class UseCaseFixture {
         Sampling sampling = samplingPlan();
         CertificationId certificationId = certification();
         PersonId bob = certifiedPerson("Bob", certificationId);
-        ActivityId later = new ActivityId(UUID.randomUUID());
+        ActivityId later = itinerary.nextActivityId();
         itinerary.addActivity(sampling.expeditionId(), sampling(certificationId, later, hours(4, 6)));
         assignments.addAssignment(sampling.expeditionId(), new PersonAssignment(later, bob));
         return new TwoSamplings(sampling.expeditionId(), sampling.activityId(), later, sampling.responsible());
     }
 
+    ExpeditionId revisionWithout(ExpeditionId approvedId, ActivityId activityId) {
+        ExpeditionId revision = replan.revise(approvedId);
+        replan.cancel(revision, activityId);
+        return revision;
+    }
+
     Crossing crossing(PersonId responsible, VehicleId vehicle) {
         ExpeditionId expeditionId = draftResponsibleFor(responsible);
-        ActivityId activityId = new ActivityId(UUID.randomUUID());
+        ActivityId activityId = itinerary.nextActivityId();
         itinerary.addActivity(expeditionId, Activity.transit()
                 .named(activityId, "Crossing")
                 .estimated(Duration.ofHours(2), RiskLevel.LOW)
                 .in(DELTA, hours(0, 2))
                 .build());
         assignments.addAssignment(expeditionId, new VehicleAssignment(activityId, vehicle));
-        assignments.addPermit(expeditionId, registry.registerPermit(DELTA, PERIOD));
+        assignments.addPermit(expeditionId, registry.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
         return new Crossing(expeditionId, activityId);
     }
 

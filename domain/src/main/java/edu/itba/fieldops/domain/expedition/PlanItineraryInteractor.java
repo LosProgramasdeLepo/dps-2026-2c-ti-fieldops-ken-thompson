@@ -16,6 +16,11 @@ public final class PlanItineraryInteractor implements PlanItinerary {
     }
 
     @Override
+    public ActivityId nextActivityId() {
+        return plans.nextActivityId();
+    }
+
+    @Override
     public void addActivity(ExpeditionId expeditionId, Activity activity) {
         Expedition expedition = plans.require(expeditionId);
         expedition.addActivity(activity);

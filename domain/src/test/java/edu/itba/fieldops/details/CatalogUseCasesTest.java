@@ -1,7 +1,6 @@
 package edu.itba.fieldops.details;
 
 import edu.itba.fieldops.domain.catalog.Availability;
-import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
@@ -13,6 +12,7 @@ import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -27,16 +27,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CatalogUseCasesTest extends UseCaseFixture {
     @Test
     void registersEachCatalogResourceAndKeepsCertificationOnThePerson() {
-        Certification sampling = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        CertificationId sampling = registry.registerCertification("Sampling");
 
         PersonId personId = registry.registerPerson("Ada", List.of(sampling), Availability.always());
         VehicleId vehicleId = registry.registerVehicle(new Passengers(4), Availability.always());
         InstrumentId instrumentId = registry.registerInstrument(new InstrumentKind("probe"), Availability.always());
         ConsumableId vials = registry.registerConsumable("vials", new Stock(20));
-        PermitId permitId = registry.registerPermit(DELTA, PERIOD);
+        PermitId permitId = registry.registerPermit(PermitKind.ZONE, DELTA, PERIOD);
 
         assertAll(
-                () -> assertTrue(catalog.person(personId).orElseThrow().holds(sampling.id())),
+                () -> assertTrue(catalog.person(personId).orElseThrow().holds(sampling)),
                 () -> assertTrue(catalog.vehicle(vehicleId).isPresent()),
                 () -> assertTrue(catalog.instrument(instrumentId).isPresent()),
                 () -> assertTrue(catalog.consumable(vials).isPresent()),
@@ -50,7 +50,7 @@ class CatalogUseCasesTest extends UseCaseFixture {
         VehicleId boat = registry.registerVehicle(new Passengers(4), Availability.always());
         InstrumentId lamp = registry.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
         ConsumableId vials = registry.registerConsumable("vials", new Stock(20));
-        Certification diving = new Certification(new CertificationId(UUID.randomUUID()), "Diving");
+        CertificationId diving = registry.registerCertification("Diving");
         Availability afternoon = new Availability(List.of(hours(6, 10)));
         TimePeriod morning = hours(0, 4);
 
@@ -62,7 +62,7 @@ class CatalogUseCasesTest extends UseCaseFixture {
 
         assertAll(
                 () -> assertFalse(catalog.person(ada).orElseThrow().availableDuring(morning)),
-                () -> assertTrue(catalog.person(ada).orElseThrow().holds(diving.id())),
+                () -> assertTrue(catalog.person(ada).orElseThrow().holds(diving)),
                 () -> assertFalse(catalog.vehicle(boat).orElseThrow().availableDuring(morning)),
                 () -> assertFalse(catalog.instrument(lamp).orElseThrow().availableDuring(morning)),
                 () -> assertEquals(new Stock(5), catalog.consumable(vials).orElseThrow().stock())
@@ -71,10 +71,17 @@ class CatalogUseCasesTest extends UseCaseFixture {
 
     @Test
     void rejectsACertificationThePersonAlreadyHolds() {
-        Certification sampling = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        CertificationId sampling = registry.registerCertification("Sampling");
         PersonId ada = registry.registerPerson("Ada", List.of(sampling), Availability.always());
 
         assertThrows(InvalidValue.class, () -> registry.certify(ada, sampling));
+    }
+
+    @Test
+    void rejectsAnUnknownCertification() {
+        CertificationId unknown = new CertificationId(UUID.randomUUID());
+
+        assertThrows(InvalidValue.class, () -> registry.registerPerson("Ada", List.of(unknown), Availability.always()));
     }
 
     @Test
