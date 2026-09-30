@@ -21,9 +21,12 @@ import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.PlanItineraryInteractor;
 import edu.itba.fieldops.domain.expedition.ReplanExpeditionInteractor;
+import edu.itba.fieldops.domain.expedition.ReplanProposal;
+import edu.itba.fieldops.domain.expedition.ReplanProposer;
 import edu.itba.fieldops.domain.expedition.Replanner;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.ReviewExpeditionInteractor;
+import edu.itba.fieldops.domain.expedition.ReviewReplanProposalInteractor;
 import edu.itba.fieldops.domain.expedition.TrackExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.usecase.ApproveExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.AssignResources;
@@ -31,6 +34,7 @@ import edu.itba.fieldops.domain.expedition.usecase.DraftExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.PlanItinerary;
 import edu.itba.fieldops.domain.expedition.usecase.ReplanExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.ReviewExpedition;
+import edu.itba.fieldops.domain.expedition.usecase.ReviewReplanProposal;
 import edu.itba.fieldops.domain.expedition.usecase.TrackExpedition;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
@@ -96,12 +100,22 @@ class UseCasesTest {
     private final AssignResources assignments = new AssignResourcesInteractor(plans, runs, catalog.catalogs(), new AssignmentSuggester());
     private final ReviewExpedition review = new ReviewExpeditionInteractor(plans, runs, catalog.catalogs(), validator);
     private final ApproveExpedition approval = new ApproveExpeditionInteractor(plans, runs, catalog.catalogs(), validator);
-    private final TrackExpedition tracking = new TrackExpeditionInteractor(plans, runs, clock);
+    private final InMemoryReplanProposalRepository proposals = new InMemoryReplanProposalRepository();
+    private final Replanner replanner = new Replanner(new AssignmentSuggester());
+    private final TrackExpedition tracking = new TrackExpeditionInteractor(
+            plans,
+            runs,
+            clock,
+            catalog.bookable(),
+            new ReplanProposer(replanner),
+            proposals
+    );
+    private final ReviewReplanProposal proposalReview = new ReviewReplanProposalInteractor(plans, proposals, clock);
     private final ReplanExpedition replan = new ReplanExpeditionInteractor(
             plans,
             runs,
             catalog.bookable(),
-            new Replanner(new AssignmentSuggester())
+            replanner
     );
     private final ReportExpedition reports = new ReportExpeditionInteractor(plans, runs);
 
@@ -458,6 +472,72 @@ class UseCasesTest {
         assertEquals(List.of(new Observation("ice on the trail", DAY)), execution.observations());
         assertEquals(OperationalStatus.FINISHED, report.status());
         assertEquals(Duration.ofHours(4), report.duration());
+    }
+
+    @Test
+    void anIncidentOnARunningExpeditionProposesAReplanTheResponsibleCanAccept() {
+        Prepared prepared = approvedSampling();
+        clock.set(DAY.plus(Duration.ofHours(2)));
+        tracking.addIncident(prepared.expeditionId, "storm on site", prepared.activityId);
+
+        List<ReplanProposal> found = proposalReview.of(prepared.expeditionId);
+        ReplanProposal proposal = found.getFirst();
+        PersonId ada = plans.find(prepared.expeditionId).orElseThrow().responsibles().getFirst();
+        proposalReview.accept(proposal.id(), ada);
+
+        Expedition original = plans.find(prepared.expeditionId).orElseThrow();
+        Expedition suggested = plans.find(proposal.suggested().id()).orElseThrow();
+        ReplanProposal decided = proposalReview.of(prepared.expeditionId).getFirst();
+        assertEquals(1, found.size());
+        assertEquals(new Incident("storm on site", DAY.plus(Duration.ofHours(2)), prepared.activityId), proposal.incident());
+        assertEquals(ExpeditionStatus.SUPERSEDED, original.status());
+        assertEquals(ExpeditionStatus.DRAFT, suggested.status());
+        assertEquals(
+                new TimePeriod(DAY.plus(Duration.ofHours(2)), DAY.plus(Duration.ofHours(6))),
+                suggested.activityOf(prepared.activityId).window()
+        );
+        assertEquals(ReplanProposal.Decision.ACCEPTED, decided.decision());
+        assertEquals(ada, decided.decidedBy().orElseThrow());
+        assertEquals(List.of(new Incident("storm on site", DAY.plus(Duration.ofHours(2)), prepared.activityId)), runs.find(prepared.expeditionId).orElseThrow().incidents());
+    }
+
+    @Test
+    void rejectingAProposalLeavesTheOriginalApprovedAndStillConsultable() {
+        Prepared prepared = approvedSampling();
+        tracking.startActivity(prepared.expeditionId, prepared.activityId);
+        tracking.addIncident(prepared.expeditionId, "equipment failure", prepared.activityId);
+
+        ReplanProposal proposal = proposalReview.of(prepared.expeditionId).getFirst();
+        PersonId ada = plans.find(prepared.expeditionId).orElseThrow().responsibles().getFirst();
+        proposalReview.reject(proposal.id(), ada);
+
+        ReplanProposal decided = proposalReview.of(prepared.expeditionId).getFirst();
+        assertTrue(proposal.suggested().itinerary().isEmpty());
+        assertEquals(ExpeditionStatus.APPROVED, plans.find(prepared.expeditionId).orElseThrow().status());
+        assertTrue(plans.find(proposal.suggested().id()).isEmpty());
+        assertEquals(ReplanProposal.Decision.REJECTED, decided.decision());
+        assertEquals(new Incident("equipment failure", DAY, prepared.activityId), decided.incident());
+        assertEquals(List.of("Soil sampling"), plans.find(prepared.expeditionId).orElseThrow().itinerary().stream().map(Activity::name).toList());
+    }
+
+    @Test
+    void anIncidentWithoutAnActivityDoesNotProposeAReplan() {
+        Prepared prepared = approvedSampling();
+        tracking.addIncident(prepared.expeditionId, "storm on site");
+
+        assertTrue(proposalReview.of(prepared.expeditionId).isEmpty());
+        assertEquals(List.of(Incident.of("storm on site", DAY)), runs.find(prepared.expeditionId).orElseThrow().incidents());
+    }
+
+    @Test
+    void onlyAResponsibleCanDecideAProposal() {
+        Prepared prepared = approvedSampling();
+        tracking.addIncident(prepared.expeditionId, "storm on site", prepared.activityId);
+        ReplanProposal proposal = proposalReview.of(prepared.expeditionId).getFirst();
+
+        assertThrows(InvalidValue.class, () -> proposalReview.accept(proposal.id(), new PersonId(UUID.randomUUID())));
+        assertEquals(ReplanProposal.Decision.PENDING, proposalReview.of(prepared.expeditionId).getFirst().decision());
+        assertEquals(ExpeditionStatus.APPROVED, plans.find(prepared.expeditionId).orElseThrow().status());
     }
 
     @Test

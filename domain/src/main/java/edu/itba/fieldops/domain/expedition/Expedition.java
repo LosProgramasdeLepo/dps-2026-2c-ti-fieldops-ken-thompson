@@ -139,10 +139,23 @@ public final class Expedition {
         if (delay.isNegative()) {
             throw new InvalidValue("delay must not be negative");
         }
-        for (Activity activity : itinerary.delayed(activityId, delay)) {
-            requireWindowInsidePeriod(activity);
+        if (!delayFits(activityId, delay)) {
+            throw new InvalidItinerary("activity window is outside the expedition period");
         }
         itinerary.delay(activityId, delay);
+    }
+
+    boolean delayFits(ActivityId activityId, Duration delay) {
+        Objects.requireNonNull(delay, "delay");
+        if (delay.isNegative()) {
+            return false;
+        }
+        for (Activity activity : itinerary.delayed(activityId, delay)) {
+            if (!period.contains(activity.window())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     void addPermit(PermitId permitId) {

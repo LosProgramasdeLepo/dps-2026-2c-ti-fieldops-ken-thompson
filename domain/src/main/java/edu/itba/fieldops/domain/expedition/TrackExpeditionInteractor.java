@@ -1,5 +1,6 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.expedition.usecase.TrackExpedition;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -21,11 +22,24 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     private final ExpeditionRepository plans;
     private final ExecutionRepository executions;
     private final Clock clock;
+    private final BookableResources resources;
+    private final ReplanProposer proposer;
+    private final ReplanProposalRepository proposals;
 
-    public TrackExpeditionInteractor(ExpeditionRepository plans, ExecutionRepository executions, Clock clock) {
+    public TrackExpeditionInteractor(
+            ExpeditionRepository plans,
+            ExecutionRepository executions,
+            Clock clock,
+            BookableResources resources,
+            ReplanProposer proposer,
+            ReplanProposalRepository proposals
+    ) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.executions = Objects.requireNonNull(executions, "executions");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.resources = Objects.requireNonNull(resources, "bookable resources");
+        this.proposer = Objects.requireNonNull(proposer, "replan proposer");
+        this.proposals = Objects.requireNonNull(proposals, "proposals");
     }
 
     @Override
@@ -110,9 +124,21 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     }
 
     private void recordIncident(ExpeditionId expeditionId, String description, ActivityId activityId) {
+        Expedition plan = requirePlan(expeditionId);
         ExpeditionExecution execution = requireRun(expeditionId, "record incident");
-        execution.addIncident(new Incident(description, clock.now(), activityId));
+        Incident incident = new Incident(description, clock.now(), activityId);
+        execution.addIncident(incident);
         executions.save(execution);
+        if (activityId != null && plan.status() == ExpeditionStatus.APPROVED && activityOn(plan, activityId).isPresent()) {
+            proposals.save(proposer.propose(
+                    plan,
+                    execution,
+                    incident,
+                    resources,
+                    Peers.around(plan, plans, executions),
+                    proposals.nextId()
+            ));
+        }
     }
 
     private Expedition scheduleOf(Expedition plan) {

@@ -112,6 +112,10 @@ public final class ExpeditionExecution {
         return status == Status.FINISHED;
     }
 
+    public boolean hasStarted(ActivityId activityId) {
+        return executionOf(Objects.requireNonNull(activityId, "activity id")).isPresent();
+    }
+
     public List<ActivityExecution> executions() {
         return List.copyOf(executions);
     }

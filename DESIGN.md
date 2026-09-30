@@ -4,9 +4,9 @@
 
 **Dos agregados.** `Expedition` es el plan (`DRAFT | IN_REVIEW | APPROVED | SUPERSEDED`). `ExpeditionExecution` es la corrida (`IN_PROGRESS | SUSPENDED | FINISHED`). Itinerario, validador, sugeridor, replanner e informe quedan afuera. El caso de uso cruza plan y corrida.
 
-**Casos de uso.** Cada flujo es una interfaz en `<subdominio>.usecase` y un interactor en el paquete del subdominio. El interactor no vive en `usecase`: el de plan alcanza las transiciones de paquete. El que modifica carga por id, aplica y guarda. El de lectura no guarda. Ninguno recibe el plan ni la corrida ya armados. `AdministerCatalog` vive en `catalog.usecase`. `EstimateExpedition` y `ReportExpedition` en `report.usecase`. El resto en `expedition.usecase`. `ExpeditionValidator`, `AssignmentSuggester` y `Replanner` son servicios, no el camino de la aplicación. Transiciones del plan y `Expedition.draft` son de paquete. Volver a borrador es de `ReviewExpedition`: solo desde `IN_REVIEW`, sin tocar la corrida. Las de la corrida son públicas: `TrackExpedition` en `expedition.usecase`, `ExpeditionExecution` en `tracking`.
+**Casos de uso.** Cada flujo es una interfaz en `<subdominio>.usecase` y un interactor en el paquete del subdominio. El interactor no vive en `usecase`: el de plan alcanza las transiciones de paquete. El que modifica carga por id, aplica y guarda. El de lectura no guarda. Ninguno recibe el plan ni la corrida ya armados. `AdministerCatalog` vive en `catalog.usecase`. `EstimateExpedition` y `ReportExpedition` en `report.usecase`. El resto en `expedition.usecase`. `ExpeditionValidator`, `AssignmentSuggester`, `Replanner` y `ReplanProposer` son servicios, no el camino de la aplicación. Transiciones del plan y `Expedition.draft` son de paquete. Volver a borrador es de `ReviewExpedition`: solo desde `IN_REVIEW`, sin tocar la corrida. Las de la corrida son públicas: `TrackExpedition` en `expedition.usecase`, `ExpeditionExecution` en `tracking`.
 
-**Puertos.** `People`, `Vehicles`, `Instruments`, `Consumables` y `Permits` consultan cada recurso. `BookableResources` junta los tres con ventana. `Catalogs` suma consumibles y permisos. `CatalogRegistry` da de alta persona, vehículo, instrumento, consumible y permiso; la certificación va con la persona. `ExpeditionRepository` y `ExecutionRepository` persisten. `Clock.now()` sella inicio y fin de actividad, incidentes y observaciones; en el arranque de la expedición solo chequea el período. Adaptador, catálogo y reloj fijo están en `domain/src/test/java/edu/itba/fieldops/details`. `src/main` no los importa.
+**Puertos.** `People`, `Vehicles`, `Instruments`, `Consumables` y `Permits` consultan cada recurso. `BookableResources` junta los tres con ventana. `Catalogs` suma consumibles y permisos. `CatalogRegistry` da de alta persona, vehículo, instrumento, consumible y permiso; la certificación va con la persona. `ExpeditionRepository`, `ExecutionRepository` y `ReplanProposalRepository` persisten. `Clock.now()` sella inicio y fin de actividad, incidentes, observaciones y la decisión de una propuesta; en el arranque de la expedición solo chequea el período. Adaptador, catálogo y reloj fijo están en `domain/src/test/java/edu/itba/fieldops/details`. `src/main` no los importa.
 
 **Aprobación.** `ApproveExpedition` exige `IN_REVIEW`, revalida y llama a `markApproved`. El agregado no recibe un `ValidationResult`. Ese resultado guarda id y versión del plan validado. Críticos o warning sin justificar: `ExpeditionNotApprovable`. Solo `DRAFT` se edita. `IN_REVIEW` ocupa y puede volver a borrador. Una advertencia la acepta un responsable. `submit` rechaza críticos. Las restricciones son texto.
 
@@ -32,7 +32,7 @@
 
 **Invariantes.** La ventana alcanza la duración estimada. Predecesores existen, acíclicos y terminan antes del inicio, en el plan y al ejecutar. La zona de la actividad está en la expedición. Itinerario no vacío al enviar a revisión. `TimePeriod`, `Stock`, `Passengers` y `WorkZone` se validan al construirse. Inicio de expedición y de cada actividad en el período; la actividad, en su ventana.
 
-**Servicios.** `ExpeditionValidator` recibe las reglas. `Replanner` recibe el sugeridor. `AssignmentSuggester` no tiene estado.
+**Servicios.** `ExpeditionValidator` recibe las reglas. `Replanner` recibe el sugeridor. `ReplanProposer` recibe el `Replanner`. `AssignmentSuggester` no tiene estado.
 
 **Errores.** Todo extiende `DomainException`. `InvalidExpeditionTransition` está en `shared` para que `tracking` no dependa de `expedition`. `ExpeditionNotApprovable` es aprobación bloqueada. `InvalidActivityExecution` es seguimiento ilegal. `InvalidValue` es dato o id inválido. `InvalidItinerary` es el grafo y las ventanas. Nulo en constructor: `NullPointerException`. El servicio no revalida que expedición o catálogo existan.
 
@@ -75,3 +75,15 @@ El itinerario es un árbol. La raíz es una secuencia. Un nodo es una actividad 
 Clases agregadas: `ItineraryItem`, `ActivityBlock`, `ParallelAssignmentRule`. Modificadas: `Activity`, `Itinerary`, `Expedition`, `Estimate`, `PlanItinerary`, `PlanItineraryInteractor`, `ExpeditionValidator`.
 
 Descartado: aplanar el árbol para estimar. La suma de hojas trata un paralelo como secuencia.
+
+### Replanificación por incidente
+
+Registrar un incidente que nombra una actividad en un plan `APPROVED` genera una `ReplanProposal`. El original no se toca. La alternativa es un `reviseAsDraft` al que `Replanner` ya sabe aplicar. Si la actividad arrancó, o el retraso se sale del período, cancela. Si el incidente es después del inicio planificado y entra, retrasa. Si no, reemplaza recursos. El retraso empuja dependientes y rellena huecos: reprogramación y reemplazo no son caminos aparte. La propuesta guarda el plan sugerido, el incidente y la decisión; no etiqueta el tipo de cambio.
+
+`ReviewReplanProposal` acepta o rechaza. Aceptar marca el original `SUPERSEDED` y guarda el borrador. Rechazar deja el original. Consultar es `of` sobre el id original. Un incidente sin actividad no propone. `ReplanExpedition` sigue siendo el replan inmediato.
+
+Clases agregadas: `ProposalId`, `ReplanProposal`, `ReplanProposalRepository`, `ReplanProposer`, `ReviewReplanProposal`, `ReviewReplanProposalInteractor`. Modificadas: `TrackExpeditionInteractor`, `Expedition`, `ExpeditionExecution`.
+
+Descartado: aplicar el replan al registrar el incidente; un bus de eventos; persistir el borrador antes de aceptar (`scheduleOf` lo tomaría como itinerario vigente); etiquetar DELAY/REPLACE/CANCEL en la propuesta; una strategy por acción; colgar la propuesta del plan o de la corrida.
+
+Deuda: un incidente sobre un `SUPERSEDED` cuya corrida sigue se registra y no propone. `AssignmentSuggester` sigue sin completar `heldByEveryone`.
