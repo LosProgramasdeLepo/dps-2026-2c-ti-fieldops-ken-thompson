@@ -1,20 +1,19 @@
 package edu.itba.fieldops.details;
 
 import edu.itba.fieldops.domain.catalog.BookableResources;
-import edu.itba.fieldops.domain.catalog.CatalogRegistry;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.Certification;
-import edu.itba.fieldops.domain.catalog.Certifications;
+import edu.itba.fieldops.domain.catalog.CertificationRegistry;
 import edu.itba.fieldops.domain.catalog.Consumable;
-import edu.itba.fieldops.domain.catalog.Consumables;
+import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
 import edu.itba.fieldops.domain.catalog.Instrument;
-import edu.itba.fieldops.domain.catalog.Instruments;
-import edu.itba.fieldops.domain.catalog.People;
+import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
 import edu.itba.fieldops.domain.catalog.Permit;
-import edu.itba.fieldops.domain.catalog.Permits;
+import edu.itba.fieldops.domain.catalog.PermitRegistry;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.catalog.Vehicle;
-import edu.itba.fieldops.domain.catalog.Vehicles;
+import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
@@ -29,7 +28,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-public final class ResourceCatalog implements People, Vehicles, Instruments, Consumables, Permits, Certifications, CatalogRegistry {
+public final class ResourceCatalog implements CertificationRegistry, PersonRegistry, VehicleRegistry, InstrumentRegistry, ConsumableRegistry, PermitRegistry {
     private final Map<CertificationId, Certification> certifications = new LinkedHashMap<>();
     private final Map<PersonId, Person> people = new LinkedHashMap<>();
     private final Map<VehicleId, Vehicle> vehicles = new LinkedHashMap<>();

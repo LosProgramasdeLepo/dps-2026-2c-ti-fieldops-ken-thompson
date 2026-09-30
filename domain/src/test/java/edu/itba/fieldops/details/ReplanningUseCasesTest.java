@@ -134,13 +134,13 @@ class ReplanningUseCasesTest extends UseCaseFixture {
 
     @Test
     void anUnavailableVehicleIsReplacedInTheRevision() {
-        PersonId ada = registry.registerPerson("Ada", List.of(), Availability.always());
-        VehicleId boat = registry.registerVehicle(new Passengers(4), Availability.always());
-        VehicleId spare = registry.registerVehicle(new Passengers(4), Availability.always());
+        PersonId ada = personnel.registerPerson("Ada", List.of(), Availability.always());
+        VehicleId boat = equipment.registerVehicle(new Passengers(4), Availability.always());
+        VehicleId spare = equipment.registerVehicle(new Passengers(4), Availability.always());
         Crossing crossing = crossing(ada, boat);
         review.submit(crossing.expeditionId());
         approval.approve(crossing.expeditionId());
-        registry.changeAvailability(boat, new Availability(List.of()));
+        equipment.changeAvailability(boat, new Availability(List.of()));
         ExpeditionId revision = replan.revise(crossing.expeditionId());
 
         replan.replaceUnavailable(revision);

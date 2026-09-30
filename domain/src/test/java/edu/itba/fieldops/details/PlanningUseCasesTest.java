@@ -52,9 +52,9 @@ class PlanningUseCasesTest extends UseCaseFixture {
 
     @Test
     void theEstimateOfANightActivityUsesItsRaisedRisk() {
-        CertificationId nightOperation = registry.registerCertification("Night operation");
-        PersonId ada = registry.registerPerson("Ada", List.of(nightOperation), Availability.always());
-        InstrumentId lamp = registry.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
+        CertificationId nightOperation = personnel.registerCertification("Night operation");
+        PersonId ada = personnel.registerPerson("Ada", List.of(nightOperation), Availability.always());
+        InstrumentId lamp = equipment.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
         ExpeditionId expeditionId = draftResponsibleFor(ada);
         ActivityId activityId = itinerary.nextActivityId();
         itinerary.addActivity(expeditionId, Activity.night(nightOperation)
@@ -93,7 +93,7 @@ class PlanningUseCasesTest extends UseCaseFixture {
     void estimatesConsumptionFromRequirementsRatherThanAssignments() {
         ConsumableId fuel = new ConsumableId(UUID.randomUUID());
         Sampling sampling = samplingPlan(Map.of(fuel, new Stock(3)));
-        ConsumableId vials = registry.registerConsumable("vials", new Stock(20));
+        ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
         assignments.addAssignment(sampling.expeditionId(), new ConsumableAssignment(sampling.activityId(), vials, new Stock(7)));
 
         Estimate estimate = estimates.of(sampling.expeditionId());
