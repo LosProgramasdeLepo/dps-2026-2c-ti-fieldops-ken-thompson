@@ -65,7 +65,7 @@ public record OperationalReport(
                 expedition.activities().size(),
                 execution.activities().size(),
                 finished.size(),
-                actualDuration(finished),
+                actualDuration(expedition, finished),
                 estimate.risk(),
                 consumed(expedition, finished),
                 estimate.estimatedConsumption(),
@@ -74,12 +74,12 @@ public record OperationalReport(
         );
     }
 
-    private static Duration actualDuration(List<ActivityExecution> finished) {
-        Duration total = Duration.ZERO;
+    private static Duration actualDuration(Expedition expedition, List<ActivityExecution> finished) {
+        Map<ActivityId, Duration> measured = new HashMap<>();
         for (ActivityExecution run : finished) {
-            total = total.plus(Duration.between(run.startedAt(), run.finishedAt().orElseThrow()));
+            measured.put(run.activityId(), Duration.between(run.startedAt(), run.finishedAt().orElseThrow()));
         }
-        return total;
+        return expedition.duration(activity -> measured.getOrDefault(activity.id(), Duration.ZERO));
     }
 
     private static Map<ConsumableId, Stock> consumed(Expedition expedition, List<ActivityExecution> finished) {

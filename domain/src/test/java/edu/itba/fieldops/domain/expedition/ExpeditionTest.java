@@ -16,6 +16,7 @@ import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
+import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Passengers;
@@ -413,9 +414,9 @@ class ExpeditionTest {
     void aParallelBlockInsideASequenceKeepsLeavesAndTreeDuration() {
         Expedition expedition = wetlandDraft();
         Activity approach = transit("Approach", 0, 2, DELTA);
-        Activity left = sampling();
-        Activity right = measurement();
-        Activity back = transit("Return", 4, 6, DELTA);
+        Activity left = sampling(2, 6);
+        Activity right = measurement(2, 5);
+        Activity back = transit("Return", 6, 8, DELTA);
         expedition.addBlock(ActivityBlock.sequential(approach, ActivityBlock.parallel(left, right), back));
 
         assertAll(
@@ -700,10 +701,14 @@ class ExpeditionTest {
     }
 
     private static Activity sampling() {
+        return sampling(0, 4);
+    }
+
+    private static Activity sampling(int fromHour, int toHour) {
         return Activity.sampling(new CertificationId(UUID.randomUUID()))
                 .named(new ActivityId(UUID.randomUUID()), "Soil sampling")
-                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
-                .in(DELTA, window(0, 4))
+                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.MEDIUM)
+                .in(DELTA, window(fromHour, toHour))
                 .build();
     }
 
@@ -720,10 +725,14 @@ class ExpeditionTest {
     }
 
     private static Activity measurement() {
-        return Activity.measurement(new CertificationId(UUID.randomUUID()), new edu.itba.fieldops.domain.shared.InstrumentKind("probe"))
+        return measurement(6, 9);
+    }
+
+    private static Activity measurement(int fromHour, int toHour) {
+        return Activity.measurement(new CertificationId(UUID.randomUUID()), new InstrumentKind("probe"))
                 .named(new ActivityId(UUID.randomUUID()), "Water measurement")
-                .estimated(Duration.ofHours(3), RiskLevel.HIGH)
-                .in(DELTA, window(6, 9))
+                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.HIGH)
+                .in(DELTA, window(fromHour, toHour))
                 .build();
     }
 

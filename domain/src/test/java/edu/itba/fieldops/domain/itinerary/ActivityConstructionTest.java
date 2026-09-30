@@ -79,7 +79,6 @@ class ActivityConstructionTest {
     @Test
     void nightActivityRaisesRiskAndCarriesNightRequirements() {
         CertificationId nightOperation = certification();
-        InstrumentKind lighting = new InstrumentKind("lighting");
         Activity night = Activity.night(nightOperation)
                 .named(id(), "watch")
                 .estimated(Duration.ofHours(2), RiskLevel.LOW)
@@ -101,7 +100,7 @@ class ActivityConstructionTest {
                 () -> assertEquals(RiskLevel.HIGH, raised.risk()),
                 () -> assertEquals(RiskLevel.HIGH, alreadyHigh.risk()),
                 () -> assertEquals(NightPermit.REQUIRED, night.requirements().nightPermit()),
-                () -> assertEquals(lighting, night.requirements().instrument().requiredKind().orElseThrow()),
+                () -> assertEquals(InstrumentKind.LIGHTING, night.requirements().instrument().requiredKind().orElseThrow()),
                 () -> assertEquals(Set.of(), night.requirements().certifications()),
                 () -> assertEquals(Set.of(nightOperation), night.requirements().heldByEveryone())
         );
@@ -117,6 +116,50 @@ class ActivityConstructionTest {
                 .in(DELTA, window(Duration.ofHours(2)))
                 .after(Set.of(activityId))
                 .build());
+    }
+
+    @Test
+    void diveRequiresDivingGearAndTheCertificationOfEveryDiver() {
+        CertificationId diving = certification();
+
+        Activity dive = Activity.dive(diving)
+                .named(id(), "reef survey")
+                .estimated(Duration.ofHours(2), RiskLevel.HIGH)
+                .in(DELTA, window(Duration.ofHours(2)))
+                .build();
+
+        assertAll(
+                () -> assertEquals(Set.of(diving), dive.requirements().heldByEveryone()),
+                () -> assertEquals(Set.of(), dive.requirements().certifications()),
+                () -> assertEquals(InstrumentKind.DIVING_GEAR, dive.requirements().instrument().requiredKind().orElseThrow()),
+                () -> assertEquals(NightPermit.NONE, dive.requirements().nightPermit()),
+                () -> assertEquals(RiskLevel.HIGH, dive.risk())
+        );
+    }
+
+    @Test
+    void campRequiresAVehicleAndCampGear() {
+        Activity camp = Activity.camp()
+                .named(id(), "base camp")
+                .estimated(Duration.ofHours(3), RiskLevel.LOW)
+                .in(DELTA, window(Duration.ofHours(3)))
+                .build();
+
+        assertAll(
+                () -> assertEquals(VehicleRequirement.REQUIRED, camp.requirements().vehicle()),
+                () -> assertEquals(InstrumentKind.CAMP_GEAR, camp.requirements().instrument().requiredKind().orElseThrow()),
+                () -> assertEquals(Set.of(), camp.requirements().certifications()),
+                () -> assertEquals(Set.of(), camp.requirements().heldByEveryone())
+        );
+    }
+
+    @Test
+    void anActivityNeedsAPlace() {
+        Activity.Builder withoutPlace = Activity.transit()
+                .named(id(), "move")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW);
+
+        assertThrows(NullPointerException.class, withoutPlace::build);
     }
 
     @Test

@@ -11,6 +11,7 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
@@ -26,6 +27,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReplannerIncidentTest {
@@ -87,6 +89,14 @@ class ReplannerIncidentTest {
                 () -> assertEquals(window(0, 4), revision.activityOf(prepared.activity.id()).window()),
                 () -> assertEquals(List.of(new PersonAssignment(prepared.activity.id(), prepared.person.id())), revision.assignments().all())
         );
+    }
+
+    @Test
+    void anIncidentWithoutAnActivityCannotBeAnswered() {
+        Prepared prepared = approvedSampling();
+        Incident general = Incident.of("storm on site", DAY);
+
+        assertThrows(InvalidValue.class, () -> respondTo(prepared, general));
     }
 
     private Expedition respondTo(Prepared prepared, Incident incident) {

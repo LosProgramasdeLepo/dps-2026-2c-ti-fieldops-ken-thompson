@@ -25,6 +25,10 @@ public final class Vehicle {
         return capacity;
     }
 
+    public Vehicle withAvailability(Availability availability) {
+        return new Vehicle(id, capacity, availability);
+    }
+
     public boolean availableDuring(TimePeriod period) {
         return availability.covers(period);
     }

@@ -9,6 +9,7 @@ import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.tracking.ExecutionRepository;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public final class ApproveExpeditionInteractor implements ApproveExpedition {
     private final ExpeditionRepository plans;
@@ -33,7 +34,10 @@ public final class ApproveExpeditionInteractor implements ApproveExpedition {
             throw new InvalidExpeditionTransition(plan.status(), "approve");
         }
         requireApprovable(plan, validator.validate(contexts.around(plan)));
+        Optional<Expedition> previous = plan.supersedes().map(plans::require);
+        previous.ifPresent(Expedition::markSuperseded);
         plan.markApproved();
+        previous.ifPresent(plans::save);
         plans.save(plan);
     }
 

@@ -25,6 +25,10 @@ public final class Instrument {
         return kind;
     }
 
+    public Instrument withAvailability(Availability availability) {
+        return new Instrument(id, kind, availability);
+    }
+
     public boolean availableDuring(TimePeriod period) {
         return availability.covers(period);
     }

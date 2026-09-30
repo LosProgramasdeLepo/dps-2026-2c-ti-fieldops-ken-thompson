@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 public final class Expedition {
     private final ExpeditionId id;
@@ -203,6 +204,10 @@ public final class Expedition {
 
     public Set<ActivityId> predecessorsOf(ActivityId activityId) {
         return itinerary.predecessorsOf(activityId);
+    }
+
+    public Duration duration(Function<Activity, Duration> leafDuration) {
+        return itinerary.duration(leafDuration);
     }
 
     public Duration estimatedDuration() {

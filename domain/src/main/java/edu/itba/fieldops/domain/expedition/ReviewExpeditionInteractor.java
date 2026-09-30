@@ -29,7 +29,7 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
     public void submit(ExpeditionId expeditionId) {
         Expedition expedition = plans.require(expeditionId);
         if (validationOf(expedition).hasCritical()) {
-            throw new InvalidValue("critical validation issues remain");
+            throw new ExpeditionNotApprovable("critical validation issues remain");
         }
         expedition.submitForReview();
         plans.save(expedition);
@@ -42,7 +42,11 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
 
     @Override
     public void acceptWarning(ExpeditionId expeditionId, AcceptedWarning warning) {
+        Objects.requireNonNull(warning, "warning");
         Expedition expedition = plans.require(expeditionId);
+        if (!validationOf(expedition).warnings().contains(warning.issue())) {
+            throw new InvalidValue("not a current warning: " + warning.issue().code());
+        }
         expedition.acceptWarning(warning);
         plans.save(expedition);
     }

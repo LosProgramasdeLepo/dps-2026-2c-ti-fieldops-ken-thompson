@@ -153,6 +153,26 @@ class AssignmentSuggesterTest {
     }
 
     @Test
+    void suggestsOnlySomeoneWhoHoldsTheCertificationEveryoneNeeds() {
+        Certification nightOperation = certification();
+        Person bob = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(), Availability.always());
+        Person ada = person("Ada", nightOperation, Availability.always());
+        Activity watch = Activity.night(nightOperation.id())
+                .named(new ActivityId(UUID.randomUUID()), "night watch")
+                .estimated(Duration.ofHours(4), RiskLevel.LOW)
+                .in(DELTA, window(0, 4))
+                .build();
+        Expedition expedition = draftWith(watch);
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.save(bob);
+        catalog.save(ada);
+
+        List<Assignment> suggestions = suggester.suggest(contextOf(expedition, catalog));
+
+        assertEquals(List.of(new PersonAssignment(watch.id(), ada.id())), suggestions);
+    }
+
+    @Test
     void applyingSuggestionsFillsSamplingRequirements() {
         Certification certification = certification();
         Person ada = person("Ada", certification, Availability.always());

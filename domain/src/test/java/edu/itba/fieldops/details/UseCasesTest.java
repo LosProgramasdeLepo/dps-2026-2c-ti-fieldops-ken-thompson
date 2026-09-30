@@ -16,6 +16,7 @@ import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.DraftExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
+import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
@@ -30,11 +31,13 @@ import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.ReviewExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.ReviewReplanProposalInteractor;
 import edu.itba.fieldops.domain.expedition.TrackExpeditionInteractor;
+import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.expedition.usecase.ApproveExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.AssignResources;
 import edu.itba.fieldops.domain.expedition.usecase.ConsultExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.DraftExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.PlanItinerary;
+import edu.itba.fieldops.domain.expedition.usecase.PlanSnapshot;
 import edu.itba.fieldops.domain.expedition.usecase.ProposalSnapshot;
 import edu.itba.fieldops.domain.expedition.usecase.RecordIncident;
 import edu.itba.fieldops.domain.expedition.usecase.ReplanExpedition;
@@ -82,7 +85,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -97,7 +102,7 @@ class UseCasesTest {
     private final InMemoryExecutionRepository runs = new InMemoryExecutionRepository();
     private final FixedClock clock = new FixedClock(DAY);
     private final RuleBasedValidator validator = RuleBasedValidator.withDefaultRules();
-    private final AdministerCatalog registry = new AdministerCatalogInteractor(catalog);
+    private final AdministerCatalog registry = new AdministerCatalogInteractor(catalog, catalog.catalogs());
     private final DraftExpedition drafts = new DraftExpeditionInteractor(plans, catalog);
     private final PlanItinerary itinerary = new PlanItineraryInteractor(plans);
     private final EstimateExpedition estimates = new EstimateExpeditionInteractor(plans);
@@ -209,12 +214,12 @@ class UseCasesTest {
         Activity left = Activity.sampling(certificationId)
                 .named(new ActivityId(UUID.randomUUID()), "Left bank")
                 .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
-                .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))))
+                .in(DELTA, new TimePeriod(DAY.plus(Duration.ofHours(2)), DAY.plus(Duration.ofHours(6))))
                 .build();
         Activity right = Activity.sampling(certificationId)
                 .named(new ActivityId(UUID.randomUUID()), "Right bank")
                 .estimated(Duration.ofHours(3), RiskLevel.HIGH)
-                .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(3))))
+                .in(DELTA, new TimePeriod(DAY.plus(Duration.ofHours(2)), DAY.plus(Duration.ofHours(5))))
                 .build();
         itinerary.addBlock(expeditionId, ActivityBlock.sequential(approach, ActivityBlock.parallel(left, right)));
 
@@ -242,20 +247,48 @@ class UseCasesTest {
     }
 
     @Test
-    void rejectsAnEmptyItineraryAndAWarningFromSomeoneWhoIsNotResponsible() {
+    void rejectsSubmittingAnEmptyItinerary() {
         ExpeditionId expeditionId = draft();
-        assertThrows(InvalidItinerary.class, () -> review.submit(expeditionId));
 
-        Prepared prepared = samplingPlan(Map.of());
-        review.submit(prepared.expeditionId);
-        assertThrows(InvalidValue.class, () -> review.acceptWarning(
-                prepared.expeditionId,
-                new AcceptedWarning(
-                        new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle near capacity"),
-                        "backup team",
-                        new PersonId(UUID.randomUUID())
-                )
-        ));
+        assertThrows(InvalidItinerary.class, () -> review.submit(expeditionId));
+    }
+
+    @Test
+    void onlyAResponsibleCanAcceptAWarning() {
+        ExpeditionId expeditionId = crowdedTransitInReview();
+        ValidationIssue capacity = review.validate(expeditionId).warnings().getFirst();
+        AcceptedWarning byAStranger = new AcceptedWarning(capacity, "backup team", new PersonId(UUID.randomUUID()));
+
+        InvalidValue rejected = assertThrows(InvalidValue.class, () -> review.acceptWarning(expeditionId, byAStranger));
+
+        assertEquals("warning must be accepted by a responsible", rejected.getMessage());
+    }
+
+    @Test
+    void rejectsAWarningTheValidationDoesNotRaise() {
+        ExpeditionId expeditionId = crowdedTransitInReview();
+        PersonId responsible = consult.of(expeditionId).charter().responsibles().getFirst();
+        ValidationIssue invented = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle near capacity");
+
+        InvalidValue rejected = assertThrows(
+                InvalidValue.class,
+                () -> review.acceptWarning(expeditionId, new AcceptedWarning(invented, "backup team", responsible))
+        );
+
+        assertEquals("not a current warning: CAPACITY", rejected.getMessage());
+    }
+
+    @Test
+    void approvesOnceTheResponsibleJustifiesTheWarning() {
+        ExpeditionId expeditionId = crowdedTransitInReview();
+        PersonId responsible = consult.of(expeditionId).charter().responsibles().getFirst();
+        ValidationIssue capacity = review.validate(expeditionId).warnings().getFirst();
+        assertThrows(ExpeditionNotApprovable.class, () -> approval.approve(expeditionId));
+
+        review.acceptWarning(expeditionId, new AcceptedWarning(capacity, "second trip planned", responsible));
+        approval.approve(expeditionId);
+
+        assertEquals(ExpeditionStatus.APPROVED, consult.of(expeditionId).status());
     }
 
     @Test
@@ -279,87 +312,169 @@ class UseCasesTest {
     }
 
     @Test
-    void replanWithdrawsAnApprovedPlanAndKeepsItOccupyingOnlyWhileTheRunContinues() {
-        Prepared prepared = samplingPlan(Map.of());
-        ActivityId ride = new ActivityId(UUID.randomUUID());
-        CertificationId certificationId = new CertificationId(UUID.randomUUID());
-        PersonId bob = registry.registerPerson("Bob", List.of(new Certification(certificationId, "Sampling")), Availability.always());
-        itinerary.addActivity(prepared.expeditionId, Activity.sampling(certificationId)
-                .named(ride, "Later sampling")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
-                .in(DELTA, new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))))
-                .build());
-        assignments.addAssignment(prepared.expeditionId, new PersonAssignment(ride, bob));
-        review.submit(prepared.expeditionId);
-        approval.approve(prepared.expeditionId);
+    void replanKeepsTheOriginalApprovedUntilTheRevisionIsApproved() {
+        TwoSamplings plan = approvedTwoSamplings();
 
-        ExpeditionId revision = replan.cancel(prepared.expeditionId, ride);
-        assertEquals(ExpeditionStatus.SUPERSEDED, plans.find(prepared.expeditionId).orElseThrow().status());
-        assertTrue(occupying(revision).plans().isEmpty());
+        ExpeditionId revision = replan.cancel(plan.expeditionId, plan.later);
+
+        assertEquals(ExpeditionStatus.APPROVED, plans.find(plan.expeditionId).orElseThrow().status());
         assertEquals(ExpeditionStatus.DRAFT, plans.find(revision).orElseThrow().status());
+        assertTrue(occupying(revision).plans().isEmpty());
 
-        Prepared running = samplingPlan(Map.of());
-        review.submit(running.expeditionId);
-        approval.approve(running.expeditionId);
-        tracking.start(running.expeditionId);
-        tracking.startActivity(running.expeditionId, running.activityId);
-        ExpeditionId next = replan.cancel(running.expeditionId, running.activityId);
-        Prepared other = samplingPlan(Map.of());
-        assertEquals(ExpeditionStatus.SUPERSEDED, plans.find(running.expeditionId).orElseThrow().status());
-        assertTrue(occupying(next).plans().isEmpty());
-        assertEquals(List.of(running.expeditionId), occupying(other.expeditionId).plans().stream().map(Expedition::id).toList());
-    }
-
-    @Test
-    void cannotStartARevisionWhileTheOriginalRunContinues() {
-        Prepared prepared = samplingPlan(Map.of());
-        ActivityId later = new ActivityId(UUID.randomUUID());
-        CertificationId certificationId = new CertificationId(UUID.randomUUID());
-        PersonId bob = registry.registerPerson("Bob", List.of(new Certification(certificationId, "Sampling")), Availability.always());
-        itinerary.addActivity(prepared.expeditionId, Activity.sampling(certificationId)
-                .named(later, "Later sampling")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
-                .in(DELTA, new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))))
-                .build());
-        assignments.addAssignment(prepared.expeditionId, new PersonAssignment(later, bob));
-        review.submit(prepared.expeditionId);
-        approval.approve(prepared.expeditionId);
-        tracking.start(prepared.expeditionId);
-        tracking.startActivity(prepared.expeditionId, prepared.activityId);
-
-        ExpeditionId revision = replan.cancel(prepared.expeditionId, prepared.activityId);
         review.submit(revision);
         approval.approve(revision);
 
-        assertThrows(InvalidExpeditionTransition.class, () -> tracking.start(revision));
-        assertTrue(runs.find(revision).isEmpty());
-        assertEquals(ExpeditionExecution.Status.IN_PROGRESS, runs.find(prepared.expeditionId).orElseThrow().status());
+        assertEquals(ExpeditionStatus.SUPERSEDED, plans.find(plan.expeditionId).orElseThrow().status());
+        assertEquals(ExpeditionStatus.APPROVED, plans.find(revision).orElseThrow().status());
     }
 
     @Test
-    void finishFollowsTheRevisionItineraryAndStillClosesStartedWork() {
-        Prepared prepared = samplingPlan(Map.of());
-        ActivityId later = new ActivityId(UUID.randomUUID());
-        CertificationId certificationId = new CertificationId(UUID.randomUUID());
-        PersonId bob = registry.registerPerson("Bob", List.of(new Certification(certificationId, "Sampling")), Availability.always());
-        itinerary.addActivity(prepared.expeditionId, Activity.sampling(certificationId)
-                .named(later, "Later sampling")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
-                .in(DELTA, new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))))
-                .build());
-        assignments.addAssignment(prepared.expeditionId, new PersonAssignment(later, bob));
-        review.submit(prepared.expeditionId);
-        approval.approve(prepared.expeditionId);
-        tracking.start(prepared.expeditionId);
-        tracking.startActivity(prepared.expeditionId, prepared.activityId);
-        replan.cancel(prepared.expeditionId, later);
-        assertThrows(InvalidItinerary.class, () -> tracking.startActivity(prepared.expeditionId, later));
-        clock.set(DAY.plus(Duration.ofHours(4)));
-        tracking.finishActivity(prepared.expeditionId, prepared.activityId, "samples stored");
+    void onlyOneRevisionOfAPlanCanBeApproved() {
+        TwoSamplings plan = approvedTwoSamplings();
+        ExpeditionId withoutLater = replan.cancel(plan.expeditionId, plan.later);
+        ExpeditionId withoutFirst = replan.cancel(plan.expeditionId, plan.first);
+        review.submit(withoutLater);
+        approval.approve(withoutLater);
+        review.submit(withoutFirst);
 
+        assertThrows(InvalidExpeditionTransition.class, () -> approval.approve(withoutFirst));
+
+        assertEquals(ExpeditionStatus.IN_REVIEW, plans.find(withoutFirst).orElseThrow().status());
+        assertEquals(ExpeditionStatus.APPROVED, plans.find(withoutLater).orElseThrow().status());
+    }
+
+    @Test
+    void aSupersededPlanOccupiesOnlyWhileItsRunContinues() {
+        TwoSamplings plan = approvedTwoSamplings();
+        tracking.start(plan.expeditionId);
+        tracking.startActivity(plan.expeditionId, plan.first);
+        ExpeditionId revision = replan.cancel(plan.expeditionId, plan.later);
+        review.submit(revision);
+        approval.approve(revision);
+        Prepared other = samplingPlan(Map.of());
+
+        assertTrue(occupyingIds(other.expeditionId).contains(plan.expeditionId));
+
+        clock.set(DAY.plus(Duration.ofHours(4)));
+        tracking.finishActivity(plan.expeditionId, plan.first, "samples stored");
+        tracking.finish(plan.expeditionId);
+
+        assertFalse(occupyingIds(other.expeditionId).contains(plan.expeditionId));
+    }
+
+    @Test
+    void aRevisionOfARevisionIsApprovedButNeverStartsASecondRun() {
+        TwoSamplings plan = approvedTwoSamplings();
+        tracking.start(plan.expeditionId);
+        tracking.startActivity(plan.expeditionId, plan.first);
+        ExpeditionId first = replan.cancel(plan.expeditionId, plan.first);
+        review.submit(first);
+        approval.approve(first);
+        ExpeditionId second = replan.delay(first, plan.later, Duration.ofHours(1));
+        review.submit(second);
+
+        approval.approve(second);
+
+        assertEquals(ExpeditionStatus.SUPERSEDED, plans.find(first).orElseThrow().status());
+        assertThrows(InvalidExpeditionTransition.class, () -> tracking.start(second));
+        assertTrue(runs.find(second).isEmpty());
+        assertEquals(ExpeditionExecution.Status.IN_PROGRESS, runs.find(plan.expeditionId).orElseThrow().status());
+    }
+
+    @Test
+    void theRunFollowsTheOriginalWhileTheRevisionIsADraft() {
+        TwoSamplings plan = approvedTwoSamplings();
+        tracking.start(plan.expeditionId);
+        tracking.startActivity(plan.expeditionId, plan.first);
+        replan.cancel(plan.expeditionId, plan.later);
+        clock.set(DAY.plus(Duration.ofHours(4)));
+        tracking.finishActivity(plan.expeditionId, plan.first, "samples stored");
+
+        tracking.startActivity(plan.expeditionId, plan.later);
+
+        assertTrue(runs.find(plan.expeditionId).orElseThrow().hasStarted(plan.later));
+    }
+
+    @Test
+    void finishFollowsTheApprovedRevisionAndStillClosesStartedWork() {
+        TwoSamplings plan = approvedTwoSamplings();
+        tracking.start(plan.expeditionId);
+        tracking.startActivity(plan.expeditionId, plan.first);
+        ExpeditionId revision = replan.cancel(plan.expeditionId, plan.later);
+        review.submit(revision);
+        approval.approve(revision);
+        assertThrows(InvalidItinerary.class, () -> tracking.startActivity(plan.expeditionId, plan.later));
+        clock.set(DAY.plus(Duration.ofHours(4)));
+        tracking.finishActivity(plan.expeditionId, plan.first, "samples stored");
+
+        tracking.finish(plan.expeditionId);
+
+        assertEquals(ExpeditionExecution.Status.FINISHED, runs.find(plan.expeditionId).orElseThrow().status());
+    }
+
+    @Test
+    void theRunFollowsTheApprovedRevisionEvenWhenAnotherRevisionIsADraft() {
+        TwoSamplings plan = approvedTwoSamplings();
+        tracking.start(plan.expeditionId);
+        tracking.startActivity(plan.expeditionId, plan.first);
+        replan.cancel(plan.expeditionId, plan.first);
+        ExpeditionId approvedRevision = replan.cancel(plan.expeditionId, plan.later);
+        review.submit(approvedRevision);
+        approval.approve(approvedRevision);
+        clock.set(DAY.plus(Duration.ofHours(4)));
+        tracking.finishActivity(plan.expeditionId, plan.first, "samples stored");
+
+        tracking.finish(plan.expeditionId);
+
+        assertEquals(ExpeditionExecution.Status.FINISHED, runs.find(plan.expeditionId).orElseThrow().status());
+    }
+
+    @Test
+    void closesAnActivityThatRunsPastItsWindow() {
+        Prepared prepared = approvedSampling();
+        tracking.startActivity(prepared.expeditionId, prepared.activityId);
+        clock.set(DAY.plus(Duration.ofHours(5)));
+
+        tracking.finishActivity(prepared.expeditionId, prepared.activityId, "samples stored late");
         tracking.finish(prepared.expeditionId);
 
         assertEquals(ExpeditionExecution.Status.FINISHED, runs.find(prepared.expeditionId).orElseThrow().status());
+    }
+
+    @Test
+    void aSequenceIsTrackedInOrder() {
+        CertificationId certificationId = new CertificationId(UUID.randomUUID());
+        PersonId ada = registry.registerPerson("Ada", List.of(new Certification(certificationId, "Sampling")), Availability.always());
+        PermitId permitId = registry.registerPermit(DELTA, PERIOD);
+        ExpeditionId expeditionId = drafts.draft(new ExpeditionCharter(
+                List.of(new Objective("Walk the transect")),
+                PERIOD,
+                List.of(DELTA),
+                List.of(ada),
+                List.of(new Restriction("Daylight only"))
+        ));
+        ActivityId upstream = new ActivityId(UUID.randomUUID());
+        ActivityId downstream = new ActivityId(UUID.randomUUID());
+        itinerary.addBlock(expeditionId, ActivityBlock.sequential(
+                sampling(certificationId, upstream, new TimePeriod(DAY, DAY.plus(Duration.ofHours(2)))),
+                sampling(certificationId, downstream, new TimePeriod(DAY.plus(Duration.ofHours(2)), DAY.plus(Duration.ofHours(4))))
+        ));
+        assignments.addAssignment(expeditionId, new PersonAssignment(upstream, ada));
+        assignments.addAssignment(expeditionId, new PersonAssignment(downstream, ada));
+        assignments.addPermit(expeditionId, permitId);
+        review.submit(expeditionId);
+        approval.approve(expeditionId);
+        tracking.start(expeditionId);
+        clock.set(DAY.plus(Duration.ofHours(2)));
+
+        assertThrows(InvalidActivityExecution.class, () -> tracking.startActivity(expeditionId, downstream));
+
+        clock.set(DAY);
+        tracking.startActivity(expeditionId, upstream);
+        clock.set(DAY.plus(Duration.ofHours(2)));
+        tracking.finishActivity(expeditionId, upstream, "upstream sampled");
+        tracking.startActivity(expeditionId, downstream);
+        assertTrue(runs.find(expeditionId).orElseThrow().hasStarted(downstream));
     }
 
     @Test
@@ -408,7 +523,7 @@ class UseCasesTest {
     @Test
     void cannotSubmitWhileCriticalIssuesRemain() {
         OpenSampling open = openSampling();
-        assertThrows(InvalidValue.class, () -> review.submit(open.expeditionId));
+        assertThrows(ExpeditionNotApprovable.class, () -> review.submit(open.expeditionId));
         assertEquals(ExpeditionStatus.DRAFT, plans.find(open.expeditionId).orElseThrow().status());
     }
 
@@ -457,12 +572,11 @@ class UseCasesTest {
         PersonId ada = plans.find(prepared.expeditionId).orElseThrow().charter().responsibles().getFirst();
         proposalReview.accept(proposal.id(), ada);
 
-        Expedition original = plans.find(prepared.expeditionId).orElseThrow();
         Expedition suggested = plans.find(proposal.suggested().id()).orElseThrow();
         ProposalSnapshot decided = proposalReview.of(prepared.expeditionId).getFirst();
         assertEquals(1, found.size());
         assertEquals(Incident.affecting(prepared.activityId, "storm on site", DAY.plus(Duration.ofHours(2))), proposal.incident());
-        assertEquals(ExpeditionStatus.SUPERSEDED, original.status());
+        assertEquals(ExpeditionStatus.APPROVED, plans.find(prepared.expeditionId).orElseThrow().status());
         assertEquals(ExpeditionStatus.DRAFT, suggested.status());
         assertEquals(
                 new TimePeriod(DAY.plus(Duration.ofHours(2)), DAY.plus(Duration.ofHours(6))),
@@ -471,6 +585,11 @@ class UseCasesTest {
         assertEquals(ReplanProposal.Decision.ACCEPTED, decided.decision());
         assertEquals(ada, decided.decidedBy().orElseThrow());
         assertEquals(List.of(Incident.affecting(prepared.activityId, "storm on site", DAY.plus(Duration.ofHours(2)))), runs.find(prepared.expeditionId).orElseThrow().incidents());
+
+        review.submit(suggested.id());
+        approval.approve(suggested.id());
+
+        assertEquals(ExpeditionStatus.SUPERSEDED, plans.find(prepared.expeditionId).orElseThrow().status());
     }
 
     @Test
@@ -534,9 +653,82 @@ class UseCasesTest {
         review.submit(approved.expeditionId);
         approval.approve(approved.expeditionId);
         ExpeditionId revision = replan.replaceUnavailable(approved.expeditionId);
-        assertEquals(ExpeditionStatus.SUPERSEDED, plans.find(approved.expeditionId).orElseThrow().status());
+        assertEquals(ExpeditionStatus.APPROVED, plans.find(approved.expeditionId).orElseThrow().status());
         assertEquals(ExpeditionStatus.DRAFT, plans.find(revision).orElseThrow().status());
         assertEquals(2, plans.find(revision).orElseThrow().version());
+    }
+
+    @Test
+    void changesAvailabilityCertifiesAndChangesStock() {
+        PersonId ada = registry.registerPerson("Ada", List.of(), Availability.always());
+        VehicleId boat = registry.registerVehicle(new Passengers(4), Availability.always());
+        InstrumentId lamp = registry.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
+        ConsumableId vials = registry.registerConsumable("vials", new Stock(20));
+        Certification diving = new Certification(new CertificationId(UUID.randomUUID()), "Diving");
+        Availability afternoon = new Availability(List.of(new TimePeriod(DAY.plus(Duration.ofHours(6)), DAY.plus(Duration.ofHours(10)))));
+        TimePeriod morning = new TimePeriod(DAY, DAY.plus(Duration.ofHours(4)));
+
+        registry.changeAvailability(ada, afternoon);
+        registry.changeAvailability(boat, afternoon);
+        registry.changeAvailability(lamp, afternoon);
+        registry.certify(ada, diving);
+        registry.changeStock(vials, new Stock(5));
+
+        assertAll(
+                () -> assertFalse(catalog.person(ada).orElseThrow().availableDuring(morning)),
+                () -> assertTrue(catalog.person(ada).orElseThrow().holds(diving.id())),
+                () -> assertFalse(catalog.vehicle(boat).orElseThrow().availableDuring(morning)),
+                () -> assertFalse(catalog.instrument(lamp).orElseThrow().availableDuring(morning)),
+                () -> assertEquals(new Stock(5), catalog.consumable(vials).orElseThrow().stock())
+        );
+    }
+
+    @Test
+    void rejectsACertificationThePersonAlreadyHolds() {
+        Certification sampling = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        PersonId ada = registry.registerPerson("Ada", List.of(sampling), Availability.always());
+
+        assertThrows(InvalidValue.class, () -> registry.certify(ada, sampling));
+    }
+
+    @Test
+    void rejectsChangingAnUnknownResource() {
+        VehicleId unknown = new VehicleId(UUID.randomUUID());
+
+        assertThrows(InvalidValue.class, () -> registry.changeAvailability(unknown, Availability.always()));
+    }
+
+    @Test
+    void anUnavailableVehicleIsReplacedThroughTheReplanUseCase() {
+        PersonId ada = registry.registerPerson("Ada", List.of(), Availability.always());
+        VehicleId boat = registry.registerVehicle(new Passengers(4), Availability.always());
+        VehicleId spare = registry.registerVehicle(new Passengers(4), Availability.always());
+        Crossing crossing = crossing(ada, boat);
+        review.submit(crossing.expeditionId);
+        approval.approve(crossing.expeditionId);
+
+        registry.changeAvailability(boat, new Availability(List.of()));
+        assertTrue(review.validate(crossing.expeditionId).hasCritical());
+        ExpeditionId revision = replan.replaceUnavailable(crossing.expeditionId);
+
+        assertEquals(List.of(new VehicleAssignment(crossing.activityId, spare)), consult.of(revision).assignments());
+    }
+
+    @Test
+    void consultsAPlanAsASnapshot() {
+        Prepared prepared = samplingPlan(Map.of());
+
+        PlanSnapshot snapshot = consult.of(prepared.expeditionId);
+
+        assertAll(
+                () -> assertEquals(prepared.expeditionId, snapshot.id()),
+                () -> assertEquals(1, snapshot.version()),
+                () -> assertTrue(snapshot.supersedes().isEmpty()),
+                () -> assertEquals(ExpeditionStatus.DRAFT, snapshot.status()),
+                () -> assertEquals(1, snapshot.itinerary().size()),
+                () -> assertEquals(1, snapshot.assignments().size()),
+                () -> assertEquals(1, snapshot.permits().size())
+        );
     }
 
     private OccupyingExpeditions occupying(ExpeditionId expeditionId) {
@@ -545,6 +737,10 @@ class UseCasesTest {
             runs.find(plan.id()).ifPresent(execution -> executions.put(plan.id(), execution));
         }
         return OccupyingExpeditions.of(plans.find(expeditionId).orElseThrow(), plans.all(), executions);
+    }
+
+    private List<ExpeditionId> occupyingIds(ExpeditionId expeditionId) {
+        return occupying(expeditionId).plans().stream().map(Expedition::id).toList();
     }
 
     private Prepared approvedSampling() {
@@ -583,6 +779,59 @@ class UseCasesTest {
         assignments.addPermit(expeditionId, permitId);
         ConsumableId required = estimated.keySet().stream().findFirst().orElse(null);
         return new Prepared(expeditionId, activityId, required);
+    }
+
+    private TwoSamplings approvedTwoSamplings() {
+        Prepared prepared = samplingPlan(Map.of());
+        CertificationId certificationId = new CertificationId(UUID.randomUUID());
+        PersonId bob = registry.registerPerson("Bob", List.of(new Certification(certificationId, "Sampling")), Availability.always());
+        ActivityId later = new ActivityId(UUID.randomUUID());
+        itinerary.addActivity(
+                prepared.expeditionId,
+                sampling(certificationId, later, new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))))
+        );
+        assignments.addAssignment(prepared.expeditionId, new PersonAssignment(later, bob));
+        review.submit(prepared.expeditionId);
+        approval.approve(prepared.expeditionId);
+        return new TwoSamplings(prepared.expeditionId, prepared.activityId, later);
+    }
+
+    private static Activity sampling(CertificationId certificationId, ActivityId activityId, TimePeriod window) {
+        return Activity.sampling(certificationId)
+                .named(activityId, "Sampling")
+                .estimated(Duration.between(window.start(), window.end()), RiskLevel.LOW)
+                .in(DELTA, window)
+                .build();
+    }
+
+    private Crossing crossing(PersonId responsible, VehicleId vehicle) {
+        PermitId permitId = registry.registerPermit(DELTA, PERIOD);
+        ExpeditionId expeditionId = drafts.draft(new ExpeditionCharter(
+                List.of(new Objective("Cross the delta")),
+                PERIOD,
+                List.of(DELTA),
+                List.of(responsible),
+                List.of(new Restriction("Daylight only"))
+        ));
+        ActivityId activityId = new ActivityId(UUID.randomUUID());
+        itinerary.addActivity(expeditionId, Activity.transit()
+                .named(activityId, "Crossing")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(2))))
+                .build());
+        assignments.addAssignment(expeditionId, new VehicleAssignment(activityId, vehicle));
+        assignments.addPermit(expeditionId, permitId);
+        return new Crossing(expeditionId, activityId);
+    }
+
+    private ExpeditionId crowdedTransitInReview() {
+        PersonId ada = registry.registerPerson("Ada", List.of(), Availability.always());
+        PersonId bob = registry.registerPerson("Bob", List.of(), Availability.always());
+        Crossing crossing = crossing(ada, registry.registerVehicle(new Passengers(1), Availability.always()));
+        assignments.addAssignment(crossing.expeditionId, new PersonAssignment(crossing.activityId, ada));
+        assignments.addAssignment(crossing.expeditionId, new PersonAssignment(crossing.activityId, bob));
+        review.submit(crossing.expeditionId);
+        return crossing.expeditionId;
     }
 
     private ExpeditionId draft() {
@@ -624,6 +873,12 @@ class UseCasesTest {
     }
 
     private record Prepared(ExpeditionId expeditionId, ActivityId activityId, ConsumableId requiredConsumable) {
+    }
+
+    private record TwoSamplings(ExpeditionId expeditionId, ActivityId first, ActivityId later) {
+    }
+
+    private record Crossing(ExpeditionId expeditionId, ActivityId activityId) {
     }
 
     private record OpenSampling(ExpeditionId expeditionId, ActivityId activityId, PersonId personId) {

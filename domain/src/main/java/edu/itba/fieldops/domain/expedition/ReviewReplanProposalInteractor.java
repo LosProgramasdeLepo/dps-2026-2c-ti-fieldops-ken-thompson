@@ -36,8 +36,6 @@ public final class ReviewReplanProposalInteractor implements ReviewReplanProposa
             throw new InvalidExpeditionTransition(original.status(), "accept replan");
         }
         proposal.accept(responsible, clock.now());
-        original.markSuperseded();
-        plans.save(original);
         plans.save(proposal.suggested());
         proposals.save(proposal);
     }

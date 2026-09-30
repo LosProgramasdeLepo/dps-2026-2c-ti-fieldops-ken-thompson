@@ -2,9 +2,11 @@ package edu.itba.fieldops.domain.catalog;
 
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Texts;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,6 +29,20 @@ public final class Person {
 
     public String name() {
         return name;
+    }
+
+    public Person withAvailability(Availability availability) {
+        return new Person(id, name, certifications, availability);
+    }
+
+    public Person certified(Certification certification) {
+        Objects.requireNonNull(certification, "certification");
+        if (holds(certification.id())) {
+            throw new InvalidValue("person already holds certification: " + certification.id());
+        }
+        List<Certification> next = new ArrayList<>(certifications);
+        next.add(certification);
+        return new Person(id, name, next, availability);
     }
 
     public boolean holds(CertificationId certificationId) {

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 public final class OccupyingExpeditions {
     private final List<Expedition> plans;
@@ -28,9 +29,9 @@ public final class OccupyingExpeditions {
         Objects.requireNonNull(plan, "expedition");
         Objects.requireNonNull(others, "other expeditions");
         Objects.requireNonNull(executions, "executions");
+        Set<ExpeditionId> lineage = Revisions.lineage(plan, others);
         List<Expedition> occupying = others.stream()
-                .filter(other -> !other.id().equals(plan.id()))
-                .filter(other -> plan.supersedes().filter(other.id()::equals).isEmpty())
+                .filter(other -> !lineage.contains(other.id()))
                 .filter(other -> occupies(other, executions))
                 .toList();
         return new OccupyingExpeditions(occupying);

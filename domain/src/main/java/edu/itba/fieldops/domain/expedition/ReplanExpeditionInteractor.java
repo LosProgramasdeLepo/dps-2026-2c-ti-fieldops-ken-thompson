@@ -46,7 +46,8 @@ public final class ReplanExpeditionInteractor implements ReplanExpedition {
         returnToDraftIfInReview(original);
         Expedition working = workingDraftOf(original);
         change.accept(contexts.around(working));
-        return persist(original, working);
+        plans.save(working);
+        return working.id();
     }
 
     private static void returnToDraftIfInReview(Expedition plan) {
@@ -60,14 +61,5 @@ public final class ReplanExpeditionInteractor implements ReplanExpedition {
             return original.reviseAsDraft(plans.nextId());
         }
         return original;
-    }
-
-    private ExpeditionId persist(Expedition original, Expedition working) {
-        if (!working.id().equals(original.id())) {
-            original.markSuperseded();
-            plans.save(original);
-        }
-        plans.save(working);
-        return working.id();
     }
 }

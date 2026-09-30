@@ -111,12 +111,12 @@ class OperationalReportTest {
         Activity left = Activity.sampling(new CertificationId(UUID.randomUUID()))
                 .named(new ActivityId(UUID.randomUUID()), "left")
                 .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
-                .in(DELTA, new TimePeriod(START, START.plus(Duration.ofHours(4))))
+                .in(DELTA, new TimePeriod(START.plus(Duration.ofHours(2)), START.plus(Duration.ofHours(6))))
                 .build();
         Activity right = Activity.sampling(new CertificationId(UUID.randomUUID()))
                 .named(new ActivityId(UUID.randomUUID()), "right")
                 .estimated(Duration.ofHours(3), RiskLevel.HIGH)
-                .in(DELTA, new TimePeriod(START, START.plus(Duration.ofHours(3))))
+                .in(DELTA, new TimePeriod(START.plus(Duration.ofHours(2)), START.plus(Duration.ofHours(5))))
                 .build();
         Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
@@ -137,6 +137,40 @@ class OperationalReportTest {
                 () -> assertEquals(Duration.ofHours(6), report.duration()),
                 () -> assertEquals(RiskLevel.HIGH, report.risk())
         );
+    }
+
+    @Test
+    void actualDurationOfAParallelBlockIsItsLongestBranch() {
+        Activity left = Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "left")
+                .estimated(Duration.ofHours(4), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(START, START.plus(Duration.ofHours(4))))
+                .build();
+        Activity right = Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "right")
+                .estimated(Duration.ofHours(3), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(START, START.plus(Duration.ofHours(3))))
+                .build();
+        Expedition expedition = ExpeditionEditing.draft(
+                new ExpeditionId(UUID.randomUUID()),
+                new ExpeditionCharter(
+                        List.of(new Objective("Survey both banks")),
+                        new TimePeriod(START, START.plus(Duration.ofDays(2))),
+                        List.of(DELTA),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("Stay on the water"))
+                )
+        );
+        ExpeditionEditing.addBlock(expedition, ActivityBlock.parallel(left, right));
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+        execution.startActivity(left.id(), START, Set.of());
+        execution.startActivity(right.id(), START, Set.of());
+        execution.finishActivity(left.id(), START.plus(Duration.ofHours(5)), "left bank surveyed");
+        execution.finishActivity(right.id(), START.plus(Duration.ofHours(2)), "right bank surveyed");
+
+        OperationalReport report = OperationalReport.of(expedition, execution);
+
+        assertEquals(Duration.ofHours(5), report.duration());
     }
 
     @Test

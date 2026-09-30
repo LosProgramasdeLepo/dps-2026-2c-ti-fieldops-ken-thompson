@@ -91,6 +91,26 @@ public final class Activity implements ItineraryItem {
         ), RiskLevel::raised);
     }
 
+    public static Builder dive(CertificationId diving) {
+        return new Builder(new ResourceRequirements(
+                Set.of(),
+                Set.of(Objects.requireNonNull(diving, "diving certification")),
+                VehicleRequirement.NONE,
+                new InstrumentRequirement.OfKind(InstrumentKind.DIVING_GEAR),
+                NightPermit.NONE
+        ));
+    }
+
+    public static Builder camp() {
+        return new Builder(new ResourceRequirements(
+                Set.of(),
+                Set.of(),
+                VehicleRequirement.REQUIRED,
+                new InstrumentRequirement.OfKind(InstrumentKind.CAMP_GEAR),
+                NightPermit.NONE
+        ));
+    }
+
     public ActivityId id() {
         return id;
     }

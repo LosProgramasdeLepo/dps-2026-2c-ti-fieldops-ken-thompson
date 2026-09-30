@@ -10,6 +10,7 @@ import edu.itba.fieldops.domain.shared.InstrumentKind;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -69,10 +70,15 @@ public final class AssignmentSuggester {
         }
 
         private void fillPeople(Activity activity) {
+            Set<CertificationId> heldByEveryone = activity.requirements().heldByEveryone();
+            Predicate<Person> qualified = person -> heldByEveryone.stream().allMatch(person::holds);
             for (CertificationId certification : activity.requirements().certifications()) {
                 if (!heldByAssignee(activity, certification)) {
-                    takeFirstFree(peopleHolding(activity, person -> person.holds(certification)), activity);
+                    takeFirstFree(peopleHolding(activity, qualified.and(person -> person.holds(certification))), activity);
                 }
+            }
+            if (!heldByEveryone.isEmpty() && current.peopleOf(activity.id()).isEmpty()) {
+                takeFirstFree(peopleHolding(activity, qualified), activity);
             }
         }
 

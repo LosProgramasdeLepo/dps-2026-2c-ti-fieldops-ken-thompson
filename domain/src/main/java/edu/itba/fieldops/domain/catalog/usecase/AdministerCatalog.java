@@ -27,4 +27,14 @@ public interface AdministerCatalog {
     PermitId registerPermit(WorkZone zone, TimePeriod validity);
 
     PermitId registerNightPermit(WorkZone zone, TimePeriod validity);
+
+    void changeAvailability(PersonId personId, Availability availability);
+
+    void changeAvailability(VehicleId vehicleId, Availability availability);
+
+    void changeAvailability(InstrumentId instrumentId, Availability availability);
+
+    void certify(PersonId personId, Certification certification);
+
+    void changeStock(ConsumableId consumableId, Stock stock);
 }

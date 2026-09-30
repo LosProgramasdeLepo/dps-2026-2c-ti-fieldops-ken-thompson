@@ -29,6 +29,10 @@ public final class Consumable {
         return stock;
     }
 
+    public Consumable withStock(Stock stock) {
+        return new Consumable(id, name, stock);
+    }
+
     public boolean hasAtLeast(Stock needed) {
         return stock.isAtLeast(needed);
     }

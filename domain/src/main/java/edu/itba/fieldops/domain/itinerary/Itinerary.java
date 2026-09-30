@@ -98,11 +98,13 @@ public final class Itinerary {
     }
 
     public List<ActivityBlock> blocks() {
-        List<ActivityBlock> blocks = new ArrayList<>();
-        for (ItineraryItem item : items) {
-            collectBlocks(item, blocks);
-        }
-        return List.copyOf(blocks);
+        return blocksIn(items);
+    }
+
+    public Duration duration(Function<Activity, Duration> leafDuration) {
+        return items.stream()
+                .map(item -> item.duration(leafDuration))
+                .reduce(Duration.ZERO, Duration::plus);
     }
 
     public Duration estimatedDuration() {
@@ -130,12 +132,6 @@ public final class Itinerary {
         return copy;
     }
 
-    private Duration duration(Function<Activity, Duration> leafDuration) {
-        return items.stream()
-                .map(item -> item.duration(leafDuration))
-                .reduce(Duration.ZERO, Duration::plus);
-    }
-
     private void replace(Activity updated) {
         List<ItineraryItem> next = replaced(items, updated);
         items.clear();
@@ -159,7 +155,21 @@ public final class Itinerary {
         for (Activity activity : leaves(tree)) {
             precedence.put(activity.id(), new HashSet<>(activity.predecessors()));
         }
+        for (ActivityBlock block : blocksIn(tree)) {
+            if (block.arrangement() == ActivityBlock.Arrangement.SEQUENTIAL) {
+                addSequence(precedence, block.parts());
+            }
+        }
         return precedence;
+    }
+
+    private static void addSequence(Map<ActivityId, Set<ActivityId>> precedence, List<ItineraryItem> parts) {
+        for (int index = 1; index < parts.size(); index++) {
+            List<ActivityId> before = parts.get(index - 1).activities().stream().map(Activity::id).toList();
+            for (Activity after : parts.get(index).activities()) {
+                precedence.get(after.id()).addAll(before);
+            }
+        }
     }
 
     private static void requireKnown(Set<ActivityId> predecessors, List<Activity> universe) {
@@ -230,6 +240,14 @@ public final class Itinerary {
             leaves.addAll(item.activities());
         }
         return List.copyOf(leaves);
+    }
+
+    private static List<ActivityBlock> blocksIn(List<ItineraryItem> tree) {
+        List<ActivityBlock> blocks = new ArrayList<>();
+        for (ItineraryItem item : tree) {
+            collectBlocks(item, blocks);
+        }
+        return List.copyOf(blocks);
     }
 
     private static void collectBlocks(ItineraryItem item, List<ActivityBlock> blocks) {

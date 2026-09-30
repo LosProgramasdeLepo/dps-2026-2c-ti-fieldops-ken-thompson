@@ -13,7 +13,6 @@ import edu.itba.fieldops.domain.tracking.Observation;
 
 import java.time.Instant;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -74,12 +73,8 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
 
     @Override
     public void finishActivity(ExpeditionId expeditionId, ActivityId activityId, String result) {
-        Expedition plan = plans.require(expeditionId);
         ExpeditionExecution execution = requireRun(expeditionId, "finish activity");
-        Activity activity = activityOn(inForce(plan), activityId).orElseGet(() -> plan.activityOf(activityId));
-        Instant at = clock.now();
-        requireInsideWindow(activity, at);
-        execution.finishActivity(activityId, at, result);
+        execution.finishActivity(activityId, clock.now(), result);
         executions.save(execution);
     }
 
@@ -91,12 +86,11 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     }
 
     private void requireNoRunInLineage(Expedition plan) {
-        executions.find(plan.id()).ifPresent(run -> {
-            throw new InvalidExpeditionTransition(run.status(), "start");
-        });
-        plan.supersedes().flatMap(executions::find).filter(run -> !run.isFinished()).ifPresent(run -> {
-            throw new InvalidExpeditionTransition(run.status(), "start");
-        });
+        for (ExpeditionId id : Revisions.lineage(plan, plans.all())) {
+            executions.find(id).ifPresent(run -> {
+                throw new InvalidExpeditionTransition(run.status(), "start");
+            });
+        }
     }
 
     private Expedition inForce(Expedition plan) {
@@ -106,10 +100,6 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     private ExpeditionExecution requireRun(ExpeditionId expeditionId, String action) {
         return executions.find(Objects.requireNonNull(expeditionId, "expedition id"))
                 .orElseThrow(() -> new InvalidExpeditionTransition(plans.require(expeditionId).status(), action));
-    }
-
-    private static Optional<Activity> activityOn(Expedition plan, ActivityId activityId) {
-        return plan.activities().stream().filter(activity -> activity.id().equals(activityId)).findFirst();
     }
 
     private static Set<ActivityId> activityIds(Expedition plan) {
