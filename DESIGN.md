@@ -30,7 +30,7 @@
 
 **Heredar `Activity`, flota en la expedición, supertipo de recurso o de cantidad, `Id<T>`.** Mezclan stock con pasajeros, o un id de persona con uno de vehículo.
 
-**State por estado.** No hay un objeto por estado. Cada constante de `ExpeditionStatus` declara qué permite.
+**State por estado.** No hay un objeto por estado. `IN_REVIEW` y `APPROVED` ocupan recursos; el resto de transiciones pregunta la constante.
 
 **Aprobar un `ValidationResult` ya calculado.** Puede no describir el plan actual.
 

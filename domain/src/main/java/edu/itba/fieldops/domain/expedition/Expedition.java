@@ -111,14 +111,14 @@ public final class Expedition {
     }
 
     void addAssignment(Assignment assignment) {
-        requireEditable("assign resources");
+        requireStatus(ExpeditionStatus.DRAFT, "assign resources");
         Objects.requireNonNull(assignment, "assignment");
         itinerary.activityOf(assignment.activityId());
         assignments.add(assignment);
     }
 
     void removeAssignment(Assignment assignment) {
-        requireEditable("unassign resources");
+        requireStatus(ExpeditionStatus.DRAFT, "unassign resources");
         Objects.requireNonNull(assignment, "assignment");
         assignments.remove(assignment);
     }
@@ -136,7 +136,7 @@ public final class Expedition {
     }
 
     void addPermit(PermitId permitId) {
-        requireEditable("attach permit");
+        requireStatus(ExpeditionStatus.DRAFT, "attach permit");
         Objects.requireNonNull(permitId, "permit id");
         if (permits.contains(permitId)) {
             throw new InvalidValue("duplicate permit: " + permitId);
@@ -161,9 +161,7 @@ public final class Expedition {
     }
 
     void returnToDraft() {
-        if (!status.canReturnToDraft()) {
-            throw new InvalidExpeditionTransition(status, "return to draft");
-        }
+        requireStatus(ExpeditionStatus.IN_REVIEW, "return to draft");
         status = ExpeditionStatus.DRAFT;
         acceptedWarnings.clear();
     }
@@ -249,12 +247,6 @@ public final class Expedition {
 
     private void requireStatus(ExpeditionStatus expected, String action) {
         if (status != expected) {
-            throw new InvalidExpeditionTransition(status, action);
-        }
-    }
-
-    private void requireEditable(String action) {
-        if (!status.isEditable()) {
             throw new InvalidExpeditionTransition(status, action);
         }
     }

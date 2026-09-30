@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class AssignmentSuggester {
+public final class AssignmentSuggester {
     public List<Assignment> suggest(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
         List<TemporalBooking> taken = new ArrayList<>(TemporalBooking.of(expedition));
         for (Expedition peer : peers.plans()) {

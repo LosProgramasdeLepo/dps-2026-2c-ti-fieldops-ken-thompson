@@ -27,13 +27,10 @@ public final class ExpeditionValidator {
     }
 
     public ValidationResult validate(Expedition expedition, Catalogs catalogs, OccupyingExpeditions peers) {
-        return validate(new ValidationContext(expedition, catalogs, peers));
-    }
-
-    public ValidationResult validate(ValidationContext context) {
+        ValidationContext context = new ValidationContext(expedition, catalogs, peers);
         return new ValidationResult(
-                context.expedition().id(),
-                context.expedition().version(),
+                expedition.id(),
+                expedition.version(),
                 rules.stream()
                         .map(rule -> rule.check(context))
                         .flatMap(List::stream)

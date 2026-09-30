@@ -53,7 +53,7 @@ public final class ReplanExpeditionInteractor implements ReplanExpedition {
     }
 
     private static Expedition draftOf(Expedition original) {
-        return original.status().hasBeenApproved() ? original.reviseAsDraft() : original;
+        return original.status() == ExpeditionStatus.APPROVED ? original.reviseAsDraft() : original;
     }
 
     private ExpeditionId persist(Expedition original, Expedition working) {

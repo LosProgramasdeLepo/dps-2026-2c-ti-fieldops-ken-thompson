@@ -2,8 +2,8 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
-import edu.itba.fieldops.domain.catalog.Instruments;
 import edu.itba.fieldops.domain.catalog.Instrument;
+import edu.itba.fieldops.domain.catalog.Instruments;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
