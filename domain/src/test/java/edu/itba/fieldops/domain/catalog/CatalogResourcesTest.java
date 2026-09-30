@@ -7,6 +7,7 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,15 +49,14 @@ class CatalogResourcesTest {
 
     @Test
     void permitCoversMatchingZoneAndWindow() {
-        Permit permit = Permit.zone(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK);
+        Permit permit = new Permit(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK, PermitKind.ZONE);
 
-        Permit night = Permit.night(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK);
+        Permit night = new Permit(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK, PermitKind.NIGHT);
 
         assertAll(
                 () -> assertTrue(permit.covers(new WorkZone("Delta"), WEEK)),
                 () -> assertFalse(permit.covers(new WorkZone("Coast"), WEEK)),
-                () -> assertFalse(permit.nightOperation()),
-                () -> assertTrue(night.nightOperation()),
+                () -> assertEquals(PermitKind.NIGHT, night.kind()),
                 () -> assertTrue(night.covers(new WorkZone("Delta"), WEEK))
         );
     }

@@ -16,7 +16,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -44,10 +43,7 @@ public final class Itinerary {
                 replace(activity.withoutPredecessor(activityId));
             }
         }
-        List<ItineraryItem> next = new ArrayList<>();
-        for (ItineraryItem item : items) {
-            without(item, activityId).ifPresent(next::add);
-        }
+        List<ItineraryItem> next = items.stream().flatMap(item -> item.without(activityId).stream()).toList();
         items.clear();
         items.addAll(next);
     }
@@ -76,7 +72,7 @@ public final class Itinerary {
         int index = indexOf(schedule, activityId);
         Activity target = schedule.get(index);
         schedule.set(index, target.withWindow(target.window().shifted(delay)));
-        pushDependents(schedule, precedence(items));
+        pushDependents(schedule, Precedence.of(items));
         return List.copyOf(schedule);
     }
 
@@ -86,7 +82,7 @@ public final class Itinerary {
 
     public Set<ActivityId> predecessorsOf(ActivityId activityId) {
         activityOf(activityId);
-        return Set.copyOf(precedence(items).get(activityId));
+        return Set.copyOf(Precedence.of(items).get(activityId));
     }
 
     public List<Activity> activities() {
@@ -98,7 +94,7 @@ public final class Itinerary {
     }
 
     public List<ActivityBlock> blocks() {
-        return blocksIn(items);
+        return items.stream().flatMap(item -> item.blocks().stream()).toList();
     }
 
     public Duration duration(Function<Activity, Duration> leafDuration) {
@@ -140,35 +136,13 @@ public final class Itinerary {
 
     private static void requireConsistent(List<Activity> changed, List<ItineraryItem> tree) {
         List<Activity> universe = leaves(tree);
-        Map<ActivityId, Set<ActivityId>> precedence = precedence(tree);
+        Map<ActivityId, Set<ActivityId>> precedence = Precedence.of(tree);
         for (Activity activity : changed) {
             requireKnown(precedence.get(activity.id()), universe);
         }
         for (Activity activity : changed) {
             requireAcyclic(activity.id(), precedence);
             requirePredecessorsFinishBefore(activity, precedence.get(activity.id()), universe);
-        }
-    }
-
-    private static Map<ActivityId, Set<ActivityId>> precedence(List<ItineraryItem> tree) {
-        Map<ActivityId, Set<ActivityId>> precedence = new HashMap<>();
-        for (Activity activity : leaves(tree)) {
-            precedence.put(activity.id(), new HashSet<>(activity.predecessors()));
-        }
-        for (ActivityBlock block : blocksIn(tree)) {
-            if (block.arrangement() == ActivityBlock.Arrangement.SEQUENTIAL) {
-                addSequence(precedence, block.parts());
-            }
-        }
-        return precedence;
-    }
-
-    private static void addSequence(Map<ActivityId, Set<ActivityId>> precedence, List<ItineraryItem> parts) {
-        for (int index = 1; index < parts.size(); index++) {
-            List<ActivityId> before = parts.get(index - 1).activities().stream().map(Activity::id).toList();
-            for (Activity after : parts.get(index).activities()) {
-                precedence.get(after.id()).addAll(before);
-            }
         }
     }
 
@@ -242,59 +216,8 @@ public final class Itinerary {
         return List.copyOf(leaves);
     }
 
-    private static List<ActivityBlock> blocksIn(List<ItineraryItem> tree) {
-        List<ActivityBlock> blocks = new ArrayList<>();
-        for (ItineraryItem item : tree) {
-            collectBlocks(item, blocks);
-        }
-        return List.copyOf(blocks);
-    }
-
-    private static void collectBlocks(ItineraryItem item, List<ActivityBlock> blocks) {
-        switch (item) {
-            case Activity _ -> {
-            }
-            case ActivityBlock block -> {
-                blocks.add(block);
-                for (ItineraryItem part : block.parts()) {
-                    collectBlocks(part, blocks);
-                }
-            }
-        }
-    }
-
     private static List<ItineraryItem> replaced(List<ItineraryItem> tree, Activity updated) {
-        List<ItineraryItem> next = new ArrayList<>();
-        for (ItineraryItem item : tree) {
-            next.add(replaceIn(item, updated));
-        }
-        return next;
-    }
-
-    private static ItineraryItem replaceIn(ItineraryItem item, Activity updated) {
-        return switch (item) {
-            case Activity activity -> activity.id().equals(updated.id()) ? updated : activity;
-            case ActivityBlock block -> block.withParts(replaced(block.parts(), updated));
-        };
-    }
-
-    private static Optional<ItineraryItem> without(ItineraryItem item, ActivityId activityId) {
-        return switch (item) {
-            case Activity activity -> activity.id().equals(activityId) ? Optional.empty() : Optional.of(activity);
-            case ActivityBlock block -> {
-                List<ItineraryItem> kept = new ArrayList<>();
-                for (ItineraryItem part : block.parts()) {
-                    without(part, activityId).ifPresent(kept::add);
-                }
-                if (kept.isEmpty()) {
-                    yield Optional.empty();
-                }
-                if (kept.size() == 1) {
-                    yield Optional.of(kept.getFirst());
-                }
-                yield Optional.of(block.withParts(kept));
-            }
-        };
+        return tree.stream().map(item -> item.replacing(updated)).toList();
     }
 
     private static Activity find(List<Activity> source, ActivityId activityId) {

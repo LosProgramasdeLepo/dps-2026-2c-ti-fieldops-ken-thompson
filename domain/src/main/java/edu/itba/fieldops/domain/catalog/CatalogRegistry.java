@@ -1,5 +1,6 @@
 package edu.itba.fieldops.domain.catalog;
 
+import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
@@ -7,6 +8,8 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 
 public interface CatalogRegistry {
+    CertificationId nextCertificationId();
+
     PersonId nextPersonId();
 
     VehicleId nextVehicleId();
@@ -16,6 +19,8 @@ public interface CatalogRegistry {
     ConsumableId nextConsumableId();
 
     PermitId nextPermitId();
+
+    void save(Certification certification);
 
     void save(Person person);
 

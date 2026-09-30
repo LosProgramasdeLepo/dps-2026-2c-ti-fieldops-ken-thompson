@@ -20,9 +20,7 @@ public final class ParallelAssignmentRule implements ValidationRule {
     public List<ValidationIssue> check(PlanningContext context) {
         List<ValidationIssue> issues = new ArrayList<>();
         for (ActivityBlock block : context.plan().blocks()) {
-            if (block.arrangement() == ActivityBlock.Arrangement.PARALLEL) {
-                issues.addAll(sharedBetweenBranches(context.plan(), block.parts()));
-            }
+            issues.addAll(sharedBetweenBranches(context.plan(), block.concurrentParts()));
         }
         return issues;
     }

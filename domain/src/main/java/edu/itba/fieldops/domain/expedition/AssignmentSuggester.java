@@ -4,7 +4,6 @@ import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.itinerary.VehicleRequirement;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 
 import java.util.ArrayList;
@@ -37,8 +36,8 @@ public final class AssignmentSuggester {
         }
 
         private void fillGaps(Activity activity) {
-            fillVehicle(activity);
-            fillInstrument(activity);
+            fillVehicles(activity);
+            fillInstruments(activity);
             fillPeople(activity);
         }
 
@@ -46,27 +45,34 @@ public final class AssignmentSuggester {
             return List.copyOf(suggested);
         }
 
-        private void fillVehicle(Activity activity) {
-            if (activity.requirements().vehicle() == VehicleRequirement.NONE || !current.vehiclesOf(activity.id()).isEmpty()) {
-                return;
+        private void fillVehicles(Activity activity) {
+            int missing = activity.requirements().vehicles() - current.vehiclesOf(activity.id()).size();
+            for (int vehicle = 0; vehicle < missing; vehicle++) {
+                takeFirstFree(
+                        resources.vehicles().vehicles().stream().map(candidate -> new VehicleAssignment(activity.id(), candidate.id())),
+                        activity
+                );
             }
-            takeFirstFree(
-                    resources.vehicles().vehicles().stream().map(vehicle -> new VehicleAssignment(activity.id(), vehicle.id())),
-                    activity
-            );
         }
 
-        private void fillInstrument(Activity activity) {
-            Optional<InstrumentKind> kind = activity.requirements().instrument().requiredKind();
-            if (kind.isEmpty() || !current.instrumentsOf(activity.id()).isEmpty()) {
-                return;
+        private void fillInstruments(Activity activity) {
+            for (InstrumentKind kind : activity.requirements().instruments()) {
+                if (!hasInstrumentOf(activity, kind)) {
+                    takeFirstFree(
+                            resources.instruments().instruments().stream()
+                                    .filter(instrument -> instrument.kind().equals(kind))
+                                    .map(instrument -> new InstrumentAssignment(activity.id(), instrument.id())),
+                            activity
+                    );
+                }
             }
-            takeFirstFree(
-                    resources.instruments().instruments().stream()
-                            .filter(instrument -> instrument.kind().equals(kind.get()))
-                            .map(instrument -> new InstrumentAssignment(activity.id(), instrument.id())),
-                    activity
-            );
+        }
+
+        private boolean hasInstrumentOf(Activity activity, InstrumentKind kind) {
+            return current.instrumentsOf(activity.id()).stream()
+                    .map(assignment -> resources.instruments().instrument(assignment.instrumentId()))
+                    .flatMap(Optional::stream)
+                    .anyMatch(instrument -> instrument.kind().equals(kind));
         }
 
         private void fillPeople(Activity activity) {

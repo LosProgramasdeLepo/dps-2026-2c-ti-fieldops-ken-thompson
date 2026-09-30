@@ -1,6 +1,7 @@
 package edu.itba.fieldops.domain.catalog;
 
 import edu.itba.fieldops.domain.catalog.usecase.AdministerCatalog;
+import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
@@ -9,6 +10,7 @@ import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
@@ -19,16 +21,25 @@ import java.util.Objects;
 public final class AdministerCatalogInteractor implements AdministerCatalog {
     private final CatalogRegistry registry;
     private final Catalogs catalogs;
+    private final Certifications certifications;
 
-    public AdministerCatalogInteractor(CatalogRegistry registry, Catalogs catalogs) {
+    public AdministerCatalogInteractor(CatalogRegistry registry, Catalogs catalogs, Certifications certifications) {
         this.registry = Objects.requireNonNull(registry, "catalog registry");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
+        this.certifications = Objects.requireNonNull(certifications, "certifications");
     }
 
     @Override
-    public PersonId registerPerson(String name, List<Certification> certifications, Availability availability) {
+    public CertificationId registerCertification(String name) {
+        CertificationId id = registry.nextCertificationId();
+        registry.save(new Certification(id, name));
+        return id;
+    }
+
+    @Override
+    public PersonId registerPerson(String name, List<CertificationId> certificationIds, Availability availability) {
         PersonId id = registry.nextPersonId();
-        registry.save(new Person(id, name, certifications, availability));
+        registry.save(new Person(id, name, certificationIds.stream().map(this::requireCertification).toList(), availability));
         return id;
     }
 
@@ -54,16 +65,9 @@ public final class AdministerCatalogInteractor implements AdministerCatalog {
     }
 
     @Override
-    public PermitId registerPermit(WorkZone zone, TimePeriod validity) {
+    public PermitId registerPermit(PermitKind kind, WorkZone zone, TimePeriod validity) {
         PermitId id = registry.nextPermitId();
-        registry.save(Permit.zone(id, zone, validity));
-        return id;
-    }
-
-    @Override
-    public PermitId registerNightPermit(WorkZone zone, TimePeriod validity) {
-        PermitId id = registry.nextPermitId();
-        registry.save(Permit.night(id, zone, validity));
+        registry.save(new Permit(id, zone, validity, kind));
         return id;
     }
 
@@ -87,8 +91,8 @@ public final class AdministerCatalogInteractor implements AdministerCatalog {
     }
 
     @Override
-    public void certify(PersonId personId, Certification certification) {
-        registry.save(requirePerson(personId).certified(certification));
+    public void certify(PersonId personId, CertificationId certificationId) {
+        registry.save(requirePerson(personId).certified(requireCertification(certificationId)));
     }
 
     @Override
@@ -96,6 +100,11 @@ public final class AdministerCatalogInteractor implements AdministerCatalog {
         Consumable consumable = catalogs.consumables().consumable(consumableId)
                 .orElseThrow(() -> new InvalidValue("unknown consumable: " + consumableId));
         registry.save(consumable.withStock(stock));
+    }
+
+    private Certification requireCertification(CertificationId certificationId) {
+        return certifications.certification(certificationId)
+                .orElseThrow(() -> new InvalidValue("unknown certification: " + certificationId));
     }
 
     private Person requirePerson(PersonId personId) {

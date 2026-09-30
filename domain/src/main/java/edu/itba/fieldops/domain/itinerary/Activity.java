@@ -4,6 +4,7 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.Texts;
@@ -15,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -55,9 +57,9 @@ public final class Activity implements ItineraryItem {
         return new Builder(new ResourceRequirements(
                 Set.of(Objects.requireNonNull(certification, "sampling certification")),
                 Set.of(),
-                VehicleRequirement.NONE,
-                new InstrumentRequirement.None(),
-                NightPermit.NONE
+                Set.of(),
+                Set.of(),
+                0
         ));
     }
 
@@ -65,9 +67,9 @@ public final class Activity implements ItineraryItem {
         return new Builder(new ResourceRequirements(
                 Set.of(Objects.requireNonNull(certification, "operator certification")),
                 Set.of(),
-                VehicleRequirement.NONE,
-                new InstrumentRequirement.OfKind(instrument),
-                NightPermit.NONE
+                Set.of(Objects.requireNonNull(instrument, "instrument kind")),
+                Set.of(),
+                0
         ));
     }
 
@@ -75,9 +77,9 @@ public final class Activity implements ItineraryItem {
         return new Builder(new ResourceRequirements(
                 Set.of(),
                 Set.of(),
-                VehicleRequirement.REQUIRED,
-                new InstrumentRequirement.None(),
-                NightPermit.NONE
+                Set.of(),
+                Set.of(),
+                1
         ));
     }
 
@@ -85,9 +87,9 @@ public final class Activity implements ItineraryItem {
         return new Builder(new ResourceRequirements(
                 Set.of(),
                 Set.of(Objects.requireNonNull(nightOperation, "night certification")),
-                VehicleRequirement.NONE,
-                new InstrumentRequirement.OfKind(InstrumentKind.LIGHTING),
-                NightPermit.REQUIRED
+                Set.of(InstrumentKind.LIGHTING),
+                Set.of(PermitKind.NIGHT),
+                0
         ), RiskLevel::raised);
     }
 
@@ -95,9 +97,9 @@ public final class Activity implements ItineraryItem {
         return new Builder(new ResourceRequirements(
                 Set.of(),
                 Set.of(Objects.requireNonNull(diving, "diving certification")),
-                VehicleRequirement.NONE,
-                new InstrumentRequirement.OfKind(InstrumentKind.DIVING_GEAR),
-                NightPermit.NONE
+                Set.of(InstrumentKind.DIVING_GEAR),
+                Set.of(),
+                0
         ));
     }
 
@@ -105,9 +107,9 @@ public final class Activity implements ItineraryItem {
         return new Builder(new ResourceRequirements(
                 Set.of(),
                 Set.of(),
-                VehicleRequirement.REQUIRED,
-                new InstrumentRequirement.OfKind(InstrumentKind.CAMP_GEAR),
-                NightPermit.NONE
+                Set.of(InstrumentKind.CAMP_GEAR),
+                Set.of(),
+                1
         ));
     }
 
@@ -155,6 +157,26 @@ public final class Activity implements ItineraryItem {
     @Override
     public List<Activity> activities() {
         return List.of(this);
+    }
+
+    @Override
+    public List<ActivityBlock> blocks() {
+        return List.of();
+    }
+
+    @Override
+    public Map<ActivityId, Set<ActivityId>> precedence() {
+        return Map.of(id, predecessors);
+    }
+
+    @Override
+    public Activity replacing(Activity updated) {
+        return id.equals(updated.id) ? updated : this;
+    }
+
+    @Override
+    public Optional<ItineraryItem> without(ActivityId activityId) {
+        return id.equals(activityId) ? Optional.empty() : Optional.of(this);
     }
 
     Activity withWindow(TimePeriod window) {

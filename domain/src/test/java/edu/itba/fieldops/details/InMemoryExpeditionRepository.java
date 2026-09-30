@@ -2,6 +2,7 @@ package edu.itba.fieldops.details;
 
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 
 import java.util.LinkedHashMap;
@@ -17,6 +18,11 @@ public final class InMemoryExpeditionRepository implements ExpeditionRepository 
     @Override
     public ExpeditionId nextId() {
         return new ExpeditionId(UUID.randomUUID());
+    }
+
+    @Override
+    public ActivityId nextActivityId() {
+        return new ActivityId(UUID.randomUUID());
     }
 
     @Override

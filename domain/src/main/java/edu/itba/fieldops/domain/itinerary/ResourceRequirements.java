@@ -1,22 +1,30 @@
 package edu.itba.fieldops.domain.itinerary;
 
 import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.shared.InstrumentKind;
+import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.PermitKind;
 
-import java.util.Objects;
 import java.util.Set;
 
 public record ResourceRequirements(
         Set<CertificationId> certifications,
         Set<CertificationId> heldByEveryone,
-        VehicleRequirement vehicle,
-        InstrumentRequirement instrument,
-        NightPermit nightPermit
+        Set<InstrumentKind> instruments,
+        Set<PermitKind> specialPermits,
+        int vehicles
 ) {
     public ResourceRequirements {
         certifications = Set.copyOf(certifications);
         heldByEveryone = Set.copyOf(heldByEveryone);
-        Objects.requireNonNull(vehicle, "vehicle requirement");
-        Objects.requireNonNull(instrument, "instrument requirement");
-        Objects.requireNonNull(nightPermit, "night permit");
+        instruments = Set.copyOf(instruments);
+        specialPermits = Set.copyOf(specialPermits);
+        if (vehicles < 0) {
+            throw new InvalidValue("required vehicles must not be negative");
+        }
+    }
+
+    public boolean needsCertifiedPersonnel() {
+        return !certifications.isEmpty() || !heldByEveryone.isEmpty();
     }
 }

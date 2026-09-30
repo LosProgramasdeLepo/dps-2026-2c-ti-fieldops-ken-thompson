@@ -1,7 +1,6 @@
 package edu.itba.fieldops.details;
 
 import edu.itba.fieldops.domain.catalog.Availability;
-import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
@@ -53,11 +52,11 @@ class PlanningUseCasesTest extends UseCaseFixture {
 
     @Test
     void theEstimateOfANightActivityUsesItsRaisedRisk() {
-        CertificationId nightOperation = certification();
-        PersonId ada = registry.registerPerson("Ada", List.of(new Certification(nightOperation, "Night operation")), Availability.always());
+        CertificationId nightOperation = registry.registerCertification("Night operation");
+        PersonId ada = registry.registerPerson("Ada", List.of(nightOperation), Availability.always());
         InstrumentId lamp = registry.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
         ExpeditionId expeditionId = draftResponsibleFor(ada);
-        ActivityId activityId = new ActivityId(UUID.randomUUID());
+        ActivityId activityId = itinerary.nextActivityId();
         itinerary.addActivity(expeditionId, Activity.night(nightOperation)
                 .named(activityId, "Night survey")
                 .estimated(Duration.ofHours(3), RiskLevel.MEDIUM)
@@ -77,12 +76,12 @@ class PlanningUseCasesTest extends UseCaseFixture {
         CertificationId certificationId = certification();
         ExpeditionId expeditionId = draftResponsibleFor(certifiedPerson("Ada", certificationId));
         Activity approach = Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "Approach")
+                .named(itinerary.nextActivityId(), "Approach")
                 .estimated(Duration.ofHours(2), RiskLevel.LOW)
                 .in(DELTA, hours(0, 2))
                 .build();
-        Activity left = sampling(certificationId, new ActivityId(UUID.randomUUID()), hours(2, 6));
-        Activity right = sampling(certificationId, new ActivityId(UUID.randomUUID()), hours(2, 5));
+        Activity left = sampling(certificationId, itinerary.nextActivityId(), hours(2, 6));
+        Activity right = sampling(certificationId, itinerary.nextActivityId(), hours(2, 5));
         itinerary.addBlock(expeditionId, ActivityBlock.sequential(approach, ActivityBlock.parallel(left, right)));
 
         Estimate estimate = estimates.of(expeditionId);

@@ -37,6 +37,7 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +46,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -255,7 +255,7 @@ class ExpeditionValidatorTest {
 
     @Test
     void nightActivityWithoutPersonnelIsResourceNotCertification() {
-        ValidationResult result = validateNightSurvey(ExpeditionValidatorTest::nightPermitFor);
+        ValidationResult result = validateNightSurvey(PermitKind.NIGHT);
 
         assertIssue(result, IssueSeverity.CRITICAL, "RESOURCE");
         assertNo(result, "CERTIFICATION");
@@ -263,14 +263,14 @@ class ExpeditionValidatorTest {
 
     @Test
     void nightCertificationMustBeHeldByEveryAssignee() {
-        ValidationResult result = validateNightSurvey(ExpeditionValidatorTest::nightPermitFor, nightOperator("Ada"), uncertified("Bob"));
+        ValidationResult result = validateNightSurvey(PermitKind.NIGHT, nightOperator("Ada"), uncertified("Bob"));
 
         assertIssue(result, IssueSeverity.CRITICAL, "CERTIFICATION");
     }
 
     @Test
     void zonePermitDoesNotCoverANightActivity() {
-        ValidationResult result = validateNightSurvey(ExpeditionValidatorTest::permitFor, nightOperator("Ada"));
+        ValidationResult result = validateNightSurvey(PermitKind.ZONE, nightOperator("Ada"));
 
         assertIssue(result, IssueSeverity.CRITICAL, "PERMIT");
         assertNo(result, "CERTIFICATION");
@@ -278,7 +278,7 @@ class ExpeditionValidatorTest {
 
     @Test
     void nightActivityWithCertificationLightingAndNightPermitHasNoIssues() {
-        ValidationResult result = validateNightSurvey(ExpeditionValidatorTest::nightPermitFor, nightOperator("Ada"), nightOperator("Bob"));
+        ValidationResult result = validateNightSurvey(PermitKind.NIGHT, nightOperator("Ada"), nightOperator("Bob"));
 
         assertTrue(result.issues().isEmpty());
     }
@@ -529,7 +529,7 @@ class ExpeditionValidatorTest {
                 .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
                 .in(coast, window(0, 4))
                 .build();
-        Permit deltaPermit = Permit.zone(new PermitId(UUID.randomUUID()), DELTA, activity.window());
+        Permit deltaPermit = new Permit(new PermitId(UUID.randomUUID()), DELTA, activity.window(), PermitKind.ZONE);
         Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 new ExpeditionCharter(
@@ -557,7 +557,7 @@ class ExpeditionValidatorTest {
         Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
         Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
         Activity activity = sampling(certification.id(), 4, 8);
-        Permit morningOnly = Permit.zone(new PermitId(UUID.randomUUID()), DELTA, window(0, 4));
+        Permit morningOnly = new Permit(new PermitId(UUID.randomUUID()), DELTA, window(0, 4), PermitKind.ZONE);
         Expedition expedition = draft();
         ExpeditionEditing.addActivity(expedition, activity);
         ExpeditionEditing.addAssignment(expedition, new PersonAssignment(activity.id(), person.id()));
@@ -571,10 +571,10 @@ class ExpeditionValidatorTest {
         assertIssue(result, IssueSeverity.CRITICAL, "PERMIT");
     }
 
-    private ValidationResult validateNightSurvey(Function<Activity, Permit> permitFor, Person... crew) {
+    private ValidationResult validateNightSurvey(PermitKind permitKind, Person... crew) {
         Activity activity = night(0, 4);
         Instrument lamp = new Instrument(new InstrumentId(UUID.randomUUID()), InstrumentKind.LIGHTING, Availability.always());
-        Permit permit = permitFor.apply(activity);
+        Permit permit = new Permit(new PermitId(UUID.randomUUID()), activity.zone(), activity.window(), permitKind);
         Expedition expedition = draft();
         ExpeditionEditing.addActivity(expedition, activity);
         ExpeditionEditing.addAssignment(expedition, new InstrumentAssignment(activity.id(), lamp.id()));
@@ -595,10 +595,6 @@ class ExpeditionValidatorTest {
 
     private static Person uncertified(String name) {
         return new Person(new PersonId(UUID.randomUUID()), name, List.of(), Availability.always());
-    }
-
-    private static Permit nightPermitFor(Activity activity) {
-        return Permit.night(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
     }
 
     private static PlanningContext contextOf(Expedition plan, ResourceCatalog catalog) {
@@ -726,7 +722,7 @@ class ExpeditionValidatorTest {
     }
 
     private static Permit permitFor(Activity activity) {
-        return Permit.zone(new PermitId(UUID.randomUUID()), activity.zone(), activity.window());
+        return new Permit(new PermitId(UUID.randomUUID()), activity.zone(), activity.window(), PermitKind.ZONE);
     }
 
     private static TimePeriod window(int fromHour, int toHour) {

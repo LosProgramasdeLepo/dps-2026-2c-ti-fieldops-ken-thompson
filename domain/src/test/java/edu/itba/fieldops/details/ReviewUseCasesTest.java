@@ -113,7 +113,7 @@ class ReviewUseCasesTest extends UseCaseFixture {
     void theOriginalStaysApprovedUntilItsRevisionIsApproved() {
         TwoSamplings plan = approvedTwoSamplings();
 
-        ExpeditionId revision = replan.cancel(plan.expeditionId(), plan.later());
+        ExpeditionId revision = revisionWithout(plan.expeditionId(), plan.later());
 
         assertEquals(ExpeditionStatus.APPROVED, consult.of(plan.expeditionId()).status());
 
@@ -127,8 +127,8 @@ class ReviewUseCasesTest extends UseCaseFixture {
     @Test
     void onlyOneRevisionOfAPlanCanBeApproved() {
         TwoSamplings plan = approvedTwoSamplings();
-        ExpeditionId withoutLater = replan.cancel(plan.expeditionId(), plan.later());
-        ExpeditionId withoutFirst = replan.cancel(plan.expeditionId(), plan.first());
+        ExpeditionId withoutLater = revisionWithout(plan.expeditionId(), plan.later());
+        ExpeditionId withoutFirst = revisionWithout(plan.expeditionId(), plan.first());
         review.submit(withoutLater);
         approval.approve(withoutLater);
         review.submit(withoutFirst);

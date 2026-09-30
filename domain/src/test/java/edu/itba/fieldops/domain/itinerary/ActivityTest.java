@@ -4,6 +4,7 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -98,28 +99,24 @@ class ActivityTest {
     }
 
     private static Stream<Arguments> requirementsOfEachKind() {
-        InstrumentRequirement none = new InstrumentRequirement.None();
         return Stream.of(
                 arguments("sampling", Activity.sampling(SAMPLING), new ResourceRequirements(
-                        Set.of(SAMPLING), Set.of(), VehicleRequirement.NONE, none, NightPermit.NONE
+                        Set.of(SAMPLING), Set.of(), Set.of(), Set.of(), 0
                 )),
                 arguments("measurement", Activity.measurement(SAMPLING, PROBE), new ResourceRequirements(
-                        Set.of(SAMPLING), Set.of(), VehicleRequirement.NONE, new InstrumentRequirement.OfKind(PROBE), NightPermit.NONE
+                        Set.of(SAMPLING), Set.of(), Set.of(PROBE), Set.of(), 0
                 )),
                 arguments("transit", Activity.transit(), new ResourceRequirements(
-                        Set.of(), Set.of(), VehicleRequirement.REQUIRED, none, NightPermit.NONE
+                        Set.of(), Set.of(), Set.of(), Set.of(), 1
                 )),
                 arguments("night", Activity.night(NIGHT_OPERATION), new ResourceRequirements(
-                        Set.of(), Set.of(NIGHT_OPERATION), VehicleRequirement.NONE,
-                        new InstrumentRequirement.OfKind(InstrumentKind.LIGHTING), NightPermit.REQUIRED
+                        Set.of(), Set.of(NIGHT_OPERATION), Set.of(InstrumentKind.LIGHTING), Set.of(PermitKind.NIGHT), 0
                 )),
                 arguments("dive", Activity.dive(DIVING), new ResourceRequirements(
-                        Set.of(), Set.of(DIVING), VehicleRequirement.NONE,
-                        new InstrumentRequirement.OfKind(InstrumentKind.DIVING_GEAR), NightPermit.NONE
+                        Set.of(), Set.of(DIVING), Set.of(InstrumentKind.DIVING_GEAR), Set.of(), 0
                 )),
                 arguments("camp", Activity.camp(), new ResourceRequirements(
-                        Set.of(), Set.of(), VehicleRequirement.REQUIRED,
-                        new InstrumentRequirement.OfKind(InstrumentKind.CAMP_GEAR), NightPermit.NONE
+                        Set.of(), Set.of(), Set.of(InstrumentKind.CAMP_GEAR), Set.of(), 1
                 ))
         );
     }
