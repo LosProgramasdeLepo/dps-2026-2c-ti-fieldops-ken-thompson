@@ -9,49 +9,40 @@ import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 class ActivityConstructionTest {
     private static final Instant START = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
     private static final InstrumentKind PROBE = new InstrumentKind("probe");
+    private static final CertificationId SAMPLING = certification();
+    private static final CertificationId NIGHT_OPERATION = certification();
+    private static final CertificationId DIVING = certification();
 
-    @Test
-    void eachKindKeepsItsOwnDurationRiskAndRequirements() {
-        Activity sampling = Activity.sampling(certification())
-                .named(id(), "sample")
-                .estimated(Duration.ofHours(5), RiskLevel.LOW)
-                .in(DELTA, window(Duration.ofHours(5)))
-                .build();
-        Activity transit = Activity.transit()
-                .named(id(), "move")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
-                .in(DELTA, window(Duration.ofHours(2)))
-                .build();
-        Activity measurement = Activity.measurement(certification(), PROBE)
-                .named(id(), "measure")
-                .estimated(Duration.ofHours(3), RiskLevel.HIGH)
-                .in(DELTA, window(Duration.ofHours(3)))
-                .build();
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("requirementsOfEachKind")
+    void eachKindDeclaresItsRequirements(String kind, Activity.Builder builder, ResourceRequirements expected) {
+        assertEquals(expected, planned(builder, RiskLevel.MEDIUM).requirements());
+    }
 
-        assertAll(
-                () -> assertEquals(VehicleRequirement.NONE, sampling.requirements().vehicle()),
-                () -> assertEquals(VehicleRequirement.REQUIRED, transit.requirements().vehicle()),
-                () -> assertInstanceOf(InstrumentRequirement.OfKind.class, measurement.requirements().instrument()),
-                () -> assertEquals(Duration.ofHours(5), sampling.estimatedDuration()),
-                () -> assertEquals(Duration.ofHours(2), transit.estimatedDuration()),
-                () -> assertEquals(RiskLevel.HIGH, measurement.risk())
-        );
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("riskOfEachKind")
+    void onlyTheNightKindRaisesTheEstimatedRisk(String kind, Activity.Builder builder, RiskLevel expected) {
+        assertEquals(expected, planned(builder, RiskLevel.MEDIUM).risk());
     }
 
     @Test
@@ -77,36 +68,6 @@ class ActivityConstructionTest {
     }
 
     @Test
-    void nightActivityRaisesRiskAndCarriesNightRequirements() {
-        CertificationId nightOperation = certification();
-        Activity night = Activity.night(nightOperation)
-                .named(id(), "watch")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
-                .in(DELTA, window(Duration.ofHours(2)))
-                .build();
-        Activity raised = Activity.night(nightOperation)
-                .named(id(), "watch")
-                .estimated(Duration.ofHours(2), RiskLevel.MEDIUM)
-                .in(DELTA, window(Duration.ofHours(2)))
-                .build();
-        Activity alreadyHigh = Activity.night(nightOperation)
-                .named(id(), "watch")
-                .estimated(Duration.ofHours(2), RiskLevel.HIGH)
-                .in(DELTA, window(Duration.ofHours(2)))
-                .build();
-
-        assertAll(
-                () -> assertEquals(RiskLevel.MEDIUM, night.risk()),
-                () -> assertEquals(RiskLevel.HIGH, raised.risk()),
-                () -> assertEquals(RiskLevel.HIGH, alreadyHigh.risk()),
-                () -> assertEquals(NightPermit.REQUIRED, night.requirements().nightPermit()),
-                () -> assertEquals(InstrumentKind.LIGHTING, night.requirements().instrument().requiredKind().orElseThrow()),
-                () -> assertEquals(Set.of(), night.requirements().certifications()),
-                () -> assertEquals(Set.of(nightOperation), night.requirements().heldByEveryone())
-        );
-    }
-
-    @Test
     void rejectsSelfAsPredecessor() {
         ActivityId activityId = id();
 
@@ -116,41 +77,6 @@ class ActivityConstructionTest {
                 .in(DELTA, window(Duration.ofHours(2)))
                 .after(Set.of(activityId))
                 .build());
-    }
-
-    @Test
-    void diveRequiresDivingGearAndTheCertificationOfEveryDiver() {
-        CertificationId diving = certification();
-
-        Activity dive = Activity.dive(diving)
-                .named(id(), "reef survey")
-                .estimated(Duration.ofHours(2), RiskLevel.HIGH)
-                .in(DELTA, window(Duration.ofHours(2)))
-                .build();
-
-        assertAll(
-                () -> assertEquals(Set.of(diving), dive.requirements().heldByEveryone()),
-                () -> assertEquals(Set.of(), dive.requirements().certifications()),
-                () -> assertEquals(InstrumentKind.DIVING_GEAR, dive.requirements().instrument().requiredKind().orElseThrow()),
-                () -> assertEquals(NightPermit.NONE, dive.requirements().nightPermit()),
-                () -> assertEquals(RiskLevel.HIGH, dive.risk())
-        );
-    }
-
-    @Test
-    void campRequiresAVehicleAndCampGear() {
-        Activity camp = Activity.camp()
-                .named(id(), "base camp")
-                .estimated(Duration.ofHours(3), RiskLevel.LOW)
-                .in(DELTA, window(Duration.ofHours(3)))
-                .build();
-
-        assertAll(
-                () -> assertEquals(VehicleRequirement.REQUIRED, camp.requirements().vehicle()),
-                () -> assertEquals(InstrumentKind.CAMP_GEAR, camp.requirements().instrument().requiredKind().orElseThrow()),
-                () -> assertEquals(Set.of(), camp.requirements().certifications()),
-                () -> assertEquals(Set.of(), camp.requirements().heldByEveryone())
-        );
     }
 
     @Test
@@ -169,6 +95,51 @@ class ActivityConstructionTest {
                 .estimated(Duration.ofHours(2), RiskLevel.LOW)
                 .in(DELTA, window(Duration.ofHours(1)))
                 .build());
+    }
+
+    private static Stream<Arguments> requirementsOfEachKind() {
+        InstrumentRequirement none = new InstrumentRequirement.None();
+        return Stream.of(
+                arguments("sampling", Activity.sampling(SAMPLING), new ResourceRequirements(
+                        Set.of(SAMPLING), Set.of(), VehicleRequirement.NONE, none, NightPermit.NONE
+                )),
+                arguments("measurement", Activity.measurement(SAMPLING, PROBE), new ResourceRequirements(
+                        Set.of(SAMPLING), Set.of(), VehicleRequirement.NONE, new InstrumentRequirement.OfKind(PROBE), NightPermit.NONE
+                )),
+                arguments("transit", Activity.transit(), new ResourceRequirements(
+                        Set.of(), Set.of(), VehicleRequirement.REQUIRED, none, NightPermit.NONE
+                )),
+                arguments("night", Activity.night(NIGHT_OPERATION), new ResourceRequirements(
+                        Set.of(), Set.of(NIGHT_OPERATION), VehicleRequirement.NONE,
+                        new InstrumentRequirement.OfKind(InstrumentKind.LIGHTING), NightPermit.REQUIRED
+                )),
+                arguments("dive", Activity.dive(DIVING), new ResourceRequirements(
+                        Set.of(), Set.of(DIVING), VehicleRequirement.NONE,
+                        new InstrumentRequirement.OfKind(InstrumentKind.DIVING_GEAR), NightPermit.NONE
+                )),
+                arguments("camp", Activity.camp(), new ResourceRequirements(
+                        Set.of(), Set.of(), VehicleRequirement.REQUIRED,
+                        new InstrumentRequirement.OfKind(InstrumentKind.CAMP_GEAR), NightPermit.NONE
+                ))
+        );
+    }
+
+    private static Stream<Arguments> riskOfEachKind() {
+        return Stream.of(
+                arguments("sampling", Activity.sampling(SAMPLING), RiskLevel.MEDIUM),
+                arguments("measurement", Activity.measurement(SAMPLING, PROBE), RiskLevel.MEDIUM),
+                arguments("transit", Activity.transit(), RiskLevel.MEDIUM),
+                arguments("night", Activity.night(NIGHT_OPERATION), RiskLevel.HIGH),
+                arguments("dive", Activity.dive(DIVING), RiskLevel.MEDIUM),
+                arguments("camp", Activity.camp(), RiskLevel.MEDIUM)
+        );
+    }
+
+    private static Activity planned(Activity.Builder builder, RiskLevel risk) {
+        return builder.named(id(), "planned")
+                .estimated(Duration.ofHours(2), risk)
+                .in(DELTA, window(Duration.ofHours(2)))
+                .build();
     }
 
     private static ActivityId id() {

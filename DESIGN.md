@@ -2,88 +2,104 @@
 
 ## Aplicadas
 
-**Dos agregados.** `Expedition` es el plan (`DRAFT | IN_REVIEW | APPROVED | SUPERSEDED`). `ExpeditionExecution` es la corrida (`IN_PROGRESS | SUSPENDED | FINISHED`). Itinerario, validador, sugeridor, replanner e informe quedan afuera. El caso de uso cruza plan y corrida.
+**Arquitectura.** Clean Architecture empaquetada por componente. `catalog`, `expedition`, `itinerary`, `tracking`, `validation` y `report` tienen entidades, servicios, puertos e interactors; `identity`, `shared` y `assessment` son la base estable. La interfaz de cada caso de uso está en `<componente>.usecase` y el interactor junto a sus entidades, para usar las transiciones package-private (`markApproved`, `reviseAsDraft`, `submitForReview`): solo el caso de uso aprueba o revisa un plan. Dependencias sin ciclos: `validation → expedition → {tracking, itinerary, catalog, assessment}`, `report → {expedition, tracking}`, `tracking → {identity, shared}`. Los ids de planes, propuestas y recursos salen de los repositorios; los de actividad y certificación los trae quien llama. El tiempo sale de `Clock`.
 
-**Casos de uso.** Cada flujo es una interfaz en `<subdominio>.usecase` y un interactor en el paquete del subdominio. El interactor no vive en `usecase`: el de plan alcanza las transiciones de paquete. El que modifica carga por id, aplica y guarda. El de lectura no guarda. Ninguno recibe el plan ni la corrida ya armados. `AdministerCatalog` vive en `catalog.usecase`. `EstimateExpedition` y `ReportExpedition` en `report.usecase`. El resto en `expedition.usecase`. `ExpeditionValidator`, `AssignmentSuggester`, `Replanner` y `ReplanProposer` son servicios, no el camino de la aplicación. Transiciones del plan y `Expedition.draft` son de paquete. Volver a borrador es de `ReviewExpedition`: solo desde `IN_REVIEW`, sin tocar la corrida. Las de la corrida son públicas: `TrackExpedition` en `expedition.usecase`, `ExpeditionExecution` en `tracking`.
+**Validador como puerto.** `ExpeditionValidator` es una interfaz de `expedition` y `RuleBasedValidator`, en `validation`, la implementa. Tiene una sola implementación porque existe para cortar el ciclo entre esos paquetes (DIP).
 
-**Puertos.** `People`, `Vehicles`, `Instruments`, `Consumables` y `Permits` consultan cada recurso. `BookableResources` junta los tres con ventana. `Catalogs` suma consumibles y permisos. `CatalogRegistry` da de alta persona, vehículo, instrumento, consumible y permiso; la certificación va con la persona. `ExpeditionRepository`, `ExecutionRepository` y `ReplanProposalRepository` persisten. `Clock.now()` sella inicio y fin de actividad, incidentes, observaciones y la decisión de una propuesta; en el arranque de la expedición solo chequea el período. Adaptador, catálogo y reloj fijo están en `domain/src/test/java/edu/itba/fieldops/details`. `src/main` no los importa.
+**Casos de uso.** `AdministerCatalog`, `DraftExpedition`, `PlanItinerary`, `AssignResources`, `ReviewExpedition`, `ApproveExpedition`, `TrackExpedition`, `RecordIncident`, `ReplanExpedition`, `ReviewReplanProposal`, `ConsultExpedition`, `EstimateExpedition`, `ReportExpedition`. Cada uno agrupa las operaciones de un actor; seguimiento e incidentes están separados porque cambian por motivos distintos. Los que modifican cargan por id, aplican y guardan; los de lectura no guardan. Ninguna entidad mutable sale: las consultas devuelven `PlanSnapshot`, `ProposalSnapshot`, `Estimate`, `OperationalReport` y `ValidationResult`, armados por el interactor. Entran ids y objetos inmutables.
 
-**Aprobación.** `ApproveExpedition` exige `IN_REVIEW`, revalida y llama a `markApproved`. El agregado no recibe un `ValidationResult`. Ese resultado guarda id y versión del plan validado. Críticos o warning sin justificar: `ExpeditionNotApprovable`. Solo `DRAFT` se edita. `IN_REVIEW` ocupa y puede volver a borrador. Una advertencia la acepta un responsable. `submit` rechaza críticos. Las restricciones son texto.
+**Puertos.** Lectura por recurso (`People`, `Vehicles`, `Instruments`, `Consumables`, `Permits`), agrupados en `BookableResources` y `Catalogs`. `CatalogRegistry` escribe con `save` (upsert). `ExpeditionRepository` (con `require`), `ExecutionRepository`, `ReplanProposalRepository`, `Clock`. Adaptadores en memoria y reloj fijo en `domain/src/test/java/edu/itba/fieldops/details`.
 
-**Identidad y cantidades.** Cada id es un record sobre un UUID, en `identity`. La reserva es `PersonBooking`, `VehicleBooking` o `InstrumentBooking`: el id no se aplana. `Stock` y `Passengers` no comparten supertipo. Cero es válido.
+**Clean Code.** Hasta tres argumentos. Excepciones: records (`OperationalReport`, `PlanSnapshot`, `ExpeditionCharter`, `ResourceRequirements`, `Permit`), constructores de interactors (hasta seis colaboradores en `RecordIncidentInteractor`) y `Person`. `ExpeditionCharter` y `PlanningContext` agrupan argumentos que viajan juntos; `Activity` se arma con un builder por tipo. Sin banderas booleanas: `ActivityBlock.Arrangement` en vez de `boolean parallel`, `overlapsWithin` y `overlapsBetween` en vez de un `conflicts` con flag. Sin `null` en parámetros ni retornos: `Incident` guarda la actividad como `Optional` y `OperationalReport.of` tiene una versión con corrida y otra sin. CQS: `Assignments.withdraw` no devuelve nada y `ReplanExpeditionInteractor` separa `returnToDraftIfInReview` de `workingDraftOf`. Un término por concepto (`occupying`, `inForce`, `lineage`). Sin comentarios.
 
-**Actividad.** Duración, riesgo, requisitos y consumo estimado son datos. Vehículo: `NONE | REQUIRED`. Instrumento: `None | OfKind`. La asignación implementa `booking`, `unknownIn` y se archiva sola. Solo el consumible declara cantidad; `Assignments.consumption()` la suma. Una reserva nueva responde `conflictsWith` para su id. Asignación por actividad. Persona, vehículo e instrumento se reusan con ventanas disjuntas. El consumible, por stock del depósito.
+**Dos agregados.** `Expedition` es el plan (`DRAFT | IN_REVIEW | APPROVED | SUPERSEDED`) y `ExpeditionExecution` la corrida (`IN_PROGRESS | SUSPENDED | FINISHED`). `OperationalStatus` reúne los seis estados. Solo `DRAFT` se edita.
 
-**Permiso y certificación.** `Permit` cubre zona y vigencia, adjunto a la expedición. `Certification` vive en la persona y la pide el requisito. Vehículos e instrumentos, por disponibilidad.
+**Aprobación.** `ApproveExpedition` exige `IN_REVIEW`, revalida y rechaza con `ExpeditionNotApprovable` si hay críticos o advertencias sin aceptar. El agregado no recibe un `ValidationResult`. `submit` rechaza un itinerario vacío o con críticos. Una advertencia la acepta un responsable, con justificación, solo si la validación actual la produce; volver a borrador las borra.
 
-**Catálogo y reserva.** Ocupa `IN_REVIEW` o `APPROVED` cuya ejecución no está `FINISHED`. Un `SUPERSEDED` ocupa a las demás si su corrida sigue. `OccupyingExpeditions` excluye al propio plan, al que esta revisión supersede, y a una terminada si el llamador pasa su ejecución. El sucesor no compite con el original: copia itinerario y asignaciones. El stock del catálogo es el depósito: lo asignado en el plan y en las que ocupan se compara con ese depósito.
+**Revisiones.** Un plan aprobado no se edita. `reviseAsDraft(id)` crea una revisión (versión + 1, `supersedes`) con charter, itinerario, asignaciones y permisos, sin advertencias. La revisión rige cuando se aprueba: la aprobación marca `SUPERSEDED` al predecesor, que tiene que seguir `APPROVED`, y por eso se aprueba una sola revisión por plan. Hasta entonces el original sigue vigente y ocupando.
 
-**Assessment.** `ValidationResult`, `ValidationIssue` e `IssueSeverity` viven fuera de `validation` y de `expedition` para no ciclar paquetes. `ValidationContext` lleva expedición, catálogos y las que ocupan. `ExpeditionValidator` recorre las reglas del constructor; `withDefaultRules` arma las siete. Otra regla es otra clase.
+**Corrida y linaje.** La corrida vive en la raíz. `Revisions.inForce` pasa de un `SUPERSEDED` a su revisión aprobada: ese itinerario sigue el seguimiento. Ningún plan del linaje arranca otra corrida. Ocupan recursos los planes `IN_REVIEW` o `APPROVED` cuya corrida no terminó y los `SUPERSEDED` con corrida abierta. `OccupyingExpeditions` excluye el linaje del plan evaluado.
 
-**Códigos.** `RESOURCE`: id ausente (asignación o permiso) o actividad que pide persona certificada, vehículo o instrumento y no lo tiene. `CERTIFICATION`: personas conocidas asignadas y ninguna con la certificación pedida a alguien, o alguna sin la que el requisito pide a todos. `PERMIT`: actividad no cubierta por los permisos conocidos, o sin permiso nocturno si lo pide. Adjuntos vacíos = todas descubiertas. Adjuntos todos desconocidos = solo `RESOURCE`. Un id ya en `RESOURCE` omite disponibilidad, stock, certificación y capacidad. `OVERLAP` y `AVAILABILITY` salen de `TemporalOverlapRule`. `PARALLEL`: persona, vehículo o instrumento en dos ramas de un bloque paralelo; las ventanas disjuntas no alcanzan. El consumible no entra. `STOCK` compara lo asignado (propio y ocupantes) con el depósito. `CAPACITY` es `WARNING`; el resto, `CRITICAL`. Capacidad = vehículos de esa actividad. Pasajeros = personas de la misma.
+**Actividad.** Duración, riesgo y consumo estimado son datos. El tipo fija los requisitos (`ResourceRequirements`): certificaciones que alguien debe tener, las que debe tener cada asignado (`heldByEveryone`), vehículo (`NONE | REQUIRED`), instrumento (`None | OfKind`) y permiso nocturno (`NONE | REQUIRED`). Seis tipos: muestreo, medición, traslado, nocturna, buceo, campamento. Un tipo nuevo es otra fábrica; reglas, estimación e informes no preguntan el tipo.
 
-**AssignmentSuggester.** Huecos de certificación, vehículo e instrumento. Primer recurso del catálogo disponible y libre frente a asignaciones propias y ocupantes. No toca el plan; `addAssignment` aplica.
+**Itinerario.** Composite: `ItineraryItem` es `Activity` o `ActivityBlock`. Es `sealed` porque hoja y compuesto es un conjunto cerrado, y los `switch` sobre el tipo son privados de `Itinerary`. `duration(Function)` suma en la secuencia y toma el máximo en paralelo. La raíz suma sin ordenar. En un bloque secuencial cada parte depende de todas las hojas de la anterior; esas dependencias se suman a las explícitas para validar ventanas y ciclos, para `delay` y para el seguimiento.
 
-**TemporalBooking.** Persona, vehículo o instrumento en una ventana. Lo usan `TemporalOverlapRule`, `AssignmentSuggester` y `Replanner`. Ausente no está `availableIn`. `unavailableIn` es recurso conocido y no listo.
+**Asignaciones.** `Assignments` guarda una lista por tipo y cada asignación se archiva sola (double dispatch), sin `instanceof`. `BookableAssignment` (persona, vehículo, instrumento) produce su `TemporalBooking`. El consumible solo declara una cantidad positiva. `Expedition.assignments()` devuelve una copia.
 
-**Replan.** `Replanner` edita el plan que recibe. `IN_REVIEW` vuelve a `DRAFT` antes. Desde `APPROVED`, el caso de uso llama a `reviseAsDraft` (id nuevo, versión + 1, `supersedes`, sin corrida ni warnings) y le pasa esa copia, también con corrida abierta. Copia objetivos, período, zonas, responsables, restricciones, itinerario, asignaciones y permisos. No copia ejecuciones, incidentes, observaciones ni warnings. Marca el original `SUPERSEDED` y guarda los dos. No lo reenvía ni lo aprueba. Cancelar un predecesor suelta esa dependencia. `delay` corre la actividad y empuja dependientes; si alguna ventana se sale del período, se rechaza. Suelta persona, vehículo o instrumento inválido por catálogo o solape; el consumible queda. Después rellena con el sugeridor. La corrida queda en el original. El seguimiento usa el itinerario de la última revisión: no arranca una cancelada, el retraso vale para lo que falta, `finish` exige lo de esa revisión más lo ya iniciado. Una actividad ya iniciada se cierra aunque la revisión la haya cancelado. La revisión no arranca otra corrida hasta que termine la original. `ActivityExecution.finish` devuelve otra instancia. Suspender solo desde `IN_PROGRESS`. Incidentes y observaciones en `IN_PROGRESS` y `SUSPENDED`; el incidente puede nombrar una actividad.
+**Catálogo.** `AdministerCatalog` da de alta, cambia la disponibilidad de personas, vehículos e instrumentos, certifica personas y cambia stock. Entidades inmutables (`withAvailability`, `certified`, `withStock`). El permiso es de zona o nocturno y cubre zona y vigencia.
 
-**Informe.** Estado, planificadas, iniciadas, terminadas, incidentes y resultados cerrados. Sin corrida, duración y consumo son los del plan. Con actividades terminadas, duración = `finishedAt - startedAt` y consumo = lo asignado a esas. Lo no terminado no cuenta. `Estimate.of` arma duración, riesgo (máximo del itinerario, `LOW` si vacío) y consumo de los requisitos, no de lo asignado. El estado operativo es el de la corrida si existe; si no, el del plan (`SUPERSEDED` incluido). Borrador, revisión y aprobada en el plan; en ejecución, suspendida y finalizada en la corrida.
+**Validación.** Strategy: `RuleBasedValidator` recorre las reglas que recibe y `withDefaultRules` arma las siete. Otra regla es otra clase (`ValidationExtensionTest`). Todas reciben `PlanningContext`.
 
-**Invariantes.** La ventana alcanza la duración estimada. Predecesores existen, acíclicos y terminan antes del inicio, en el plan y al ejecutar. La zona de la actividad está en la expedición. Itinerario no vacío al enviar a revisión. `TimePeriod`, `Stock`, `Passengers` y `WorkZone` se validan al construirse. Inicio de expedición y de cada actividad en el período; la actividad, en su ventana.
+**Códigos.** `RESOURCE`: id desconocido (asignación o permiso) o actividad sin la persona, el vehículo o el instrumento que pide. `CERTIFICATION`: ninguna persona conocida tiene la certificación pedida a alguien, o alguna no tiene la pedida a todos. `PERMIT`: actividad sin un permiso conocido que la cubra, o sin permiso nocturno si lo pide; sin adjuntos quedan todas descubiertas, y si todos los adjuntos son desconocidos solo sale `RESOURCE`. `OVERLAP`: recurso en ventanas superpuestas, propias o de las que ocupan. `AVAILABILITY`: recurso conocido fuera de su disponibilidad. `PARALLEL`: recurso en dos ramas de un bloque paralelo, con cualquier ventana. `STOCK`: lo asignado, propio y de las que ocupan, supera el depósito. `CAPACITY` es `WARNING`; el resto, `CRITICAL`. Un id ya en `RESOURCE` no se evalúa por disponibilidad, stock, certificación ni capacidad. Los códigos son `String` para que una regla nueva no toque un enum.
 
-**Servicios.** `ExpeditionValidator` recibe las reglas. `Replanner` recibe el sugeridor. `ReplanProposer` recibe el `Replanner`. `AssignmentSuggester` no tiene estado.
+**Sugerencias.** `AssignmentSuggester` cubre vehículo, instrumento del tipo pedido y personas con lo que se exige a todos. Elige el primer recurso disponible y libre frente a las reservas propias y de las que ocupan. No modifica el plan.
 
-**Errores.** Todo extiende `DomainException`. `InvalidExpeditionTransition` está en `shared` para que `tracking` no dependa de `expedition`. `ExpeditionNotApprovable` es aprobación bloqueada. `InvalidActivityExecution` es seguimiento ilegal. `InvalidValue` es dato o id inválido. `InvalidItinerary` es el grafo y las ventanas. Nulo en constructor: `NullPointerException`. El servicio no revalida que expedición o catálogo existan.
+**Replan.** `ReplanExpedition` revisa un plan `APPROVED`, vuelve a borrador uno `IN_REVIEW` y edita en el lugar uno `DRAFT`. `Replanner` solo trabaja sobre borradores. `cancel` quita la actividad y las dependencias hacia ella. `delay` corre la actividad y empuja a sus dependientes; se rechaza si alguna ventana sale del período. `replaceUnavailable` suelta reservas no disponibles o en conflicto. Las tres rellenan con el sugeridor. `respondTo` elige la respuesta a un incidente.
+
+**Seguimiento.** Una actividad arranca dentro de su ventana y con sus predecesores, explícitos y de secuencia, terminados. Se cierra después de su inicio aunque pase la ventana. La expedición termina cuando está terminado lo iniciado y lo del plan vigente. Incidentes y observaciones se registran con la corrida en curso o suspendida. `Clock` sella los instantes.
+
+**Estimación e informe.** `Estimate`: duración del árbol, riesgo máximo (`LOW` sin actividades) y consumo estimado de las actividades. `OperationalReport` sin corrida informa la duración estimada y el consumo asignado; con corrida, la duración medida combinada en el árbol y el consumo asignado a lo terminado.
+
+**Invariantes.** El charter exige objetivos, zonas y responsables, y los responsables tienen que existir en el catálogo. La ventana alcanza la duración estimada. Los predecesores existen, no forman ciclos y terminan antes. La zona es de la expedición y la ventana está dentro del período. `TimePeriod`, `Stock`, `Passengers`, `WorkZone` y `ExpeditionCharter` se validan al construirse.
+
+**Errores.** Todo extiende `DomainException`. `InvalidValue`: dato inválido, id desconocido, no responsable, advertencia inexistente, duplicado o propuesta ya decidida. `InvalidItinerary`: grafo, ventanas y bloques. `InvalidAssignment`: asignación repetida, desconocida o sin cantidad. `InvalidActivityExecution`: seguimiento ilegal. `InvalidExpeditionTransition` está en `shared` para que `tracking` no dependa de `expedition`. `ExpeditionNotApprovable`: críticos o advertencias sin justificar. Un nulo en un constructor o un paso faltante del builder lanza `NullPointerException`.
 
 ## Descartadas
 
-**Política por tipo de actividad.** Duración y riesgo varían entre dos muestreos. Un tipo nuevo es otra fábrica.
+**Política por tipo o herencia de `Activity`.** Los tipos difieren en datos. Un tipo nuevo es una fábrica.
 
-**Heredar `Activity`, flota en la expedición, supertipo de recurso o de cantidad, `Id<T>`.** Mezclan stock con pasajeros, o un id de persona con uno de vehículo.
+**Supertipo de ids, recursos o cantidades.** Mezclaría stock con pasajeros o una persona con un vehículo. El costo son métodos paralelos por tipo en `TemporalBooking` y `Assignments`.
 
-**State por estado.** No hay un objeto por estado. `IN_REVIEW` y `APPROVED` ocupan; el resto pregunta la constante.
+**State por estado.** `ExpeditionStatus` solo responde `occupiesResources` y las transiciones preguntan la constante. Un estado nuevo toca las transiciones del agregado.
 
 **Aprobar un `ValidationResult` ya calculado.** Puede no describir el plan actual.
 
-**Versionar también el borrador.** En `DRAFT` e `IN_REVIEW` se edita en el lugar.
+**Versionar el borrador.** `DRAFT` e `IN_REVIEW` se editan en el lugar.
 
-**Reordenar el itinerario.** El orden de la lista no es el del negocio. Lo son las dependencias y las ventanas.
+**Reordenar una lista.** El orden sale de dependencias, ventanas y bloques secuenciales.
 
-**Módulo Maven de detalles.** El dominio no tiene otro runtime. El adaptador vive en el source de test.
+**`switch` sobre un `Assignment` sealed.** Lo reemplaza el double dispatch.
+
+**Un interactor por operación y request models.** Se agrupa por actor y no sale ninguna entidad mutable; las entradas usan objetos de dominio inmutables.
+
+**Módulo Maven de detalles.** No hay otro runtime; los adaptadores viven en test.
+
+**Códigos de issue como enum.** Cada regla nueva tocaría el enum; se escriben como `String`.
 
 ## Entrega 2
 
-### Actividad nocturna
+### Actividades nocturnas
 
-`Activity.night` guarda el riesgo ya subido un nivel (`LOW` pasa a `MEDIUM`, `MEDIUM` y `HIGH` quedan en `HIGH`) y los requisitos. `Estimate` y `OperationalReport` no distinguen el tipo: leen duración, riesgo y consumo.
+Cada asignado necesita la certificación nocturna (`heldByEveryone`); la actividad pide iluminación (`InstrumentKind.LIGHTING`) y un permiso nocturno de la zona, y su riesgo sube un nivel (`RiskLevel.raised`). Estimación e informe leen el riesgo ya calculado. Un permiso de zona no reemplaza al nocturno.
 
-`ResourceRequirements.heldByEveryone` es la certificación que tiene que tener cada persona asignada. El conjunto `certifications` sigue siendo “alguien la tiene”. `NightPermit` es `NONE | REQUIRED`, igual que el vehículo. `Permit.Kind` separa el permiso de zona del nocturno. `registerPermit` da de alta el de zona; `registerNightPermit`, el nocturno. `PermitRule` exige el nocturno solo si la actividad lo pide. Un permiso de zona de la misma zona no alcanza. La iluminación es `InstrumentRequirement.OfKind`.
+Clases agregadas: `NightPermit`, `InstrumentKind.LIGHTING`. Modificadas: `Activity`, `ResourceRequirements`, `RiskLevel`, `Permit`, `AdministerCatalog`, `AdministerCatalogInteractor`, `CertificationRule`, `MissingResourceRule`, `PermitRule`, `AssignmentSuggester`.
 
-Clases agregadas: `NightPermit`. Modificadas: `Activity`, `ResourceRequirements`, `RiskLevel`, `Permit`, `AdministerCatalog`, `AdministerCatalogInteractor`, `CertificationRule`, `MissingResourceRule`, `PermitRule`.
+Refactorizaciones: builder por tipo en lugar de fábricas posicionales; iluminación como constante del dominio; consumo estimado movido de los requisitos a la actividad; el sugeridor cubre `heldByEveryone`.
 
-Descartado: un subtipo de `Activity` y reabrir `ActivityPolicy`. El feedback ya sacó la duración y el riesgo de la policy.
+Descartado: subtipo de `Activity`, reabrir `ActivityPolicy`.
 
-Deuda: `AssignmentSuggester` no completa una dotación para `heldByEveryone`. La validación lo exige; la sugerencia sigue cubriendo el hueco de “alguien”.
+Deuda: el catálogo tiene que registrar la iluminación con `InstrumentKind.LIGHTING`.
 
 ### Bloques
 
-El itinerario es un árbol. La raíz es una secuencia. Un nodo es una actividad o un `ActivityBlock` secuencial o paralelo. Solo la duración usa el árbol: secuencial suma, paralelo toma el máximo. Riesgo y consumo salen de las hojas. `Estimate` le pide esos tres al itinerario. El informe cuenta hojas: un bloque no se inicia ni se termina. `delay` y `copy` recorren el árbol. `PlanItinerary.addBlock` da de alta el bloque; cancelar una hoja lo saca y, si queda una sola parte, el bloque se aplana a esa parte. El grafo de predecesores sigue siendo el de las actividades.
+El itinerario es un árbol de actividades y bloques. La secuencia suma y el paralelo toma el máximo, en la estimación y en la duración real; riesgo y consumo salen de las hojas. La secuencia ordena sus partes. `ParallelAssignmentRule` reserva cada rama sobre todo el período, por eso choca cualquier recurso compartido entre ramas. El informe cuenta hojas.
 
-`ParallelAssignmentRule` recorre cada bloque paralelo. Persona, vehículo o instrumento en dos ramas: `PARALLEL`. Un bloque no tiene predecesores propios.
+Clases agregadas: `ItineraryItem`, `ActivityBlock`, `ActivityBlock.Arrangement`, `ParallelAssignmentRule`. Modificadas: `Activity`, `Itinerary`, `Expedition`, `Estimate`, `OperationalReport`, `PlanItinerary`, `PlanItineraryInteractor`, `TrackExpeditionInteractor`, `RuleBasedValidator`.
 
-Clases agregadas: `ItineraryItem`, `ActivityBlock`, `ParallelAssignmentRule`. Modificadas: `Activity`, `Itinerary`, `Expedition`, `Estimate`, `PlanItinerary`, `PlanItineraryInteractor`, `ExpeditionValidator`.
+Refactorizaciones: `Arrangement` en lugar de booleano; una sola `duration(Function)` para la estimación y la duración real; secuencia como dependencias implícitas que reusan validación, `delay` y seguimiento; la regla paralela recorre `blocks()` con reservas, sin `instanceof`; `Itinerary.copy` no copia nodos inmutables.
 
-Descartado: aplanar el árbol para estimar. La suma de hojas trata un paralelo como secuencia.
+Descartado: aplanar para estimar (un paralelo contaría como secuencia); validar la secuencia en el constructor del bloque (`delay` reemplaza hoja por hoja); ordenar la raíz.
+
+Deuda: la duración real usa el itinerario del plan pedido; una actividad que solo está en una revisión aprobada no suma.
 
 ### Replanificación por incidente
 
-Registrar un incidente que nombra una actividad en un plan `APPROVED` genera una `ReplanProposal`. El original no se toca. La alternativa es un `reviseAsDraft` al que `Replanner` ya sabe aplicar. Si la actividad arrancó, o el retraso se sale del período, cancela. Si el incidente es después del inicio planificado y entra, retrasa. Si no, reemplaza recursos. El retraso empuja dependientes y rellena huecos: reprogramación y reemplazo no son caminos aparte. La propuesta guarda el plan sugerido, el incidente y la decisión; no etiqueta el tipo de cambio.
+Un incidente sobre una actividad de un plan `APPROVED` con corrida genera una `ReplanProposal` sobre una revisión en borrador: cancela si la actividad arrancó o si el retraso sale del período, retrasa si el incidente es posterior al inicio planificado y, si no, reemplaza recursos. La propuesta guarda el incidente, el plan sugerido y la decisión (quién y cuándo); el original se deriva del sugerido. Aceptar guarda el borrador y el original sigue aprobado hasta que se aprueba la revisión. Rechazar no toca nada. `ConsultExpedition` muestra el original y `ReviewReplanProposal.of` las propuestas.
 
-`ReviewReplanProposal` acepta o rechaza. Aceptar marca el original `SUPERSEDED` y guarda el borrador. Rechazar deja el original. Consultar es `of` sobre el id original. Un incidente sin actividad no propone. `ReplanExpedition` sigue siendo el replan inmediato.
+Clases agregadas: `ProposalId`, `ReplanProposal`, `ReplanProposalRepository`, `ReviewReplanProposal`, `ReviewReplanProposalInteractor`, `RecordIncident`, `RecordIncidentInteractor`, `ConsultExpedition`, `ConsultExpeditionInteractor`, `PlanSnapshot`, `ProposalSnapshot`, `Revisions`. Modificadas: `Replanner`, `Expedition`, `ExpeditionExecution`, `Incident`, `ApproveExpeditionInteractor`, `ReplanExpeditionInteractor`, `TrackExpeditionInteractor`, `OccupyingExpeditions`.
 
-Clases agregadas: `ProposalId`, `ReplanProposal`, `ReplanProposalRepository`, `ReplanProposer`, `ReviewReplanProposal`, `ReviewReplanProposalInteractor`. Modificadas: `TrackExpeditionInteractor`, `Expedition`, `ExpeditionExecution`.
+Refactorizaciones: `ReplanProposer` pasó a `Replanner.respondTo`; la revisión toma el id del repositorio y rige al aprobarse; seguimiento e incidentes en casos de uso distintos; consultas con snapshots; se excluye todo el linaje y no solo el padre.
 
-Descartado: aplicar el replan al registrar el incidente; un bus de eventos; persistir el borrador antes de aceptar (`scheduleOf` lo tomaría como itinerario vigente); etiquetar DELAY/REPLACE/CANCEL en la propuesta; una strategy por acción; colgar la propuesta del plan o de la corrida.
+Descartado: aplicar el replan al registrar el incidente; bus de eventos; persistir el borrador antes de aceptar (se podría aprobar sin decisión); etiquetar el tipo de cambio; una strategy por acción; colgar la propuesta del plan o de la corrida; reemplazar al original al aceptar.
 
-Deuda: un incidente sobre un `SUPERSEDED` cuya corrida sigue se registra y no propone. `AssignmentSuggester` sigue sin completar `heldByEveryone`.
+Deuda: un incidente sobre un plan reemplazado con corrida abierta no propone, porque las propuestas se consultan por el id del plan que revisan. En revisión, el original y sus revisiones ocupan frente a terceros. Una revisión aprobada de una raíz terminada sigue ocupando ventanas pasadas. `PlanningContexts` carga todos los planes y corridas (N+1 con persistencia real). Los mutadores de `ExpeditionExecution` son públicos porque su interactor vive en `expedition`.

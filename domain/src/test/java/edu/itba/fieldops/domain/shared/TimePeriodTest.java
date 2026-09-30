@@ -1,6 +1,8 @@
 package edu.itba.fieldops.domain.shared;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -13,23 +15,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TimePeriodTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
 
-    @Test
-    void adjacentWindowsDoNotOverlap() {
-        TimePeriod morning = hours(0, 4);
-        TimePeriod afternoon = hours(4, 8);
+    @ParameterizedTest
+    @CsvSource({
+            "0, 4, 4, 8, false",
+            "0, 2, 5, 6, false",
+            "0, 4, 3, 6, true",
+            "0, 8, 2, 4, true",
+            "0, 4, 0, 4, true"
+    })
+    void overlapsOnlyWhenBothPeriodsShareTime(int firstFrom, int firstTo, int secondFrom, int secondTo, boolean overlaps) {
+        TimePeriod first = hours(firstFrom, firstTo);
+        TimePeriod second = hours(secondFrom, secondTo);
 
-        assertFalse(morning.overlaps(afternoon));
-        assertFalse(afternoon.overlaps(morning));
-        assertTrue(morning.finishesBeforeStartOf(afternoon));
+        assertEquals(overlaps, first.overlaps(second));
+        assertEquals(overlaps, second.overlaps(first));
     }
 
-    @Test
-    void interiorWindowsOverlap() {
-        TimePeriod first = hours(0, 4);
-        TimePeriod second = hours(3, 6);
-
-        assertTrue(first.overlaps(second));
-        assertTrue(second.overlaps(first));
+    @ParameterizedTest
+    @CsvSource({
+            "0, 4, 4, 8, true",
+            "0, 2, 5, 6, true",
+            "0, 4, 3, 6, false",
+            "4, 8, 0, 4, false"
+    })
+    void finishesBeforeAnotherStartsWhenItEndsNoLaterThanThatStart(int firstFrom, int firstTo, int secondFrom, int secondTo, boolean before) {
+        assertEquals(before, hours(firstFrom, firstTo).finishesBeforeStartOf(hours(secondFrom, secondTo)));
     }
 
     @Test

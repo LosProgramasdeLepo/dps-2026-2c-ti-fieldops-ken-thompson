@@ -8,6 +8,9 @@ import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -15,14 +18,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 class ItineraryTest {
     private static final Instant START = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("blocksOfTwoParts")
+    void aBlockCombinesTheDurationsOfItsParts(String arrangement, ActivityBlock block, Duration expected) {
+        assertEquals(expected, block.duration(Activity::estimatedDuration));
+    }
 
     @Test
     void sequentialDurationIsTheSumAndParallelDurationIsTheMax() {
@@ -158,6 +169,13 @@ class ItineraryTest {
         itinerary.add(second);
 
         assertEquals(Set.of(), itinerary.predecessorsOf(second.id()));
+    }
+
+    private static Stream<Arguments> blocksOfTwoParts() {
+        return Stream.of(
+                arguments("sequential", ActivityBlock.sequential(transit("approach", 0, 4), transit("return", 4, 7)), Duration.ofHours(7)),
+                arguments("parallel", ActivityBlock.parallel(transit("left", 0, 4), transit("right", 0, 3)), Duration.ofHours(4))
+        );
     }
 
     private static Activity transit(String name, int fromHour, int toHour) {
