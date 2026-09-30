@@ -11,13 +11,12 @@ import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public record OperationalReport(
         OperationalStatus status,
@@ -42,61 +41,61 @@ public record OperationalReport(
     }
 
     public static OperationalReport of(Expedition expedition) {
-        return of(expedition, null);
-    }
-
-    public static OperationalReport of(Expedition expedition, ExpeditionExecution execution) {
-        Objects.requireNonNull(expedition, "expedition");
         Estimate estimate = Estimate.of(expedition);
-        List<ActivityExecution> executions = execution == null ? List.of() : execution.executions();
         return new OperationalReport(
-                OperationalStatus.of(expedition, execution),
-                expedition.itinerary().size(),
-                executions.size(),
-                (int) executions.stream().filter(ActivityExecution::isFinished).count(),
-                execution == null ? estimate.duration() : actualDuration(execution),
+                OperationalStatus.of(expedition),
+                expedition.activities().size(),
+                0,
+                0,
+                estimate.duration(),
                 estimate.risk(),
-                consumed(expedition, execution),
+                expedition.assignments().consumption(),
                 estimate.estimatedConsumption(),
-                execution == null ? List.of() : execution.incidents(),
-                activityResults(executions)
+                List.of(),
+                List.of()
         );
     }
 
-    private static Duration actualDuration(ExpeditionExecution execution) {
+    public static OperationalReport of(Expedition expedition, ExpeditionExecution execution) {
+        Objects.requireNonNull(execution, "execution");
+        Estimate estimate = Estimate.of(expedition);
+        List<ActivityExecution> finished = execution.activities().stream().filter(ActivityExecution::isFinished).toList();
+        return new OperationalReport(
+                OperationalStatus.of(execution),
+                expedition.activities().size(),
+                execution.activities().size(),
+                finished.size(),
+                actualDuration(finished),
+                estimate.risk(),
+                consumed(expedition, finished),
+                estimate.estimatedConsumption(),
+                execution.incidents(),
+                activityResults(finished)
+        );
+    }
+
+    private static Duration actualDuration(List<ActivityExecution> finished) {
         Duration total = Duration.ZERO;
-        for (ActivityExecution run : execution.executions()) {
-            if (run.isFinished()) {
-                total = total.plus(Duration.between(run.startedAt(), run.finishedAt().orElseThrow()));
-            }
+        for (ActivityExecution run : finished) {
+            total = total.plus(Duration.between(run.startedAt(), run.finishedAt().orElseThrow()));
         }
         return total;
     }
 
-    private static Map<ConsumableId, Stock> consumed(Expedition expedition, ExpeditionExecution execution) {
-        if (execution == null) {
-            return expedition.assignments().consumption();
-        }
-        Set<ActivityId> finished = new HashSet<>();
-        for (ActivityExecution run : execution.executions()) {
-            if (run.isFinished()) {
-                finished.add(run.activityId());
-            }
-        }
+    private static Map<ConsumableId, Stock> consumed(Expedition expedition, List<ActivityExecution> finished) {
+        Set<ActivityId> finishedIds = finished.stream().map(ActivityExecution::activityId).collect(Collectors.toSet());
         Map<ConsumableId, Stock> totals = new HashMap<>();
         for (ConsumableAssignment assignment : expedition.assignments().consumables()) {
-            if (finished.contains(assignment.activityId())) {
+            if (finishedIds.contains(assignment.activityId())) {
                 totals.merge(assignment.consumableId(), assignment.quantity(), Stock::plus);
             }
         }
         return totals;
     }
 
-    private static List<ActivityResult> activityResults(List<ActivityExecution> executions) {
-        List<ActivityResult> results = new ArrayList<>();
-        for (ActivityExecution execution : executions) {
-            execution.result().ifPresent(result -> results.add(new ActivityResult(execution.activityId(), result)));
-        }
-        return results;
+    private static List<ActivityResult> activityResults(List<ActivityExecution> finished) {
+        return finished.stream()
+                .map(run -> new ActivityResult(run.activityId(), run.result().orElseThrow()))
+                .toList();
     }
 }

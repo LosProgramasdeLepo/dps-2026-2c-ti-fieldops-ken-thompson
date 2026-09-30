@@ -6,104 +6,103 @@ import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.VehicleRequirement;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 public final class AssignmentSuggester {
-    public List<Assignment> suggest(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
-        List<TemporalBooking> taken = new ArrayList<>(TemporalBooking.of(expedition));
-        for (Expedition peer : peers.plans()) {
-            taken.addAll(TemporalBooking.of(peer));
+    public List<Assignment> suggest(PlanningContext context) {
+        Suggestion suggestion = new Suggestion(context);
+        for (Activity activity : context.plan().activities()) {
+            suggestion.fillGaps(activity);
         }
-        Assignments current = expedition.assignments().copy();
-        List<Assignment> suggestions = new ArrayList<>();
-        for (Activity activity : expedition.itinerary()) {
-            fillGaps(activity, resources, taken, suggestions, current);
-        }
-        return List.copyOf(suggestions);
+        return suggestion.suggested();
     }
 
-    private static void fillGaps(
-            Activity activity,
-            BookableResources resources,
-            List<TemporalBooking> taken,
-            List<Assignment> suggestions,
-            Assignments current
-    ) {
-        TimePeriod window = activity.window();
-        if (activity.requirements().vehicle() == VehicleRequirement.REQUIRED && current.vehiclesOf(activity.id()).isEmpty()) {
-            resources.vehicles().vehicles().stream()
-                    .filter(vehicle -> vehicle.availableDuring(window))
-                    .filter(vehicle -> free(taken, new TemporalBooking.VehicleBooking(vehicle.id(), activity.id(), window)))
-                    .findFirst()
-                    .ifPresent(vehicle -> take(
-                            suggestions,
-                            current,
-                            taken,
-                            new VehicleAssignment(activity.id(), vehicle.id()),
-                            window
-                    ));
+    private static final class Suggestion {
+        private final BookableResources resources;
+        private final Assignments current;
+        private final List<TemporalBooking> taken;
+        private final List<Assignment> suggested = new ArrayList<>();
+
+        private Suggestion(PlanningContext context) {
+            this.resources = context.bookable();
+            this.current = context.plan().assignments();
+            this.taken = new ArrayList<>(TemporalBooking.of(context.plan()));
+            this.taken.addAll(context.occupying().bookings());
         }
-        Optional<InstrumentKind> requiredKind = activity.requirements().instrument().requiredKind();
-        if (requiredKind.isPresent() && current.instrumentsOf(activity.id()).isEmpty()) {
-            resources.instruments().instruments().stream()
-                    .filter(instrument -> instrument.kind().equals(requiredKind.get()))
-                    .filter(instrument -> instrument.availableDuring(window))
-                    .filter(instrument -> free(taken, new TemporalBooking.InstrumentBooking(instrument.id(), activity.id(), window)))
-                    .findFirst()
-                    .ifPresent(instrument -> take(
-                            suggestions,
-                            current,
-                            taken,
-                            new InstrumentAssignment(activity.id(), instrument.id()),
-                            window
-                    ));
+
+        private void fillGaps(Activity activity) {
+            fillVehicle(activity);
+            fillInstrument(activity);
+            fillPeople(activity);
         }
-        for (CertificationId certificationId : activity.requirements().certifications()) {
-            if (heldBy(current, activity, resources, certificationId)) {
-                continue;
+
+        private List<Assignment> suggested() {
+            return List.copyOf(suggested);
+        }
+
+        private void fillVehicle(Activity activity) {
+            if (activity.requirements().vehicle() == VehicleRequirement.NONE || !current.vehiclesOf(activity.id()).isEmpty()) {
+                return;
             }
-            resources.people().people().stream()
-                    .filter(person -> person.holds(certificationId))
-                    .filter(person -> person.availableDuring(window))
-                    .map(Person::id)
-                    .filter(id -> free(taken, new TemporalBooking.PersonBooking(id, activity.id(), window)))
-                    .findFirst()
-                    .ifPresent(personId -> take(
-                            suggestions,
-                            current,
-                            taken,
-                            new PersonAssignment(activity.id(), personId),
-                            window
-                    ));
+            takeFirstFree(
+                    resources.vehicles().vehicles().stream().map(vehicle -> new VehicleAssignment(activity.id(), vehicle.id())),
+                    activity
+            );
         }
-    }
 
-    private static void take(
-            List<Assignment> suggestions,
-            Assignments current,
-            List<TemporalBooking> taken,
-            Assignment assignment,
-            TimePeriod window
-    ) {
-        suggestions.add(assignment);
-        current.add(assignment);
-        assignment.booking(window).ifPresent(taken::add);
-    }
+        private void fillInstrument(Activity activity) {
+            Optional<InstrumentKind> kind = activity.requirements().instrument().requiredKind();
+            if (kind.isEmpty() || !current.instrumentsOf(activity.id()).isEmpty()) {
+                return;
+            }
+            takeFirstFree(
+                    resources.instruments().instruments().stream()
+                            .filter(instrument -> instrument.kind().equals(kind.get()))
+                            .map(instrument -> new InstrumentAssignment(activity.id(), instrument.id())),
+                    activity
+            );
+        }
 
-    private static boolean heldBy(Assignments current, Activity activity, BookableResources resources, CertificationId certificationId) {
-        for (PersonAssignment person : current.peopleOf(activity.id())) {
-            if (resources.people().person(person.personId()).filter(found -> found.holds(certificationId)).isPresent()) {
-                return true;
+        private void fillPeople(Activity activity) {
+            for (CertificationId certification : activity.requirements().certifications()) {
+                if (!heldByAssignee(activity, certification)) {
+                    takeFirstFree(peopleHolding(activity, person -> person.holds(certification)), activity);
+                }
             }
         }
-        return false;
-    }
 
-    private static boolean free(List<TemporalBooking> taken, TemporalBooking candidate) {
-        return taken.stream().noneMatch(candidate::conflicts);
+        private Stream<PersonAssignment> peopleHolding(Activity activity, Predicate<Person> eligible) {
+            return resources.people().people().stream()
+                    .filter(eligible)
+                    .map(person -> new PersonAssignment(activity.id(), person.id()));
+        }
+
+        private boolean heldByAssignee(Activity activity, CertificationId certification) {
+            return current.peopleOf(activity.id()).stream()
+                    .map(assignment -> resources.people().person(assignment.personId()))
+                    .flatMap(Optional::stream)
+                    .anyMatch(person -> person.holds(certification));
+        }
+
+        private void takeFirstFree(Stream<? extends BookableAssignment> candidates, Activity activity) {
+            candidates.filter(candidate -> isFree(candidate.booking(activity.window())))
+                    .findFirst()
+                    .ifPresent(candidate -> take(candidate, activity));
+        }
+
+        private boolean isFree(TemporalBooking booking) {
+            return booking.availableIn(resources) && taken.stream().noneMatch(booking::conflicts);
+        }
+
+        private void take(BookableAssignment assignment, Activity activity) {
+            suggested.add(assignment);
+            current.add(assignment);
+            taken.add(assignment.booking(activity.window()));
+        }
     }
 }

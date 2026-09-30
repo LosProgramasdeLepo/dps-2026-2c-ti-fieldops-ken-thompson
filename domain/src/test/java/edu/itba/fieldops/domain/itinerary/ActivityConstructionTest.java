@@ -28,15 +28,21 @@ class ActivityConstructionTest {
 
     @Test
     void eachKindKeepsItsOwnDurationRiskAndRequirements() {
-        Activity sampling = Activity.sampling(
-                id(), "sample", Duration.ofHours(5), RiskLevel.LOW, window(Duration.ofHours(5)), Set.of(), DELTA, certification()
-        );
-        Activity transit = Activity.transit(
-                id(), "move", Duration.ofHours(2), RiskLevel.LOW, window(Duration.ofHours(2)), Set.of(), DELTA
-        );
-        Activity measurement = Activity.measurement(
-                id(), "measure", Duration.ofHours(3), RiskLevel.HIGH, window(Duration.ofHours(3)), Set.of(), DELTA, certification(), PROBE
-        );
+        Activity sampling = Activity.sampling(certification())
+                .named(id(), "sample")
+                .estimated(Duration.ofHours(5), RiskLevel.LOW)
+                .in(DELTA, window(Duration.ofHours(5)))
+                .build();
+        Activity transit = Activity.transit()
+                .named(id(), "move")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, window(Duration.ofHours(2)))
+                .build();
+        Activity measurement = Activity.measurement(certification(), PROBE)
+                .named(id(), "measure")
+                .estimated(Duration.ofHours(3), RiskLevel.HIGH)
+                .in(DELTA, window(Duration.ofHours(3)))
+                .build();
 
         assertAll(
                 () -> assertEquals(VehicleRequirement.NONE, sampling.requirements().vehicle()),
@@ -51,25 +57,22 @@ class ActivityConstructionTest {
     @Test
     void twoSamplingsCanEstimateDifferentDurationsAndConsumption() {
         ConsumableId vials = new ConsumableId(UUID.randomUUID());
-        Activity shortSample = Activity.sampling(
-                id(), "short", Duration.ofHours(1), RiskLevel.LOW, window(Duration.ofHours(1)), Set.of(), DELTA, certification()
-        );
-        Activity longSample = Activity.sampling(
-                id(),
-                "long",
-                Duration.ofHours(6),
-                RiskLevel.MEDIUM,
-                window(Duration.ofHours(6)),
-                Set.of(),
-                DELTA,
-                certification(),
-                Map.of(vials, new Stock(4))
-        );
+        Activity shortSample = Activity.sampling(certification())
+                .named(id(), "short")
+                .estimated(Duration.ofHours(1), RiskLevel.LOW)
+                .in(DELTA, window(Duration.ofHours(1)))
+                .build();
+        Activity longSample = Activity.sampling(certification())
+                .named(id(), "long")
+                .estimated(Duration.ofHours(6), RiskLevel.MEDIUM)
+                .in(DELTA, window(Duration.ofHours(6)))
+                .consuming(Map.of(vials, new Stock(4)))
+                .build();
 
         assertAll(
                 () -> assertEquals(Duration.ofHours(1), shortSample.estimatedDuration()),
                 () -> assertEquals(Duration.ofHours(6), longSample.estimatedDuration()),
-                () -> assertEquals(new Stock(4), longSample.requirements().estimatedConsumption().get(vials))
+                () -> assertEquals(new Stock(4), longSample.estimatedConsumption().get(vials))
         );
     }
 
@@ -77,15 +80,21 @@ class ActivityConstructionTest {
     void nightActivityRaisesRiskAndCarriesNightRequirements() {
         CertificationId nightOperation = certification();
         InstrumentKind lighting = new InstrumentKind("lighting");
-        Activity night = Activity.night(
-                id(), "watch", Duration.ofHours(2), RiskLevel.LOW, window(Duration.ofHours(2)), Set.of(), DELTA, nightOperation, lighting
-        );
-        Activity raised = Activity.night(
-                id(), "watch", Duration.ofHours(2), RiskLevel.MEDIUM, window(Duration.ofHours(2)), Set.of(), DELTA, nightOperation, lighting
-        );
-        Activity alreadyHigh = Activity.night(
-                id(), "watch", Duration.ofHours(2), RiskLevel.HIGH, window(Duration.ofHours(2)), Set.of(), DELTA, nightOperation, lighting
-        );
+        Activity night = Activity.night(nightOperation)
+                .named(id(), "watch")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, window(Duration.ofHours(2)))
+                .build();
+        Activity raised = Activity.night(nightOperation)
+                .named(id(), "watch")
+                .estimated(Duration.ofHours(2), RiskLevel.MEDIUM)
+                .in(DELTA, window(Duration.ofHours(2)))
+                .build();
+        Activity alreadyHigh = Activity.night(nightOperation)
+                .named(id(), "watch")
+                .estimated(Duration.ofHours(2), RiskLevel.HIGH)
+                .in(DELTA, window(Duration.ofHours(2)))
+                .build();
 
         assertAll(
                 () -> assertEquals(RiskLevel.MEDIUM, night.risk()),
@@ -102,28 +111,21 @@ class ActivityConstructionTest {
     void rejectsSelfAsPredecessor() {
         ActivityId activityId = id();
 
-        assertThrows(InvalidItinerary.class, () -> Activity.transit(
-                activityId,
-                "loop",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                window(Duration.ofHours(2)),
-                Set.of(activityId),
-                DELTA
-        ));
+        assertThrows(InvalidItinerary.class, () -> Activity.transit()
+                .named(activityId, "loop")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, window(Duration.ofHours(2)))
+                .after(Set.of(activityId))
+                .build());
     }
 
     @Test
     void rejectsWindowShorterThanEstimate() {
-        assertThrows(InvalidItinerary.class, () -> Activity.transit(
-                id(),
-                "short",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                window(Duration.ofHours(1)),
-                Set.of(),
-                DELTA
-        ));
+        assertThrows(InvalidItinerary.class, () -> Activity.transit()
+                .named(id(), "short")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, window(Duration.ofHours(1)))
+                .build());
     }
 
     private static ActivityId id() {

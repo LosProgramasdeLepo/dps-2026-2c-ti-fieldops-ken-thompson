@@ -1,9 +1,8 @@
 package edu.itba.fieldops.domain.tracking;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
-import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -21,7 +20,7 @@ public final class ExpeditionExecution {
 
     private final ExpeditionId expeditionId;
     private Status status;
-    private final List<ActivityExecution> executions = new ArrayList<>();
+    private final List<ActivityExecution> activities = new ArrayList<>();
     private final List<Incident> incidents = new ArrayList<>();
     private final List<Observation> observations = new ArrayList<>();
 
@@ -44,46 +43,29 @@ public final class ExpeditionExecution {
         status = Status.IN_PROGRESS;
     }
 
-    public void finish(List<Activity> remaining) {
+    public void finish(Set<ActivityId> planned) {
         requireStatus(Status.IN_PROGRESS, "finish");
-        for (ActivityExecution execution : executions) {
-            if (!execution.isFinished()) {
-                throw new InvalidActivityExecution("activity not finished: " + execution.activityId());
-            }
-        }
-        for (Activity activity : remaining) {
-            if (executionOf(activity.id()).filter(ActivityExecution::isFinished).isEmpty()) {
-                throw new InvalidActivityExecution("activity not finished: " + activity.id());
-            }
-        }
+        requireStartedFinished();
+        requireFinished(planned);
         status = Status.FINISHED;
     }
 
     public void startActivity(ActivityId activityId, Instant at, Set<ActivityId> predecessors) {
         requireStatus(Status.IN_PROGRESS, "start activity");
         Objects.requireNonNull(at, "started at");
-        Objects.requireNonNull(predecessors, "predecessors");
         if (executionOf(activityId).isPresent()) {
             throw new InvalidActivityExecution("activity already started: " + activityId);
         }
-        for (ActivityId predecessorId : predecessors) {
-            boolean ready = executionOf(predecessorId)
-                    .flatMap(ActivityExecution::finishedAt)
-                    .filter(end -> !at.isBefore(end))
-                    .isPresent();
-            if (!ready) {
-                throw new InvalidActivityExecution("predecessor must finish before activity starts: " + predecessorId);
-            }
-        }
-        executions.add(new ActivityExecution(activityId, at));
+        requirePredecessorsFinishedBy(predecessors, at);
+        activities.add(new ActivityExecution(activityId, at));
     }
 
     public void finishActivity(ActivityId activityId, Instant at, String result) {
         requireStatus(Status.IN_PROGRESS, "finish activity");
-        for (int index = 0; index < executions.size(); index++) {
-            ActivityExecution execution = executions.get(index);
+        for (int index = 0; index < activities.size(); index++) {
+            ActivityExecution execution = activities.get(index);
             if (execution.activityId().equals(activityId)) {
-                executions.set(index, execution.finish(at, result));
+                activities.set(index, execution.finish(at, result));
                 return;
             }
         }
@@ -116,8 +98,8 @@ public final class ExpeditionExecution {
         return executionOf(Objects.requireNonNull(activityId, "activity id")).isPresent();
     }
 
-    public List<ActivityExecution> executions() {
-        return List.copyOf(executions);
+    public List<ActivityExecution> activities() {
+        return List.copyOf(activities);
     }
 
     public List<Incident> incidents() {
@@ -128,8 +110,36 @@ public final class ExpeditionExecution {
         return List.copyOf(observations);
     }
 
+    private void requireStartedFinished() {
+        for (ActivityExecution execution : activities) {
+            if (!execution.isFinished()) {
+                throw new InvalidActivityExecution("activity not finished: " + execution.activityId());
+            }
+        }
+    }
+
+    private void requireFinished(Set<ActivityId> planned) {
+        for (ActivityId activityId : planned) {
+            if (executionOf(activityId).filter(ActivityExecution::isFinished).isEmpty()) {
+                throw new InvalidActivityExecution("activity not finished: " + activityId);
+            }
+        }
+    }
+
+    private void requirePredecessorsFinishedBy(Set<ActivityId> predecessors, Instant at) {
+        for (ActivityId predecessorId : predecessors) {
+            boolean ready = executionOf(predecessorId)
+                    .flatMap(ActivityExecution::finishedAt)
+                    .filter(end -> !at.isBefore(end))
+                    .isPresent();
+            if (!ready) {
+                throw new InvalidActivityExecution("predecessor must finish before activity starts: " + predecessorId);
+            }
+        }
+    }
+
     private Optional<ActivityExecution> executionOf(ActivityId activityId) {
-        return executions.stream().filter(execution -> execution.activityId().equals(activityId)).findFirst();
+        return activities.stream().filter(execution -> execution.activityId().equals(activityId)).findFirst();
     }
 
     private void requireStatus(Status expected, String action) {

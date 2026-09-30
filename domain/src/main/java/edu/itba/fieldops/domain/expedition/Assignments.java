@@ -20,9 +20,10 @@ public final class Assignments {
     }
 
     void remove(Assignment assignment) {
-        if (!assignment.withdrawFrom(this)) {
+        if (!all().contains(assignment)) {
             throw new InvalidAssignment("unknown assignment");
         }
+        assignment.withdrawFrom(this);
     }
 
     void file(PersonAssignment person) {
@@ -41,20 +42,20 @@ public final class Assignments {
         addOne(consumables, consumable);
     }
 
-    boolean withdraw(PersonAssignment person) {
-        return people.remove(person);
+    void withdraw(PersonAssignment person) {
+        people.remove(person);
     }
 
-    boolean withdraw(VehicleAssignment vehicle) {
-        return vehicles.remove(vehicle);
+    void withdraw(VehicleAssignment vehicle) {
+        vehicles.remove(vehicle);
     }
 
-    boolean withdraw(InstrumentAssignment instrument) {
-        return instruments.remove(instrument);
+    void withdraw(InstrumentAssignment instrument) {
+        instruments.remove(instrument);
     }
 
-    boolean withdraw(ConsumableAssignment consumable) {
-        return consumables.remove(consumable);
+    void withdraw(ConsumableAssignment consumable) {
+        consumables.remove(consumable);
     }
 
     void removeActivity(ActivityId activityId) {
@@ -65,12 +66,17 @@ public final class Assignments {
     }
 
     public List<Assignment> all() {
-        List<Assignment> all = new ArrayList<>(people.size() + vehicles.size() + instruments.size() + consumables.size());
-        all.addAll(people);
-        all.addAll(vehicles);
-        all.addAll(instruments);
+        List<Assignment> all = new ArrayList<>(bookable());
         all.addAll(consumables);
         return List.copyOf(all);
+    }
+
+    public List<BookableAssignment> bookable() {
+        List<BookableAssignment> bookable = new ArrayList<>(people.size() + vehicles.size() + instruments.size());
+        bookable.addAll(people);
+        bookable.addAll(vehicles);
+        bookable.addAll(instruments);
+        return List.copyOf(bookable);
     }
 
     public List<PersonAssignment> peopleOf(ActivityId activityId) {
@@ -94,7 +100,7 @@ public final class Assignments {
         for (ConsumableAssignment assignment : consumables) {
             totals.merge(assignment.consumableId(), assignment.quantity(), Stock::plus);
         }
-        return totals;
+        return Map.copyOf(totals);
     }
 
     Assignments copy() {

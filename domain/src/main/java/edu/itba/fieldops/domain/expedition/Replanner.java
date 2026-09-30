@@ -1,14 +1,16 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
+import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
+import edu.itba.fieldops.domain.tracking.Incident;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 public final class Replanner {
     private final AssignmentSuggester suggester;
@@ -17,72 +19,79 @@ public final class Replanner {
         this.suggester = Objects.requireNonNull(suggester, "assignment suggester");
     }
 
-    public void cancel(Expedition expedition, ActivityId activityId, BookableResources resources, OccupyingExpeditions peers) {
-        requireDraft(expedition);
-        expedition.removeActivity(activityId);
-        refill(expedition, resources, peers);
+    void cancel(PlanningContext context, ActivityId activityId) {
+        requireDraft(context.plan()).removeActivity(activityId);
+        refill(context);
     }
 
-    public void delay(
-            Expedition expedition,
-            ActivityId activityId,
-            Duration delay,
-            BookableResources resources,
-            OccupyingExpeditions peers
-    ) {
-        requireDraft(expedition);
-        expedition.delay(activityId, delay);
-        dropInvalid(expedition, resources, peers);
-        refill(expedition, resources, peers);
+    void delay(PlanningContext context, ActivityId activityId, Duration delay) {
+        requireDraft(context.plan()).delay(activityId, delay);
+        dropInvalid(context);
+        refill(context);
     }
 
-    public void replaceUnavailable(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
-        requireDraft(expedition);
-        dropInvalid(expedition, resources, peers);
-        refill(expedition, resources, peers);
+    void replaceUnavailable(PlanningContext context) {
+        requireDraft(context.plan());
+        dropInvalid(context);
+        refill(context);
     }
 
-    private static void requireDraft(Expedition expedition) {
-        if (expedition.status() == ExpeditionStatus.IN_REVIEW) {
-            expedition.returnToDraft();
-        }
-        if (expedition.status() != ExpeditionStatus.DRAFT) {
-            throw new InvalidExpeditionTransition(expedition.status(), "replan");
+    void respondTo(PlanningContext context, Incident incident, ExpeditionExecution execution) {
+        ActivityId activityId = incident.activityId()
+                .orElseThrow(() -> new InvalidValue("incident must affect an activity"));
+        Activity activity = context.plan().activityOf(activityId);
+        if (execution.hasStarted(activityId)) {
+            cancel(context, activityId);
+        } else if (incident.at().isAfter(activity.window().start())) {
+            delayOrCancel(context, activityId, Duration.between(activity.window().start(), incident.at()));
+        } else {
+            replaceUnavailable(context);
         }
     }
 
-    private void refill(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
-        for (Assignment assignment : suggester.suggest(expedition, resources, peers)) {
-            expedition.addAssignment(assignment);
+    private void delayOrCancel(PlanningContext context, ActivityId activityId, Duration delay) {
+        if (context.plan().delayFits(activityId, delay)) {
+            delay(context, activityId, delay);
+        } else {
+            cancel(context, activityId);
         }
     }
 
-    private static void dropInvalid(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
-        List<TemporalBooking> occupying = new ArrayList<>();
-        for (Expedition peer : peers.plans()) {
-            occupying.addAll(TemporalBooking.of(peer));
+    private static Expedition requireDraft(Expedition plan) {
+        if (plan.status() != ExpeditionStatus.DRAFT) {
+            throw new InvalidExpeditionTransition(plan.status(), "replan");
         }
+        return plan;
+    }
+
+    private void refill(PlanningContext context) {
+        for (Assignment assignment : suggester.suggest(context)) {
+            context.plan().addAssignment(assignment);
+        }
+    }
+
+    private static void dropInvalid(PlanningContext context) {
+        for (BookableAssignment assignment : invalidAssignments(context)) {
+            context.plan().removeAssignment(assignment);
+        }
+    }
+
+    private static List<BookableAssignment> invalidAssignments(PlanningContext context) {
+        Expedition plan = context.plan();
+        List<TemporalBooking> occupied = context.occupying().bookings();
         List<TemporalBooking> kept = new ArrayList<>();
-        List<Assignment> drop = new ArrayList<>();
-        for (Assignment assignment : expedition.assignments().all()) {
-            Optional<TemporalBooking> booking = assignment.booking(
-                    expedition.activityOf(assignment.activityId()).window()
-            );
-            if (booking.isEmpty()) {
-                continue;
-            }
-            TemporalBooking slot = booking.get();
-            boolean invalid = !slot.availableIn(resources)
-                    || occupying.stream().anyMatch(slot::conflicts)
-                    || kept.stream().anyMatch(slot::conflicts);
-            if (invalid) {
-                drop.add(assignment);
+        List<BookableAssignment> invalid = new ArrayList<>();
+        for (BookableAssignment assignment : plan.assignments().bookable()) {
+            TemporalBooking booking = assignment.booking(plan.activityOf(assignment.activityId()).window());
+            boolean usable = booking.availableIn(context.bookable())
+                    && occupied.stream().noneMatch(booking::conflicts)
+                    && kept.stream().noneMatch(booking::conflicts);
+            if (usable) {
+                kept.add(booking);
             } else {
-                kept.add(slot);
+                invalid.add(assignment);
             }
         }
-        for (Assignment assignment : drop) {
-            expedition.removeAssignment(assignment);
-        }
+        return invalid;
     }
 }

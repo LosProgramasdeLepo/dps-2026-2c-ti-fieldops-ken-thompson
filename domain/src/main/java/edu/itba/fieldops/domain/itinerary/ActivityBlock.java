@@ -9,33 +9,52 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 public final class ActivityBlock implements ItineraryItem {
-    private final boolean parallel;
+    public enum Arrangement {
+        SEQUENTIAL {
+            @Override
+            Duration combine(Stream<Duration> durations) {
+                return durations.reduce(Duration.ZERO, Duration::plus);
+            }
+        },
+        PARALLEL {
+            @Override
+            Duration combine(Stream<Duration> durations) {
+                return durations.max(Comparator.naturalOrder()).orElseThrow();
+            }
+        };
+
+        abstract Duration combine(Stream<Duration> durations);
+    }
+
+    private final Arrangement arrangement;
     private final List<ItineraryItem> parts;
 
-    private ActivityBlock(boolean parallel, List<ItineraryItem> parts) {
-        if (parts == null || parts.size() < 2) {
+    private ActivityBlock(Arrangement arrangement, List<ItineraryItem> parts) {
+        if (parts.size() < 2) {
             throw new InvalidItinerary("block must group at least two parts");
         }
         for (ItineraryItem part : parts) {
             Objects.requireNonNull(part, "block part");
         }
-        this.parallel = parallel;
+        this.arrangement = arrangement;
         this.parts = List.copyOf(parts);
         requireDistinctActivities();
     }
 
     public static ActivityBlock sequential(ItineraryItem first, ItineraryItem second, ItineraryItem... rest) {
-        return new ActivityBlock(false, parts(first, second, rest));
+        return new ActivityBlock(Arrangement.SEQUENTIAL, parts(first, second, rest));
     }
 
     public static ActivityBlock parallel(ItineraryItem first, ItineraryItem second, ItineraryItem... rest) {
-        return new ActivityBlock(true, parts(first, second, rest));
+        return new ActivityBlock(Arrangement.PARALLEL, parts(first, second, rest));
     }
 
-    public boolean parallel() {
-        return parallel;
+    public Arrangement arrangement() {
+        return arrangement;
     }
 
     public List<ItineraryItem> parts() {
@@ -43,16 +62,8 @@ public final class ActivityBlock implements ItineraryItem {
     }
 
     @Override
-    public Duration estimatedDuration() {
-        if (parallel) {
-            return parts.stream()
-                    .map(ItineraryItem::estimatedDuration)
-                    .max(Comparator.naturalOrder())
-                    .orElseThrow();
-        }
-        return parts.stream()
-                .map(ItineraryItem::estimatedDuration)
-                .reduce(Duration.ZERO, Duration::plus);
+    public Duration duration(Function<Activity, Duration> leafDuration) {
+        return arrangement.combine(parts.stream().map(part -> part.duration(leafDuration)));
     }
 
     @Override
@@ -65,7 +76,7 @@ public final class ActivityBlock implements ItineraryItem {
     }
 
     ActivityBlock withParts(List<ItineraryItem> parts) {
-        return new ActivityBlock(parallel, parts);
+        return new ActivityBlock(arrangement, parts);
     }
 
     private void requireDistinctActivities() {

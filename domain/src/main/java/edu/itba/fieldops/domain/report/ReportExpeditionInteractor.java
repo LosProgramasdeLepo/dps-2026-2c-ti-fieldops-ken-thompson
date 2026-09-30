@@ -4,7 +4,6 @@ import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.report.usecase.ReportExpedition;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.tracking.ExecutionRepository;
 
 import java.util.Objects;
@@ -20,8 +19,9 @@ public final class ReportExpeditionInteractor implements ReportExpedition {
 
     @Override
     public OperationalReport of(ExpeditionId expeditionId) {
-        Expedition expedition = plans.find(Objects.requireNonNull(expeditionId, "expedition id"))
-                .orElseThrow(() -> new InvalidValue("unknown expedition: " + expeditionId));
-        return OperationalReport.of(expedition, executions.find(expeditionId).orElse(null));
+        Expedition expedition = plans.require(expeditionId);
+        return executions.find(expeditionId)
+                .map(execution -> OperationalReport.of(expedition, execution))
+                .orElseGet(() -> OperationalReport.of(expedition));
     }
 }

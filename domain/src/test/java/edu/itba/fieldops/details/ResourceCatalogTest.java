@@ -1,14 +1,17 @@
-package edu.itba.fieldops.domain.catalog;
+package edu.itba.fieldops.details;
 
-import edu.itba.fieldops.details.ResourceCatalog;
-
+import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.Instrument;
+import edu.itba.fieldops.domain.catalog.Permit;
+import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -21,7 +24,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResourceCatalogTest {
@@ -38,11 +40,11 @@ class ResourceCatalogTest {
                 new TimePeriod(Instant.parse("2026-11-01T00:00:00Z"), Instant.parse("2026-11-08T00:00:00Z"))
         );
 
-        catalog.add(person);
-        catalog.add(vehicle);
-        catalog.add(instrument);
-        catalog.add(vials);
-        catalog.add(permit);
+        catalog.save(person);
+        catalog.save(vehicle);
+        catalog.save(instrument);
+        catalog.save(vials);
+        catalog.save(permit);
 
         assertAll(
                 () -> assertEquals(person, catalog.person(person.id()).orElseThrow()),
@@ -58,11 +60,15 @@ class ResourceCatalogTest {
     }
 
     @Test
-    void rejectsDuplicateId() {
+    void savingTheSameIdReplacesTheResource() {
         ResourceCatalog catalog = new ResourceCatalog();
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(), Availability.always());
-        catalog.add(person);
+        PersonId id = new PersonId(UUID.randomUUID());
+        Person before = new Person(id, "Ada", List.of(), Availability.always());
+        Person after = new Person(id, "Ada Lovelace", List.of(), Availability.always());
+        catalog.save(before);
 
-        assertThrows(InvalidValue.class, () -> catalog.add(person));
+        catalog.save(after);
+
+        assertEquals(List.of(after), catalog.people());
     }
 }

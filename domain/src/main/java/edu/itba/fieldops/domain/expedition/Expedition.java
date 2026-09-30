@@ -5,7 +5,6 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
-import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
@@ -15,8 +14,6 @@ import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
-import edu.itba.fieldops.domain.shared.TimePeriod;
-import edu.itba.fieldops.domain.shared.WorkZone;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -24,50 +21,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
+import java.util.Set;
 
 public final class Expedition {
     private final ExpeditionId id;
     private final int version;
     private final ExpeditionId supersedes;
-    private final List<Objective> objectives;
-    private final TimePeriod period;
-    private final List<WorkZone> zones;
-    private final List<PersonId> responsibles;
-    private final List<Restriction> restrictions;
+    private final ExpeditionCharter charter;
     private final Itinerary itinerary;
     private final Assignments assignments;
     private final List<PermitId> permits;
     private final AcceptedWarnings acceptedWarnings;
     private ExpeditionStatus status;
 
-    static Expedition draft(
-            ExpeditionId id,
-            List<Objective> objectives,
-            TimePeriod period,
-            List<WorkZone> zones,
-            List<PersonId> responsibles,
-            List<Restriction> restrictions
-    ) {
-        return new Expedition(id, objectives, period, zones, responsibles, restrictions);
+    static Expedition draft(ExpeditionId id, ExpeditionCharter charter) {
+        return new Expedition(id, charter);
     }
 
-    private Expedition(
-            ExpeditionId id,
-            List<Objective> objectives,
-            TimePeriod period,
-            List<WorkZone> zones,
-            List<PersonId> responsibles,
-            List<Restriction> restrictions
-    ) {
+    private Expedition(ExpeditionId id, ExpeditionCharter charter) {
         this.id = Objects.requireNonNull(id, "expedition id");
         this.version = 1;
         this.supersedes = null;
-        this.objectives = copyRequired(objectives, "objectives");
-        this.period = Objects.requireNonNull(period, "period");
-        this.zones = copyRequired(zones, "zones");
-        this.responsibles = copyRequired(responsibles, "responsibles");
-        this.restrictions = List.copyOf(restrictions);
+        this.charter = Objects.requireNonNull(charter, "charter");
         this.itinerary = new Itinerary();
         this.assignments = new Assignments();
         this.permits = new ArrayList<>();
@@ -75,15 +50,11 @@ public final class Expedition {
         this.status = ExpeditionStatus.DRAFT;
     }
 
-    private Expedition(Expedition source) {
-        this.id = new ExpeditionId(UUID.randomUUID());
+    private Expedition(ExpeditionId id, Expedition source) {
+        this.id = Objects.requireNonNull(id, "expedition id");
         this.version = source.version + 1;
         this.supersedes = source.id;
-        this.objectives = source.objectives;
-        this.period = source.period;
-        this.zones = source.zones;
-        this.responsibles = source.responsibles;
-        this.restrictions = source.restrictions;
+        this.charter = source.charter;
         this.itinerary = source.itinerary.copy();
         this.assignments = source.assignments.copy();
         this.permits = new ArrayList<>(source.permits);
@@ -91,8 +62,9 @@ public final class Expedition {
         this.status = ExpeditionStatus.DRAFT;
     }
 
-    Expedition reviseAsDraft() {
-        return new Expedition(this);
+    Expedition reviseAsDraft(ExpeditionId revisionId) {
+        requireStatus(ExpeditionStatus.APPROVED, "revise");
+        return new Expedition(revisionId, this);
     }
 
     void addActivity(Activity activity) {
@@ -146,16 +118,8 @@ public final class Expedition {
     }
 
     boolean delayFits(ActivityId activityId, Duration delay) {
-        Objects.requireNonNull(delay, "delay");
-        if (delay.isNegative()) {
-            return false;
-        }
-        for (Activity activity : itinerary.delayed(activityId, delay)) {
-            if (!period.contains(activity.window())) {
-                return false;
-            }
-        }
-        return true;
+        return itinerary.delayed(activityId, delay).stream()
+                .allMatch(activity -> charter.period().contains(activity.window()));
     }
 
     void addPermit(PermitId permitId) {
@@ -170,7 +134,7 @@ public final class Expedition {
     void acceptWarning(AcceptedWarning warning) {
         requireStatus(ExpeditionStatus.IN_REVIEW, "accept warning");
         Objects.requireNonNull(warning, "warning");
-        if (!responsibles.contains(warning.acceptedBy())) {
+        if (!charter.isResponsible(warning.acceptedBy())) {
             throw new InvalidValue("warning must be accepted by a responsible");
         }
         acceptedWarnings.accept(warning);
@@ -197,7 +161,7 @@ public final class Expedition {
         transition(ExpeditionStatus.APPROVED, ExpeditionStatus.SUPERSEDED, "supersede");
     }
 
-    public boolean hasAccepted(ValidationIssue warning) {
+    boolean hasAccepted(ValidationIssue warning) {
         return acceptedWarnings.covers(warning);
     }
 
@@ -213,36 +177,32 @@ public final class Expedition {
         return Optional.ofNullable(supersedes);
     }
 
-    public List<Objective> objectives() {
-        return objectives;
-    }
-
-    public TimePeriod period() {
-        return period;
-    }
-
-    public List<WorkZone> zones() {
-        return zones;
-    }
-
-    public List<PersonId> responsibles() {
-        return responsibles;
-    }
-
-    public List<Restriction> restrictions() {
-        return restrictions;
+    public ExpeditionCharter charter() {
+        return charter;
     }
 
     public ExpeditionStatus status() {
         return status;
     }
 
-    public List<Activity> itinerary() {
+    public List<Activity> activities() {
         return itinerary.activities();
     }
 
     public List<ItineraryItem> items() {
         return itinerary.items();
+    }
+
+    public List<ActivityBlock> blocks() {
+        return itinerary.blocks();
+    }
+
+    public Activity activityOf(ActivityId activityId) {
+        return itinerary.activityOf(activityId);
+    }
+
+    public Set<ActivityId> predecessorsOf(ActivityId activityId) {
+        return itinerary.predecessorsOf(activityId);
     }
 
     public Duration estimatedDuration() {
@@ -258,7 +218,7 @@ public final class Expedition {
     }
 
     public Assignments assignments() {
-        return assignments;
+        return assignments.copy();
     }
 
     public List<PermitId> permits() {
@@ -269,19 +229,11 @@ public final class Expedition {
         return acceptedWarnings.all();
     }
 
-    public Activity activityOf(ActivityId activityId) {
-        return itinerary.activityOf(activityId);
-    }
-
     private void requirePlanned(Activity activity) {
-        if (!zones.contains(activity.zone())) {
+        if (!charter.zones().contains(activity.zone())) {
             throw new InvalidItinerary("activity zone is not part of the expedition");
         }
-        requireWindowInsidePeriod(activity);
-    }
-
-    private void requireWindowInsidePeriod(Activity activity) {
-        if (!period.contains(activity.window())) {
+        if (!charter.period().contains(activity.window())) {
             throw new InvalidItinerary("activity window is outside the expedition period");
         }
     }
@@ -295,12 +247,5 @@ public final class Expedition {
         if (status != expected) {
             throw new InvalidExpeditionTransition(status, action);
         }
-    }
-
-    private static <T> List<T> copyRequired(List<T> values, String name) {
-        if (values == null || values.isEmpty()) {
-            throw new InvalidValue(name + " must not be empty");
-        }
-        return List.copyOf(values);
     }
 }

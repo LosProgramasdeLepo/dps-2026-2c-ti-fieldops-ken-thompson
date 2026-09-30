@@ -12,19 +12,20 @@ public enum OperationalStatus {
     FINISHED,
     SUPERSEDED;
 
-    static OperationalStatus of(Expedition expedition, ExpeditionExecution execution) {
-        if (execution != null) {
-            return switch (execution.status()) {
-                case IN_PROGRESS -> IN_PROGRESS;
-                case SUSPENDED -> SUSPENDED;
-                case FINISHED -> FINISHED;
-            };
-        }
+    static OperationalStatus of(Expedition expedition) {
         return switch (expedition.status()) {
             case DRAFT -> DRAFT;
             case IN_REVIEW -> IN_REVIEW;
             case APPROVED -> APPROVED;
             case SUPERSEDED -> SUPERSEDED;
+        };
+    }
+
+    static OperationalStatus of(ExpeditionExecution execution) {
+        return switch (execution.status()) {
+            case IN_PROGRESS -> IN_PROGRESS;
+            case SUSPENDED -> SUSPENDED;
+            case FINISHED -> FINISHED;
         };
     }
 }

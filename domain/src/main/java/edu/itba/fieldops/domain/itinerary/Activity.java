@@ -16,35 +16,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 public final class Activity implements ItineraryItem {
     private final ActivityId id;
     private final String name;
     private final Duration estimatedDuration;
     private final RiskLevel risk;
+    private final Map<ConsumableId, Stock> estimatedConsumption;
     private final ResourceRequirements requirements;
+    private final WorkZone zone;
     private final TimePeriod window;
     private final Set<ActivityId> predecessors;
-    private final WorkZone zone;
 
-    private Activity(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            ResourceRequirements requirements,
-            TimePeriod window,
-            Set<ActivityId> predecessors,
-            WorkZone zone
-    ) {
-        this.id = Objects.requireNonNull(id, "activity id");
-        this.name = Texts.required(name, "activity name");
-        this.estimatedDuration = Objects.requireNonNull(estimatedDuration, "estimated duration");
-        this.risk = Objects.requireNonNull(risk, "risk");
-        this.requirements = Objects.requireNonNull(requirements, "requirements");
-        this.window = Objects.requireNonNull(window, "activity window");
-        this.predecessors = Set.copyOf(predecessors);
-        this.zone = Objects.requireNonNull(zone, "activity zone");
+    private Activity(Builder builder) {
+        this.id = Objects.requireNonNull(builder.id, "activity id");
+        this.name = Texts.required(builder.name, "activity name");
+        this.estimatedDuration = Objects.requireNonNull(builder.estimatedDuration, "estimated duration");
+        this.risk = builder.riskFactor.apply(Objects.requireNonNull(builder.risk, "risk"));
+        this.estimatedConsumption = Map.copyOf(builder.estimatedConsumption);
+        this.requirements = builder.requirements;
+        this.zone = Objects.requireNonNull(builder.zone, "activity zone");
+        this.window = Objects.requireNonNull(builder.window, "activity window");
+        this.predecessors = Set.copyOf(builder.predecessors);
         if (estimatedDuration.isNegative() || estimatedDuration.isZero()) {
             throw new InvalidItinerary("estimated duration must be positive");
         }
@@ -56,183 +51,44 @@ public final class Activity implements ItineraryItem {
         }
     }
 
-    public static Activity sampling(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            TimePeriod window,
-            Set<ActivityId> predecessors,
-            WorkZone zone,
-            CertificationId certification
-    ) {
-        return sampling(id, name, estimatedDuration, risk, window, predecessors, zone, certification, Map.of());
+    public static Builder sampling(CertificationId certification) {
+        return new Builder(new ResourceRequirements(
+                Set.of(Objects.requireNonNull(certification, "sampling certification")),
+                Set.of(),
+                VehicleRequirement.NONE,
+                new InstrumentRequirement.None(),
+                NightPermit.NONE
+        ));
     }
 
-    public static Activity sampling(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            TimePeriod window,
-            Set<ActivityId> predecessors,
-            WorkZone zone,
-            CertificationId certification,
-            Map<ConsumableId, Stock> estimatedConsumption
-    ) {
-        Objects.requireNonNull(certification, "sampling certification");
-        return new Activity(
-                id,
-                name,
-                estimatedDuration,
-                risk,
-                new ResourceRequirements(
-                        Set.of(certification),
-                        Set.of(),
-                        VehicleRequirement.NONE,
-                        new InstrumentRequirement.None(),
-                        NightPermit.NONE,
-                        estimatedConsumption
-                ),
-                window,
-                predecessors,
-                zone
-        );
+    public static Builder measurement(CertificationId certification, InstrumentKind instrument) {
+        return new Builder(new ResourceRequirements(
+                Set.of(Objects.requireNonNull(certification, "operator certification")),
+                Set.of(),
+                VehicleRequirement.NONE,
+                new InstrumentRequirement.OfKind(instrument),
+                NightPermit.NONE
+        ));
     }
 
-    public static Activity measurement(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            TimePeriod window,
-            Set<ActivityId> predecessors,
-            WorkZone zone,
-            CertificationId certification,
-            InstrumentKind instrument
-    ) {
-        return measurement(id, name, estimatedDuration, risk, window, predecessors, zone, certification, instrument, Map.of());
+    public static Builder transit() {
+        return new Builder(new ResourceRequirements(
+                Set.of(),
+                Set.of(),
+                VehicleRequirement.REQUIRED,
+                new InstrumentRequirement.None(),
+                NightPermit.NONE
+        ));
     }
 
-    public static Activity measurement(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            TimePeriod window,
-            Set<ActivityId> predecessors,
-            WorkZone zone,
-            CertificationId certification,
-            InstrumentKind instrument,
-            Map<ConsumableId, Stock> estimatedConsumption
-    ) {
-        Objects.requireNonNull(certification, "operator certification");
-        return new Activity(
-                id,
-                name,
-                estimatedDuration,
-                risk,
-                new ResourceRequirements(
-                        Set.of(certification),
-                        Set.of(),
-                        VehicleRequirement.NONE,
-                        new InstrumentRequirement.OfKind(instrument),
-                        NightPermit.NONE,
-                        estimatedConsumption
-                ),
-                window,
-                predecessors,
-                zone
-        );
-    }
-
-    public static Activity transit(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            TimePeriod window,
-            Set<ActivityId> predecessors,
-            WorkZone zone
-    ) {
-        return transit(id, name, estimatedDuration, risk, window, predecessors, zone, Map.of());
-    }
-
-    public static Activity transit(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            TimePeriod window,
-            Set<ActivityId> predecessors,
-            WorkZone zone,
-            Map<ConsumableId, Stock> estimatedConsumption
-    ) {
-        return new Activity(
-                id,
-                name,
-                estimatedDuration,
-                risk,
-                new ResourceRequirements(
-                        Set.of(),
-                        Set.of(),
-                        VehicleRequirement.REQUIRED,
-                        new InstrumentRequirement.None(),
-                        NightPermit.NONE,
-                        estimatedConsumption
-                ),
-                window,
-                predecessors,
-                zone
-        );
-    }
-
-    public static Activity night(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            TimePeriod window,
-            Set<ActivityId> predecessors,
-            WorkZone zone,
-            CertificationId nightOperation,
-            InstrumentKind lighting
-    ) {
-        return night(id, name, estimatedDuration, risk, window, predecessors, zone, nightOperation, lighting, Map.of());
-    }
-
-    public static Activity night(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            TimePeriod window,
-            Set<ActivityId> predecessors,
-            WorkZone zone,
-            CertificationId nightOperation,
-            InstrumentKind lighting,
-            Map<ConsumableId, Stock> estimatedConsumption
-    ) {
-        Objects.requireNonNull(risk, "risk");
-        Objects.requireNonNull(nightOperation, "night certification");
-        Objects.requireNonNull(lighting, "lighting");
-        return new Activity(
-                id,
-                name,
-                estimatedDuration,
-                risk.raised(),
-                new ResourceRequirements(
-                        Set.of(),
-                        Set.of(nightOperation),
-                        VehicleRequirement.NONE,
-                        new InstrumentRequirement.OfKind(lighting),
-                        NightPermit.REQUIRED,
-                        estimatedConsumption
-                ),
-                window,
-                predecessors,
-                zone
-        );
+    public static Builder night(CertificationId nightOperation) {
+        return new Builder(new ResourceRequirements(
+                Set.of(),
+                Set.of(Objects.requireNonNull(nightOperation, "night certification")),
+                VehicleRequirement.NONE,
+                new InstrumentRequirement.OfKind(InstrumentKind.LIGHTING),
+                NightPermit.REQUIRED
+        ), RiskLevel::raised);
     }
 
     public ActivityId id() {
@@ -243,7 +99,6 @@ public final class Activity implements ItineraryItem {
         return name;
     }
 
-    @Override
     public Duration estimatedDuration() {
         return estimatedDuration;
     }
@@ -252,13 +107,16 @@ public final class Activity implements ItineraryItem {
         return risk;
     }
 
+    public Map<ConsumableId, Stock> estimatedConsumption() {
+        return estimatedConsumption;
+    }
+
     public ResourceRequirements requirements() {
         return requirements;
     }
 
-    @Override
-    public List<Activity> activities() {
-        return List.of(this);
+    public WorkZone zone() {
+        return zone;
     }
 
     public TimePeriod window() {
@@ -269,19 +127,25 @@ public final class Activity implements ItineraryItem {
         return predecessors;
     }
 
-    public WorkZone zone() {
-        return zone;
+    @Override
+    public Duration duration(Function<Activity, Duration> leafDuration) {
+        return leafDuration.apply(this);
+    }
+
+    @Override
+    public List<Activity> activities() {
+        return List.of(this);
     }
 
     Activity withWindow(TimePeriod window) {
-        return new Activity(id, name, estimatedDuration, risk, requirements, window, predecessors, zone);
+        return new Builder(this).in(zone, window).build();
     }
 
     Activity withPredecessor(ActivityId predecessorId) {
         Objects.requireNonNull(predecessorId, "predecessor id");
         Set<ActivityId> next = new HashSet<>(predecessors);
         next.add(predecessorId);
-        return new Activity(id, name, estimatedDuration, risk, requirements, window, next, zone);
+        return new Builder(this).after(next).build();
     }
 
     Activity withoutPredecessor(ActivityId predecessorId) {
@@ -290,6 +154,72 @@ public final class Activity implements ItineraryItem {
         if (!next.remove(predecessorId)) {
             throw new InvalidItinerary("unknown predecessor: " + predecessorId);
         }
-        return new Activity(id, name, estimatedDuration, risk, requirements, window, next, zone);
+        return new Builder(this).after(next).build();
+    }
+
+    public static final class Builder {
+        private final ResourceRequirements requirements;
+        private final UnaryOperator<RiskLevel> riskFactor;
+        private ActivityId id;
+        private String name;
+        private Duration estimatedDuration;
+        private RiskLevel risk;
+        private Map<ConsumableId, Stock> estimatedConsumption = Map.of();
+        private WorkZone zone;
+        private TimePeriod window;
+        private Set<ActivityId> predecessors = Set.of();
+
+        private Builder(ResourceRequirements requirements) {
+            this(requirements, UnaryOperator.identity());
+        }
+
+        private Builder(ResourceRequirements requirements, UnaryOperator<RiskLevel> riskFactor) {
+            this.requirements = requirements;
+            this.riskFactor = riskFactor;
+        }
+
+        private Builder(Activity source) {
+            this(source.requirements);
+            this.id = source.id;
+            this.name = source.name;
+            this.estimatedDuration = source.estimatedDuration;
+            this.risk = source.risk;
+            this.estimatedConsumption = source.estimatedConsumption;
+            this.zone = source.zone;
+            this.window = source.window;
+            this.predecessors = source.predecessors;
+        }
+
+        public Builder named(ActivityId id, String name) {
+            this.id = id;
+            this.name = name;
+            return this;
+        }
+
+        public Builder estimated(Duration estimatedDuration, RiskLevel risk) {
+            this.estimatedDuration = estimatedDuration;
+            this.risk = risk;
+            return this;
+        }
+
+        public Builder consuming(Map<ConsumableId, Stock> estimatedConsumption) {
+            this.estimatedConsumption = Objects.requireNonNull(estimatedConsumption, "estimated consumption");
+            return this;
+        }
+
+        public Builder in(WorkZone zone, TimePeriod window) {
+            this.zone = zone;
+            this.window = window;
+            return this;
+        }
+
+        public Builder after(Set<ActivityId> predecessors) {
+            this.predecessors = Objects.requireNonNull(predecessors, "predecessors");
+            return this;
+        }
+
+        public Activity build() {
+            return new Activity(this);
+        }
     }
 }

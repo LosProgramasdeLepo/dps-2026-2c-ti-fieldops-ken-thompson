@@ -8,15 +8,15 @@ import edu.itba.fieldops.domain.shared.TimePeriod;
 import java.util.Objects;
 import java.util.Optional;
 
-public record VehicleAssignment(ActivityId activityId, VehicleId vehicleId) implements Assignment {
+public record VehicleAssignment(ActivityId activityId, VehicleId vehicleId) implements BookableAssignment {
     public VehicleAssignment {
         Objects.requireNonNull(activityId, "activity id");
         Objects.requireNonNull(vehicleId, "vehicle id");
     }
 
     @Override
-    public Optional<TemporalBooking> booking(TimePeriod window) {
-        return Optional.of(new TemporalBooking.VehicleBooking(vehicleId, activityId, window));
+    public TemporalBooking booking(TimePeriod window) {
+        return new TemporalBooking.VehicleBooking(vehicleId, activityId, window);
     }
 
     @Override
@@ -30,7 +30,7 @@ public record VehicleAssignment(ActivityId activityId, VehicleId vehicleId) impl
     }
 
     @Override
-    public boolean withdrawFrom(Assignments assignments) {
-        return assignments.withdraw(this);
+    public void withdrawFrom(Assignments assignments) {
+        assignments.withdraw(this);
     }
 }

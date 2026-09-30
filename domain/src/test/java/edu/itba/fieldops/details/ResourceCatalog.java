@@ -18,7 +18,6 @@ import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,27 +59,27 @@ public final class ResourceCatalog implements People, Vehicles, Instruments, Con
     }
 
     @Override
-    public void add(Person person) {
+    public void save(Person person) {
         put(people, person.id(), person, "person");
     }
 
     @Override
-    public void add(Vehicle vehicle) {
+    public void save(Vehicle vehicle) {
         put(vehicles, vehicle.id(), vehicle, "vehicle");
     }
 
     @Override
-    public void add(Instrument instrument) {
+    public void save(Instrument instrument) {
         put(instruments, instrument.id(), instrument, "instrument");
     }
 
     @Override
-    public void add(Consumable consumable) {
+    public void save(Consumable consumable) {
         put(consumables, consumable.id(), consumable, "consumable");
     }
 
     @Override
-    public void add(Permit permit) {
+    public void save(Permit permit) {
         put(permits, permit.id(), permit, "permit");
     }
 
@@ -133,10 +132,7 @@ public final class ResourceCatalog implements People, Vehicles, Instruments, Con
     }
 
     private static <K, T> void put(Map<K, T> items, K id, T value, String type) {
-        Objects.requireNonNull(value, type);
-        if (items.putIfAbsent(id, value) != null) {
-            throw new InvalidValue("duplicate " + type + ": " + id);
-        }
+        items.put(id, Objects.requireNonNull(value, type));
     }
 
     private static <K, T> Optional<T> find(Map<K, T> items, K id) {

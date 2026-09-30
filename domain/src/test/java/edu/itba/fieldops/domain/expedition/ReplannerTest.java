@@ -16,6 +16,7 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
+import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
@@ -28,8 +29,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,27 +54,26 @@ class ReplannerTest {
         expedition.addActivity(second);
         expedition.addDependency(second.id(), first.id());
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
+        catalog.save(ada);
 
-        replanner.cancel(expedition, first.id(), catalog.bookable(), OccupyingExpeditions.none());
+        replanner.cancel(contextOf(expedition, catalog), first.id());
 
-        assertEquals(List.of(second.id()), expedition.itinerary().stream().map(Activity::id).toList());
+        assertEquals(List.of(second.id()), expedition.activities().stream().map(Activity::id).toList());
         assertTrue(expedition.activityOf(second.id()).predecessors().isEmpty());
         assertEquals(List.of(new PersonAssignment(second.id(), ada.id())), expedition.assignments().all());
     }
 
     @Test
-    void delayFromReviewReturnsToDraftThenShifts() {
+    void delayShiftsTheWindowAndKeepsItsAssignments() {
         Certification certification = certification();
         Person ada = person(certification);
         Activity sample = sampling(certification.id(), 0, 4);
         Expedition expedition = draftWith(sample);
         expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
-        expedition.submitForReview();
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
+        catalog.save(ada);
 
-        replanner.delay(expedition, sample.id(), Duration.ofHours(2), catalog.bookable(), OccupyingExpeditions.none());
+        replanner.delay(contextOf(expedition, catalog), sample.id(), Duration.ofHours(2));
 
         assertEquals(ExpeditionStatus.DRAFT, expedition.status());
         assertEquals(window(2, 6), expedition.activityOf(sample.id()).window());
@@ -99,16 +99,16 @@ class ReplannerTest {
         ResourceCatalog catalog = catalogWith(ada, vehicle, samplePermit, ridePermit);
         Approvals.approve(approved, catalog);
 
-        Expedition revision = approved.reviseAsDraft();
-        replanner.cancel(revision, ride.id(), catalog.bookable(), OccupyingExpeditions.none());
+        Expedition revision = approved.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        replanner.cancel(contextOf(revision, catalog), ride.id());
 
         assertNotEquals(approved.id(), revision.id());
         assertEquals(ExpeditionStatus.APPROVED, approved.status());
-        assertEquals(List.of(sample.id(), ride.id()), approved.itinerary().stream().map(Activity::id).toList());
+        assertEquals(List.of(sample.id(), ride.id()), approved.activities().stream().map(Activity::id).toList());
         assertEquals(ExpeditionStatus.DRAFT, revision.status());
         assertEquals(2, revision.version());
         assertEquals(Optional.of(approved.id()), revision.supersedes());
-        assertEquals(List.of(sample.id()), revision.itinerary().stream().map(Activity::id).toList());
+        assertEquals(List.of(sample.id()), revision.activities().stream().map(Activity::id).toList());
         assertEquals(List.of(new PersonAssignment(sample.id(), ada.id())), revision.assignments().all());
     }
 
@@ -132,12 +132,12 @@ class ReplannerTest {
         Approvals.approve(approved, catalog);
         ExpeditionExecution execution = ExpeditionExecution.started(approved.id());
         execution.startActivity(sample.id(), DAY, approved.activityOf(sample.id()).predecessors());
-        execution.addIncident(new Incident("ventisca en el frente", DAY, sample.id()));
+        execution.addIncident(Incident.affecting(sample.id(), "ventisca en el frente", DAY));
 
-        Expedition revision = approved.reviseAsDraft();
-        replanner.cancel(revision, ride.id(), catalog.bookable(), OccupyingExpeditions.none());
+        Expedition revision = approved.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        replanner.cancel(contextOf(revision, catalog), ride.id());
 
-        assertEquals(1, execution.executions().size());
+        assertEquals(1, execution.activities().size());
         assertEquals(1, execution.incidents().size());
         assertEquals(ExpeditionExecution.Status.IN_PROGRESS, execution.status());
         assertEquals(approved.id(), execution.expeditionId());
@@ -165,13 +165,8 @@ class ReplannerTest {
         ResourceCatalog catalog = catalogWith(ada, vehicle, samplePermit, ridePermit);
         Approvals.approve(approved, catalog);
 
-        Expedition revision = approved.reviseAsDraft();
-        replanner.cancel(
-                revision,
-                ride.id(),
-                catalog.bookable(),
-                OccupyingExpeditions.of(revision, List.of(approved))
-        );
+        Expedition revision = approved.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        replanner.cancel(new PlanningContext(revision, catalog.catalogs(), OccupyingExpeditions.of(revision, List.of(approved), Map.of())), ride.id());
 
         assertEquals(List.of(new PersonAssignment(sample.id(), ada.id())), revision.assignments().all());
     }
@@ -187,25 +182,25 @@ class ReplannerTest {
         expedition.addPermit(permit.id());
         expedition.submitForReview();
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
-        catalog.add(permit);
+        catalog.save(ada);
+        catalog.save(permit);
         Approvals.approve(expedition, catalog);
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(sample.id(), DAY, expedition.activityOf(sample.id()).predecessors());
 
-        Expedition revision = expedition.reviseAsDraft();
-        replanner.delay(revision, sample.id(), Duration.ofHours(2), catalog.bookable(), OccupyingExpeditions.none());
+        Expedition revision = expedition.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        replanner.delay(contextOf(revision, catalog), sample.id(), Duration.ofHours(2));
 
         assertEquals(ExpeditionStatus.APPROVED, expedition.status());
         assertEquals(window(0, 4), expedition.activityOf(sample.id()).window());
-        assertEquals(1, execution.executions().size());
+        assertEquals(1, execution.activities().size());
         assertEquals(ExpeditionStatus.DRAFT, revision.status());
         assertEquals(window(2, 6), revision.activityOf(sample.id()).window());
         assertNotEquals(expedition.id(), revision.id());
     }
 
     @Test
-    void replaceUnavailableReturnsReviewToDraft() {
+    void replaceUnavailableSwapsAPersonTakenByAnotherPlan() {
         Certification certification = certification();
         Person ada = person(certification);
         Person bob = person(certification);
@@ -216,15 +211,31 @@ class ReplannerTest {
         Activity sample = sampling(certification.id(), 0, 4);
         Expedition expedition = draftWith(sample);
         expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
-        expedition.submitForReview();
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
-        catalog.add(bob);
+        catalog.save(ada);
+        catalog.save(bob);
 
-        replanner.replaceUnavailable(expedition, catalog.bookable(), OccupyingExpeditions.of(expedition, List.of(occupying)));
+        replanner.replaceUnavailable(new PlanningContext(expedition, catalog.catalogs(), OccupyingExpeditions.of(expedition, List.of(occupying), Map.of())));
 
         assertEquals(ExpeditionStatus.DRAFT, expedition.status());
         assertEquals(List.of(new PersonAssignment(sample.id(), bob.id())), expedition.assignments().all());
+    }
+
+    @Test
+    void replanRequiresADraftAndLeavesAReviewUntouched() {
+        Certification certification = certification();
+        Person ada = person(certification);
+        Activity sample = sampling(certification.id(), 0, 4);
+        Expedition expedition = draftWith(sample);
+        expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
+        expedition.submitForReview();
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.save(ada);
+        PlanningContext context = contextOf(expedition, catalog);
+
+        assertThrows(InvalidExpeditionTransition.class, () -> replanner.replaceUnavailable(context));
+
+        assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
     }
 
     @Test
@@ -236,11 +247,11 @@ class ReplannerTest {
         Expedition expedition = draftWith(sample);
         expedition.addActivity(ride);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
+        catalog.save(ada);
 
-        replanner.cancel(expedition, ride.id(), catalog.bookable(), OccupyingExpeditions.none());
+        replanner.cancel(contextOf(expedition, catalog), ride.id());
 
-        assertEquals(List.of(sample.id()), expedition.itinerary().stream().map(Activity::id).toList());
+        assertEquals(List.of(sample.id()), expedition.activities().stream().map(Activity::id).toList());
         assertEquals(List.of(new PersonAssignment(sample.id(), ada.id())), expedition.assignments().all());
     }
 
@@ -257,10 +268,10 @@ class ReplannerTest {
         Expedition expedition = draftWith(sample);
         expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
-        catalog.add(bob);
+        catalog.save(ada);
+        catalog.save(bob);
 
-        replanner.replaceUnavailable(expedition, catalog.bookable(), OccupyingExpeditions.of(expedition, List.of(occupying)));
+        replanner.replaceUnavailable(new PlanningContext(expedition, catalog.catalogs(), OccupyingExpeditions.of(expedition, List.of(occupying), Map.of())));
 
         assertEquals(List.of(new PersonAssignment(sample.id(), bob.id())), expedition.assignments().all());
     }
@@ -281,11 +292,11 @@ class ReplannerTest {
         expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
         expedition.addAssignment(vialsAssigned);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
-        catalog.add(bob);
-        catalog.add(vials);
+        catalog.save(ada);
+        catalog.save(bob);
+        catalog.save(vials);
 
-        replanner.replaceUnavailable(expedition, catalog.bookable(), OccupyingExpeditions.of(expedition, List.of(occupying)));
+        replanner.replaceUnavailable(new PlanningContext(expedition, catalog.catalogs(), OccupyingExpeditions.of(expedition, List.of(occupying), Map.of())));
 
         assertEquals(2, expedition.assignments().all().size());
         assertTrue(expedition.assignments().all().contains(vialsAssigned));
@@ -303,9 +314,9 @@ class ReplannerTest {
         expedition.addDependency(second.id(), first.id());
         expedition.addAssignment(new PersonAssignment(first.id(), ada.id()));
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
+        catalog.save(ada);
 
-        replanner.delay(expedition, first.id(), Duration.ofHours(2), catalog.bookable(), OccupyingExpeditions.none());
+        replanner.delay(contextOf(expedition, catalog), first.id(), Duration.ofHours(2));
 
         assertEquals(window(2, 6), expedition.activityOf(first.id()).window());
         assertEquals(window(6, 10), expedition.activityOf(second.id()).window());
@@ -331,10 +342,10 @@ class ReplannerTest {
         Expedition expedition = draftWith(sample);
         expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
-        catalog.add(bob);
+        catalog.save(ada);
+        catalog.save(bob);
 
-        replanner.delay(expedition, sample.id(), Duration.ofHours(4), catalog.bookable(), OccupyingExpeditions.of(expedition, List.of(occupying)));
+        replanner.delay(new PlanningContext(expedition, catalog.catalogs(), OccupyingExpeditions.of(expedition, List.of(occupying), Map.of())), sample.id(), Duration.ofHours(4));
 
         assertEquals(window(4, 8), expedition.activityOf(sample.id()).window());
         assertEquals(List.of(new PersonAssignment(sample.id(), bob.id())), expedition.assignments().all());
@@ -349,16 +360,20 @@ class ReplannerTest {
 
         assertThrows(
                 InvalidItinerary.class,
-                () -> replanner.delay(expedition, sample.id(), Duration.ofDays(10), catalog.bookable(), OccupyingExpeditions.none())
+                () -> replanner.delay(contextOf(expedition, catalog), sample.id(), Duration.ofDays(10))
         );
+    }
+
+    private static PlanningContext contextOf(Expedition plan, ResourceCatalog catalog) {
+        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.none());
     }
 
     private static ResourceCatalog catalogWith(Person ada, Vehicle vehicle, Permit samplePermit, Permit ridePermit) {
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
-        catalog.add(vehicle);
-        catalog.add(samplePermit);
-        catalog.add(ridePermit);
+        catalog.save(ada);
+        catalog.save(vehicle);
+        catalog.save(samplePermit);
+        catalog.save(ridePermit);
         return catalog;
     }
 
@@ -381,39 +396,32 @@ class ReplannerTest {
     private static Expedition draftWith(Activity activity) {
         Expedition expedition = Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("Map wetland biodiversity")),
-                week(),
-                List.of(DELTA),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("No night work"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland biodiversity")),
+                        week(),
+                        List.of(DELTA),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("No night work"))
+                )
         );
         expedition.addActivity(activity);
         return expedition;
     }
 
     private static Activity sampling(CertificationId certificationId, int fromHour, int toHour) {
-        return Activity.sampling(
-                new ActivityId(UUID.randomUUID()),
-                "sample",
-                Duration.ofHours(toHour - fromHour),
-                RiskLevel.MEDIUM,
-                window(fromHour, toHour),
-                Set.of(),
-                DELTA,
-                certificationId
-        );
+        return Activity.sampling(certificationId)
+                .named(new ActivityId(UUID.randomUUID()), "sample")
+                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.MEDIUM)
+                .in(DELTA, window(fromHour, toHour))
+                .build();
     }
 
     private static Activity transit(int fromHour, int toHour) {
-        return Activity.transit(
-                new ActivityId(UUID.randomUUID()),
-                "transit",
-                Duration.ofHours(toHour - fromHour),
-                RiskLevel.LOW,
-                window(fromHour, toHour),
-                Set.of(),
-                DELTA
-        );
+        return Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "transit")
+                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .in(DELTA, window(fromHour, toHour))
+                .build();
     }
 
     private static TimePeriod window(int fromHour, int toHour) {

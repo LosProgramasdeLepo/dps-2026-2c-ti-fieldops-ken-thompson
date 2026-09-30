@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 public final class OccupyingExpeditions {
     private final List<Expedition> plans;
@@ -19,10 +20,6 @@ public final class OccupyingExpeditions {
         return new OccupyingExpeditions(List.of());
     }
 
-    public static OccupyingExpeditions of(Expedition plan, List<Expedition> others) {
-        return of(plan, others, Map.of());
-    }
-
     public static OccupyingExpeditions of(
             Expedition plan,
             List<Expedition> others,
@@ -31,30 +28,32 @@ public final class OccupyingExpeditions {
         Objects.requireNonNull(plan, "expedition");
         Objects.requireNonNull(others, "other expeditions");
         Objects.requireNonNull(executions, "executions");
-        List<Expedition> occupying = new ArrayList<>();
-        for (Expedition peer : others) {
-            if (peer.id().equals(plan.id())) {
-                continue;
-            }
-            if (plan.supersedes().filter(peer.id()::equals).isPresent()) {
-                continue;
-            }
-            ExpeditionExecution execution = executions.get(peer.id());
-            if (execution != null && execution.isFinished()) {
-                continue;
-            }
-            if (peer.status().occupiesResources() || occupiesWhileRunning(peer, execution)) {
-                occupying.add(peer);
-            }
-        }
-        return new OccupyingExpeditions(List.copyOf(occupying));
+        List<Expedition> occupying = others.stream()
+                .filter(other -> !other.id().equals(plan.id()))
+                .filter(other -> plan.supersedes().filter(other.id()::equals).isEmpty())
+                .filter(other -> occupies(other, executions))
+                .toList();
+        return new OccupyingExpeditions(occupying);
     }
 
     public List<Expedition> plans() {
         return plans;
     }
 
-    private static boolean occupiesWhileRunning(Expedition peer, ExpeditionExecution execution) {
-        return peer.status() == ExpeditionStatus.SUPERSEDED && execution != null;
+    public List<TemporalBooking> bookings() {
+        List<TemporalBooking> bookings = new ArrayList<>();
+        for (Expedition plan : plans) {
+            bookings.addAll(TemporalBooking.of(plan));
+        }
+        return bookings;
+    }
+
+    private static boolean occupies(Expedition other, Map<ExpeditionId, ExpeditionExecution> executions) {
+        Optional<ExpeditionExecution> run = Optional.ofNullable(executions.get(other.id()));
+        if (run.filter(ExpeditionExecution::isFinished).isPresent()) {
+            return false;
+        }
+        return other.status().occupiesResources()
+                || other.status() == ExpeditionStatus.SUPERSEDED && run.isPresent();
     }
 }

@@ -6,7 +6,7 @@ import edu.itba.fieldops.domain.shared.InvalidValue;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class AcceptedWarnings {
+final class AcceptedWarnings {
     private final List<AcceptedWarning> warnings = new ArrayList<>();
 
     void accept(AcceptedWarning warning) {
@@ -16,11 +16,11 @@ public final class AcceptedWarnings {
         warnings.add(warning);
     }
 
-    public boolean covers(ValidationIssue issue) {
+    boolean covers(ValidationIssue issue) {
         return warnings.stream().anyMatch(entry -> entry.issue().equals(issue));
     }
 
-    public List<AcceptedWarning> all() {
+    List<AcceptedWarning> all() {
         return List.copyOf(warnings);
     }
 

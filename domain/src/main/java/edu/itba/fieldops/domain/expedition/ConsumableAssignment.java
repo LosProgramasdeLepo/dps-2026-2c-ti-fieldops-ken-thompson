@@ -4,7 +4,6 @@ import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.shared.Stock;
-import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -14,11 +13,9 @@ public record ConsumableAssignment(ActivityId activityId, ConsumableId consumabl
         Objects.requireNonNull(activityId, "activity id");
         Objects.requireNonNull(consumableId, "consumable id");
         Objects.requireNonNull(quantity, "quantity");
-    }
-
-    @Override
-    public Optional<TemporalBooking> booking(TimePeriod window) {
-        return Optional.empty();
+        if (quantity.amount() == 0) {
+            throw new InvalidAssignment("assigned quantity must be positive");
+        }
     }
 
     @Override
@@ -34,7 +31,7 @@ public record ConsumableAssignment(ActivityId activityId, ConsumableId consumabl
     }
 
     @Override
-    public boolean withdrawFrom(Assignments assignments) {
-        return assignments.withdraw(this);
+    public void withdrawFrom(Assignments assignments) {
+        assignments.withdraw(this);
     }
 }

@@ -4,8 +4,8 @@ import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Person;
-import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.PersonAssignment;
+import edu.itba.fieldops.domain.expedition.Assignments;
+import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 
@@ -15,33 +15,38 @@ import java.util.Optional;
 
 public final class CertificationRule implements ValidationRule {
     @Override
-    public List<ValidationIssue> check(ValidationContext context) {
-        Expedition expedition = context.expedition();
-        People people = context.people();
+    public List<ValidationIssue> check(PlanningContext context) {
+        Assignments assignments = context.plan().assignments();
         List<ValidationIssue> issues = new ArrayList<>();
-        for (Activity activity : expedition.itinerary()) {
-            List<Person> known = knownAssignees(expedition, people, activity);
-            for (CertificationId certificationId : activity.requirements().certifications()) {
-                if (!known.isEmpty() && known.stream().noneMatch(person -> person.holds(certificationId))) {
-                    issues.add(missing(activity, certificationId, "which assigned people do not hold"));
-                }
-            }
-            for (CertificationId certificationId : activity.requirements().heldByEveryone()) {
-                if (!known.isEmpty() && known.stream().anyMatch(person -> !person.holds(certificationId))) {
-                    issues.add(missing(activity, certificationId, "which is not held by every assigned person"));
-                }
+        for (Activity activity : context.plan().activities()) {
+            List<Person> known = knownAssignees(activity, assignments, context.people());
+            if (!known.isEmpty()) {
+                issues.addAll(missingCertifications(activity, known));
             }
         }
         return issues;
     }
 
-    private static List<Person> knownAssignees(Expedition expedition, People people, Activity activity) {
-        List<Person> known = new ArrayList<>();
-        for (PersonAssignment assignment : expedition.assignments().peopleOf(activity.id())) {
-            Optional<Person> person = people.person(assignment.personId());
-            person.ifPresent(known::add);
+    private static List<ValidationIssue> missingCertifications(Activity activity, List<Person> assignees) {
+        List<ValidationIssue> issues = new ArrayList<>();
+        for (CertificationId certificationId : activity.requirements().certifications()) {
+            if (assignees.stream().noneMatch(person -> person.holds(certificationId))) {
+                issues.add(missing(activity, certificationId, "which assigned people do not hold"));
+            }
         }
-        return known;
+        for (CertificationId certificationId : activity.requirements().heldByEveryone()) {
+            if (assignees.stream().anyMatch(person -> !person.holds(certificationId))) {
+                issues.add(missing(activity, certificationId, "which is not held by every assigned person"));
+            }
+        }
+        return issues;
+    }
+
+    private static List<Person> knownAssignees(Activity activity, Assignments assignments, People people) {
+        return assignments.peopleOf(activity.id()).stream()
+                .map(assignment -> people.person(assignment.personId()))
+                .flatMap(Optional::stream)
+                .toList();
     }
 
     private static ValidationIssue missing(Activity activity, CertificationId certificationId, String detail) {

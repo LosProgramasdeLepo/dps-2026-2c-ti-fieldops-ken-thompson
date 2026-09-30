@@ -9,6 +9,7 @@ import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.expedition.Approvals;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionEditing;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
@@ -74,24 +75,20 @@ class OperationalReportTest {
     @Test
     void reportReadsTheRaisedRiskStoredOnANightActivity() {
         CertificationId nightOperation = new CertificationId(UUID.randomUUID());
-        Activity activity = Activity.night(
-                new ActivityId(UUID.randomUUID()),
-                "night survey",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                new TimePeriod(START, START.plus(Duration.ofHours(2))),
-                Set.of(),
-                DELTA,
-                nightOperation,
-                new InstrumentKind("lighting")
-        );
+        Activity activity = Activity.night(nightOperation)
+                .named(new ActivityId(UUID.randomUUID()), "night survey")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(START, START.plus(Duration.ofHours(2))))
+                .build();
         Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("Watch the delta")),
-                new TimePeriod(START, START.plus(Duration.ofDays(2))),
-                List.of(DELTA),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("Stay on the water"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Watch the delta")),
+                        new TimePeriod(START, START.plus(Duration.ofDays(2))),
+                        List.of(DELTA),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("Stay on the water"))
+                )
         );
         ExpeditionEditing.addActivity(expedition, activity);
 
@@ -106,42 +103,30 @@ class OperationalReportTest {
 
     @Test
     void reportCountsLeavesAndUsesTheTreeDurationOfANestedBlock() {
-        Activity approach = Activity.transit(
-                new ActivityId(UUID.randomUUID()),
-                "approach",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                new TimePeriod(START, START.plus(Duration.ofHours(2))),
-                Set.of(),
-                DELTA
-        );
-        Activity left = Activity.sampling(
-                new ActivityId(UUID.randomUUID()),
-                "left",
-                Duration.ofHours(4),
-                RiskLevel.MEDIUM,
-                new TimePeriod(START, START.plus(Duration.ofHours(4))),
-                Set.of(),
-                DELTA,
-                new CertificationId(UUID.randomUUID())
-        );
-        Activity right = Activity.sampling(
-                new ActivityId(UUID.randomUUID()),
-                "right",
-                Duration.ofHours(3),
-                RiskLevel.HIGH,
-                new TimePeriod(START, START.plus(Duration.ofHours(3))),
-                Set.of(),
-                DELTA,
-                new CertificationId(UUID.randomUUID())
-        );
+        Activity approach = Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "approach")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(START, START.plus(Duration.ofHours(2))))
+                .build();
+        Activity left = Activity.sampling(new CertificationId(UUID.randomUUID()))
+                .named(new ActivityId(UUID.randomUUID()), "left")
+                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
+                .in(DELTA, new TimePeriod(START, START.plus(Duration.ofHours(4))))
+                .build();
+        Activity right = Activity.sampling(new CertificationId(UUID.randomUUID()))
+                .named(new ActivityId(UUID.randomUUID()), "right")
+                .estimated(Duration.ofHours(3), RiskLevel.HIGH)
+                .in(DELTA, new TimePeriod(START, START.plus(Duration.ofHours(3))))
+                .build();
         Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("Survey the delta")),
-                new TimePeriod(START, START.plus(Duration.ofDays(2))),
-                List.of(DELTA),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("Stay on the water"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Survey the delta")),
+                        new TimePeriod(START, START.plus(Duration.ofDays(2))),
+                        List.of(DELTA),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("Stay on the water"))
+                )
         );
         ExpeditionEditing.addBlock(expedition, ActivityBlock.sequential(approach, ActivityBlock.parallel(left, right)));
 
@@ -197,7 +182,7 @@ class OperationalReportTest {
         ExpeditionExecution execution = ExpeditionExecution.started(prepared.expedition().id());
         execution.startActivity(prepared.activity().id(), START, prepared.expedition().activityOf(prepared.activity().id()).predecessors());
         execution.finishActivity(prepared.activity().id(), START.plus(Duration.ofHours(3)), "samples stored");
-        execution.finish(prepared.expedition().itinerary());
+        execution.finish(Set.of(prepared.activity().id()));
 
         OperationalReport report = OperationalReport.of(prepared.expedition(), execution);
 
@@ -208,35 +193,31 @@ class OperationalReportTest {
         CertificationId certificationId = new CertificationId(UUID.randomUUID());
         PersonId personId = new PersonId(UUID.randomUUID());
         InstrumentId instrumentId = new InstrumentId(UUID.randomUUID());
-        Activity activity = Activity.measurement(
-                new ActivityId(UUID.randomUUID()),
-                "measure",
-                Duration.ofHours(3),
-                RiskLevel.HIGH,
-                new TimePeriod(START, START.plus(Duration.ofHours(3))),
-                Set.of(),
-                DELTA,
-                certificationId,
-                PROBE,
-                estimated
-        );
+        Activity activity = Activity.measurement(certificationId, PROBE)
+                .named(new ActivityId(UUID.randomUUID()), "measure")
+                .estimated(Duration.ofHours(3), RiskLevel.HIGH)
+                .in(DELTA, new TimePeriod(START, START.plus(Duration.ofHours(3))))
+                .consuming(estimated)
+                .build();
         Permit permit = Permit.zone(new PermitId(UUID.randomUUID()), DELTA, activity.window());
         Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("Measure water")),
-                new TimePeriod(START, START.plus(Duration.ofDays(2))),
-                List.of(DELTA),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("Daylight only"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Measure water")),
+                        new TimePeriod(START, START.plus(Duration.ofDays(2))),
+                        List.of(DELTA),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("Daylight only"))
+                )
         );
         ExpeditionEditing.addActivity(expedition, activity);
         ExpeditionEditing.addAssignment(expedition, new PersonAssignment(activity.id(), personId));
         ExpeditionEditing.addAssignment(expedition, new InstrumentAssignment(activity.id(), instrumentId));
         ExpeditionEditing.addPermit(expedition, permit.id());
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(new Person(personId, "Ada", List.of(new Certification(certificationId, "Operator")), Availability.always()));
-        catalog.add(new Instrument(instrumentId, PROBE, Availability.always()));
-        catalog.add(permit);
+        catalog.save(new Person(personId, "Ada", List.of(new Certification(certificationId, "Operator")), Availability.always()));
+        catalog.save(new Instrument(instrumentId, PROBE, Availability.always()));
+        catalog.save(permit);
         return new Prepared(expedition, catalog, activity);
     }
 

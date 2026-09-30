@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,9 +43,9 @@ class AssignmentSuggesterTest {
         Activity activity = sampling(certification.id(), 0, 4);
         Expedition expedition = draftWith(activity);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
+        catalog.save(ada);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(contextOf(expedition, catalog));
 
         assertEquals(List.of(new PersonAssignment(activity.id(), ada.id())), suggestions);
     }
@@ -58,9 +58,9 @@ class AssignmentSuggesterTest {
         Expedition expedition = draftWith(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), ada.id()));
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
+        catalog.save(ada);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(contextOf(expedition, catalog));
 
         assertTrue(suggestions.isEmpty());
     }
@@ -77,14 +77,10 @@ class AssignmentSuggesterTest {
         Activity secondActivity = sampling(certification.id(), 0, 4);
         Expedition expedition = draftWith(secondActivity);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
-        catalog.add(bob);
+        catalog.save(ada);
+        catalog.save(bob);
 
-        List<Assignment> suggestions = suggester.suggest(
-                expedition,
-                catalog.bookable(),
-                OccupyingExpeditions.of(expedition, List.of(occupying))
-        );
+        List<Assignment> suggestions = suggester.suggest(new PlanningContext(expedition, catalog.catalogs(), OccupyingExpeditions.of(expedition, List.of(occupying), Map.of())));
 
         assertEquals(List.of(new PersonAssignment(secondActivity.id(), bob.id())), suggestions);
     }
@@ -100,13 +96,9 @@ class AssignmentSuggesterTest {
         Activity afternoon = sampling(certification.id(), 4, 8);
         Expedition expedition = draftWith(afternoon);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
+        catalog.save(ada);
 
-        List<Assignment> suggestions = suggester.suggest(
-                expedition,
-                catalog.bookable(),
-                OccupyingExpeditions.of(expedition, List.of(occupying))
-        );
+        List<Assignment> suggestions = suggester.suggest(new PlanningContext(expedition, catalog.catalogs(), OccupyingExpeditions.of(expedition, List.of(occupying), Map.of())));
 
         assertEquals(List.of(new PersonAssignment(afternoon.id(), ada.id())), suggestions);
     }
@@ -117,9 +109,9 @@ class AssignmentSuggesterTest {
         Activity activity = transit(0, 2);
         Expedition expedition = draftWith(activity);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(vehicle);
+        catalog.save(vehicle);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(contextOf(expedition, catalog));
 
         assertEquals(List.of(new VehicleAssignment(activity.id(), vehicle.id())), suggestions);
     }
@@ -132,10 +124,10 @@ class AssignmentSuggesterTest {
         Activity activity = measurement(certification.id(), 0, 3);
         Expedition expedition = draftWith(activity);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
-        catalog.add(meter);
+        catalog.save(ada);
+        catalog.save(meter);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(contextOf(expedition, catalog));
 
         assertEquals(
                 List.of(
@@ -153,9 +145,9 @@ class AssignmentSuggesterTest {
         Activity activity = sampling(certification.id(), 4, 8);
         Expedition expedition = draftWith(activity);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
+        catalog.save(ada);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(contextOf(expedition, catalog));
 
         assertTrue(suggestions.isEmpty());
     }
@@ -167,11 +159,15 @@ class AssignmentSuggesterTest {
         Activity activity = sampling(certification.id(), 0, 4);
         Expedition expedition = draftWith(activity);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(ada);
+        catalog.save(ada);
 
-        suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none()).forEach(expedition::addAssignment);
+        suggester.suggest(contextOf(expedition, catalog)).forEach(expedition::addAssignment);
 
         assertEquals(List.of(new PersonAssignment(activity.id(), ada.id())), expedition.assignments().all());
+    }
+
+    private static PlanningContext contextOf(Expedition plan, ResourceCatalog catalog) {
+        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.none());
     }
 
     private static Certification certification() {
@@ -185,53 +181,40 @@ class AssignmentSuggesterTest {
     private static Expedition draftWith(Activity activity) {
         Expedition expedition = Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("Map wetland biodiversity")),
-                week(),
-                List.of(DELTA),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("No night work"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland biodiversity")),
+                        week(),
+                        List.of(DELTA),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("No night work"))
+                )
         );
         expedition.addActivity(activity);
         return expedition;
     }
 
     private static Activity sampling(CertificationId certificationId, int fromHour, int toHour) {
-        return Activity.sampling(
-                new ActivityId(UUID.randomUUID()),
-                "sample",
-                Duration.ofHours(toHour - fromHour),
-                RiskLevel.MEDIUM,
-                window(fromHour, toHour),
-                Set.of(),
-                DELTA,
-                certificationId
-        );
+        return Activity.sampling(certificationId)
+                .named(new ActivityId(UUID.randomUUID()), "sample")
+                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.MEDIUM)
+                .in(DELTA, window(fromHour, toHour))
+                .build();
     }
 
     private static Activity transit(int fromHour, int toHour) {
-        return Activity.transit(
-                new ActivityId(UUID.randomUUID()),
-                "transit",
-                Duration.ofHours(toHour - fromHour),
-                RiskLevel.LOW,
-                window(fromHour, toHour),
-                Set.of(),
-                DELTA
-        );
+        return Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "transit")
+                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .in(DELTA, window(fromHour, toHour))
+                .build();
     }
 
     private static Activity measurement(CertificationId certificationId, int fromHour, int toHour) {
-        return Activity.measurement(
-                new ActivityId(UUID.randomUUID()),
-                "measure",
-                Duration.ofHours(toHour - fromHour),
-                RiskLevel.HIGH,
-                window(fromHour, toHour),
-                Set.of(),
-                DELTA,
-                certificationId,
-                PROBE
-        );
+        return Activity.measurement(certificationId, PROBE)
+                .named(new ActivityId(UUID.randomUUID()), "measure")
+                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.HIGH)
+                .in(DELTA, window(fromHour, toHour))
+                .build();
     }
 
     private static TimePeriod window(int fromHour, int toHour) {

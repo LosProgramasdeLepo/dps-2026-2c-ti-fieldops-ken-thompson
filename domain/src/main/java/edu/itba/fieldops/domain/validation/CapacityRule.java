@@ -2,9 +2,10 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
-import edu.itba.fieldops.domain.catalog.Vehicles;
 import edu.itba.fieldops.domain.catalog.Vehicle;
-import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.catalog.Vehicles;
+import edu.itba.fieldops.domain.expedition.Assignments;
+import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.shared.Passengers;
@@ -15,32 +16,29 @@ import java.util.Optional;
 
 public final class CapacityRule implements ValidationRule {
     @Override
-    public List<ValidationIssue> check(ValidationContext context) {
-        Expedition expedition = context.expedition();
-        Vehicles vehicles = context.vehicles();
+    public List<ValidationIssue> check(PlanningContext context) {
+        Assignments assignments = context.plan().assignments();
         List<ValidationIssue> issues = new ArrayList<>();
-        for (Activity activity : expedition.itinerary()) {
-            issueFor(expedition, vehicles, activity).ifPresent(issues::add);
+        for (Activity activity : context.plan().activities()) {
+            issueFor(activity, assignments, context.vehicles()).ifPresent(issues::add);
         }
         return issues;
     }
 
-    private static Optional<ValidationIssue> issueFor(Expedition expedition, Vehicles vehicles, Activity activity) {
-        List<VehicleAssignment> assigned = expedition.assignments().vehiclesOf(activity.id());
-        for (VehicleAssignment assignment : assigned) {
-            if (vehicles.vehicle(assignment.vehicleId()).isEmpty()) {
-                return Optional.empty();
-            }
-        }
+    private static Optional<ValidationIssue> issueFor(Activity activity, Assignments assignments, Vehicles vehicles) {
+        List<VehicleAssignment> assigned = assignments.vehiclesOf(activity.id());
         if (assigned.isEmpty()) {
             return Optional.empty();
         }
         Passengers capacity = Passengers.ZERO;
         for (VehicleAssignment assignment : assigned) {
-            Vehicle vehicle = vehicles.vehicle(assignment.vehicleId()).orElseThrow();
-            capacity = capacity.plus(vehicle.capacity());
+            Optional<Vehicle> vehicle = vehicles.vehicle(assignment.vehicleId());
+            if (vehicle.isEmpty()) {
+                return Optional.empty();
+            }
+            capacity = capacity.plus(vehicle.get().capacity());
         }
-        Passengers passengers = new Passengers(expedition.assignments().peopleOf(activity.id()).size());
+        Passengers passengers = new Passengers(assignments.peopleOf(activity.id()).size());
         if (capacity.isAtLeast(passengers)) {
             return Optional.empty();
         }

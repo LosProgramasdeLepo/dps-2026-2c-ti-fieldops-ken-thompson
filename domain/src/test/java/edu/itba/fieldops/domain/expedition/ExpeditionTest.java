@@ -8,6 +8,7 @@ import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
@@ -19,16 +20,17 @@ import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.RiskLevel;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
-import edu.itba.fieldops.domain.validation.ExpeditionValidator;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.validation.RuleBasedValidator;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -48,28 +50,20 @@ class ExpeditionTest {
     private static final WorkZone DELTA = new WorkZone("Delta");
 
     @Test
-    void draftHoldsObjectivesPeriodZonesAndRestrictions() {
-        List<Objective> objectives = List.of(new Objective("Map wetland biodiversity"));
-        TimePeriod period = new TimePeriod(DAY, DAY.plusSeconds(86_400 * 5));
-        List<PersonId> responsibles = List.of(new PersonId(UUID.randomUUID()));
-        List<Restriction> restrictions = List.of(new Restriction("No night work"));
-
-        Expedition expedition = Expedition.draft(
-                new ExpeditionId(UUID.randomUUID()),
-                objectives,
-                period,
+    void draftHoldsItsCharter() {
+        ExpeditionCharter charter = new ExpeditionCharter(
+                List.of(new Objective("Map wetland biodiversity")),
+                new TimePeriod(DAY, DAY.plusSeconds(86_400 * 5)),
                 List.of(DELTA),
-                responsibles,
-                restrictions
+                List.of(new PersonId(UUID.randomUUID())),
+                List.of(new Restriction("No night work"))
         );
+
+        Expedition expedition = Expedition.draft(new ExpeditionId(UUID.randomUUID()), charter);
 
         assertAll(
                 () -> assertEquals(ExpeditionStatus.DRAFT, expedition.status()),
-                () -> assertEquals(objectives, expedition.objectives()),
-                () -> assertEquals(period, expedition.period()),
-                () -> assertEquals(List.of(DELTA), expedition.zones()),
-                () -> assertEquals(responsibles, expedition.responsibles()),
-                () -> assertEquals(restrictions, expedition.restrictions())
+                () -> assertEquals(charter, expedition.charter())
         );
     }
 
@@ -83,7 +77,7 @@ class ExpeditionTest {
 
         assertEquals(
                 List.of("Soil sampling", "Camp to site", "Water measurement"),
-                expedition.itinerary().stream().map(Activity::name).toList()
+                expedition.activities().stream().map(Activity::name).toList()
         );
     }
 
@@ -106,15 +100,12 @@ class ExpeditionTest {
     @Test
     void rejectsUnknownPredecessor() {
         Expedition expedition = wetlandDraft();
-        Activity orphan = Activity.transit(
-                new ActivityId(UUID.randomUUID()),
-                "dependent",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                window(0, 2),
-                Set.of(new ActivityId(UUID.randomUUID())),
-                DELTA
-        );
+        Activity orphan = Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "dependent")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, window(0, 2))
+                .after(Set.of(new ActivityId(UUID.randomUUID())))
+                .build();
 
         assertThrows(InvalidItinerary.class, () -> expedition.addActivity(orphan));
     }
@@ -157,23 +148,20 @@ class ExpeditionTest {
 
         assertAll(
                 () -> assertThrows(InvalidItinerary.class, () -> expedition.addDependency(overlapping.id(), first.id())),
-                () -> assertThrows(InvalidItinerary.class, () -> expedition.addActivity(Activity.transit(
-                        new ActivityId(UUID.randomUUID()),
-                        "late start",
-                        Duration.ofHours(2),
-                        RiskLevel.LOW,
-                        window(3, 5),
-                        Set.of(first.id()),
-                        DELTA
-                )))
+                () -> assertThrows(InvalidItinerary.class, () -> expedition.addActivity(Activity.transit()
+                        .named(new ActivityId(UUID.randomUUID()), "late start")
+                        .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                        .in(DELTA, window(3, 5))
+                        .after(Set.of(first.id()))
+                        .build()))
         );
     }
 
     @Test
     void cannotStartDependentBeforePredecessorFinishes() {
         Expedition expedition = approvedWithTwoDependentActivities();
-        Activity first = expedition.itinerary().getFirst();
-        Activity second = expedition.itinerary().getLast();
+        Activity first = expedition.activities().getFirst();
+        Activity second = expedition.activities().getLast();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
 
         assertThrows(
@@ -191,15 +179,15 @@ class ExpeditionTest {
     @Test
     void startsDependentAfterPredecessorFinishes() {
         Expedition expedition = approvedWithTwoDependentActivities();
-        Activity first = expedition.itinerary().getFirst();
-        Activity second = expedition.itinerary().getLast();
+        Activity first = expedition.activities().getFirst();
+        Activity second = expedition.activities().getLast();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(first.id(), DAY, expedition.activityOf(first.id()).predecessors());
         execution.finishActivity(first.id(), DAY.plusSeconds(4 * 3600L), "site reached");
 
         execution.startActivity(second.id(), DAY.plusSeconds(4 * 3600L), expedition.activityOf(second.id()).predecessors());
 
-        assertEquals(2, execution.executions().size());
+        assertEquals(2, execution.activities().size());
     }
 
     @Test
@@ -215,12 +203,12 @@ class ExpeditionTest {
     @Test
     void simpleTransitionsReachFinished() {
         Expedition expedition = approvedWithActivity();
-        Activity activity = expedition.itinerary().getFirst();
+        Activity activity = expedition.activities().getFirst();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
         execution.finishActivity(activity.id(), DAY.plusSeconds(3600), "samples stored");
 
-        execution.finish(expedition.itinerary());
+        execution.finish(Set.of(activity.id()));
 
         assertAll(
                 () -> assertEquals(ExpeditionStatus.APPROVED, expedition.status()),
@@ -231,13 +219,13 @@ class ExpeditionTest {
     @Test
     void cannotFinishWhileActivitiesRemainOpen() {
         Expedition expedition = approvedWithActivity();
-        Activity activity = expedition.itinerary().getFirst();
+        Activity activity = expedition.activities().getFirst();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
 
-        assertThrows(InvalidActivityExecution.class, () -> execution.finish(expedition.itinerary()));
+        assertThrows(InvalidActivityExecution.class, () -> execution.finish(Set.of(activity.id())));
 
         execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
-        assertThrows(InvalidActivityExecution.class, () -> execution.finish(expedition.itinerary()));
+        assertThrows(InvalidActivityExecution.class, () -> execution.finish(Set.of(activity.id())));
     }
 
     @Test
@@ -252,6 +240,14 @@ class ExpeditionTest {
     }
 
     @Test
+    void rejectsAConsumableAssignmentOfNothing() {
+        ActivityId activityId = new ActivityId(UUID.randomUUID());
+        ConsumableId vials = new ConsumableId(UUID.randomUUID());
+
+        assertThrows(InvalidAssignment.class, () -> new ConsumableAssignment(activityId, vials, new Stock(0)));
+    }
+
+    @Test
     void rejectsDuplicatePermit() {
         Expedition expedition = wetlandDraft();
         PermitId permit = new PermitId(UUID.randomUUID());
@@ -263,7 +259,7 @@ class ExpeditionTest {
     @Test
     void cannotAssignAfterApproval() {
         Expedition expedition = approvedWithActivity();
-        Activity activity = expedition.itinerary().getFirst();
+        Activity activity = expedition.activities().getFirst();
 
         assertThrows(
                 InvalidExpeditionTransition.class,
@@ -348,10 +344,10 @@ class ExpeditionTest {
     void approvesWhenWarningIsJustified() {
         Prepared crowded = crowdedTransit();
         crowded.expedition().submitForReview();
-        ValidationResult result = ExpeditionValidator.withDefaultRules()
-                .validate(crowded.expedition(), crowded.catalog().catalogs(), OccupyingExpeditions.none());
+        ValidationResult result = RuleBasedValidator.withDefaultRules()
+                .validate(new PlanningContext(crowded.expedition(), crowded.catalog().catalogs(), OccupyingExpeditions.none()));
         result.warnings().forEach(warning -> crowded.expedition().acceptWarning(
-                new AcceptedWarning(warning, "backup team on site", crowded.expedition().responsibles().getFirst())
+                new AcceptedWarning(warning, "backup team on site", crowded.expedition().charter().responsibles().getFirst())
         ));
 
         Approvals.approve(crowded.expedition(), crowded.catalog());
@@ -391,8 +387,8 @@ class ExpeditionTest {
         expedition.addActivity(transit());
 
         assertAll(
-                () -> assertEquals(1, expedition.itinerary().size()),
-                () -> assertEquals("Camp to site", expedition.itinerary().getFirst().name())
+                () -> assertEquals(1, expedition.activities().size()),
+                () -> assertEquals("Camp to site", expedition.activities().getFirst().name())
         );
     }
 
@@ -441,7 +437,7 @@ class ExpeditionTest {
     @Test
     void cannotReturnToDraftWhileTheRunIsInProgress() {
         Expedition expedition = approvedWithActivity();
-        Activity activity = expedition.itinerary().getFirst();
+        Activity activity = expedition.activities().getFirst();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
 
@@ -449,18 +445,18 @@ class ExpeditionTest {
 
         assertAll(
                 () -> assertEquals(ExpeditionStatus.APPROVED, expedition.status()),
-                () -> assertEquals(1, execution.executions().size())
+                () -> assertEquals(1, execution.activities().size())
         );
     }
 
     @Test
     void cannotReturnToDraftFromFinished() {
         Expedition expedition = approvedWithActivity();
-        Activity activity = expedition.itinerary().getFirst();
+        Activity activity = expedition.activities().getFirst();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
         execution.finishActivity(activity.id(), DAY.plusSeconds(3600), "samples stored");
-        execution.finish(expedition.itinerary());
+        execution.finish(Set.of(activity.id()));
 
         assertThrows(InvalidExpeditionTransition.class, () -> expedition.returnToDraft());
         assertEquals(ExpeditionExecution.Status.FINISHED, execution.status());
@@ -508,11 +504,13 @@ class ExpeditionTest {
     void delayOutsidePeriodLeavesWindowsUnchanged() {
         Expedition expedition = Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("Map wetland biodiversity")),
-                window(0, 10),
-                List.of(DELTA),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("No night work"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland biodiversity")),
+                        window(0, 10),
+                        List.of(DELTA),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("No night work"))
+                )
         );
         Activity first = sampling();
         Activity second = transit();
@@ -562,22 +560,22 @@ class ExpeditionTest {
     @Test
     void tracksActivityExecution() {
         Expedition expedition = approvedWithActivity();
-        Activity activity = expedition.itinerary().getFirst();
+        Activity activity = expedition.activities().getFirst();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
 
         execution.finishActivity(activity.id(), DAY.plusSeconds(3600), "samples stored");
 
         assertAll(
-                () -> assertEquals(1, execution.executions().size()),
-                () -> assertTrue(execution.executions().getFirst().isFinished())
+                () -> assertEquals(1, execution.activities().size()),
+                () -> assertTrue(execution.activities().getFirst().isFinished())
         );
     }
 
     @Test
     void cannotFinishActivityTwice() {
         Expedition expedition = approvedWithActivity();
-        Activity activity = expedition.itinerary().getFirst();
+        Activity activity = expedition.activities().getFirst();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
         execution.finishActivity(activity.id(), DAY.plusSeconds(3600), "samples stored");
@@ -591,13 +589,13 @@ class ExpeditionTest {
     @Test
     void finishingAReturnedExecutionDoesNotChangeTheExpedition() {
         Expedition expedition = approvedWithActivity();
-        Activity activity = expedition.itinerary().getFirst();
+        Activity activity = expedition.activities().getFirst();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
 
-        execution.executions().getFirst().finish(DAY.plusSeconds(3600), "samples stored");
+        execution.activities().getFirst().finish(DAY.plusSeconds(3600), "samples stored");
 
-        assertFalse(execution.executions().getFirst().isFinished());
+        assertFalse(execution.activities().getFirst().isFinished());
     }
 
     private Expedition approvedWithActivity() {
@@ -623,10 +621,10 @@ class ExpeditionTest {
         expedition.addPermit(firstPermit.id());
         expedition.addPermit(secondPermit.id());
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(person(personId, certificationOf(first)));
-        catalog.add(new Vehicle(vehicleId, new Passengers(2), Availability.always()));
-        catalog.add(firstPermit);
-        catalog.add(secondPermit);
+        catalog.save(person(personId, certificationOf(first)));
+        catalog.save(new Vehicle(vehicleId, new Passengers(2), Availability.always()));
+        catalog.save(firstPermit);
+        catalog.save(secondPermit);
         expedition.submitForReview();
         Approvals.approve(expedition, catalog);
         return expedition;
@@ -641,8 +639,8 @@ class ExpeditionTest {
         Permit permit = permitFor(activity);
         expedition.addPermit(permit.id());
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(person(personId, certificationOf(activity)));
-        catalog.add(permit);
+        catalog.save(person(personId, certificationOf(activity)));
+        catalog.save(permit);
         return new Prepared(expedition, catalog, activity);
     }
 
@@ -659,10 +657,10 @@ class ExpeditionTest {
         Permit permit = permitFor(activity);
         expedition.addPermit(permit.id());
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(new Person(ada, "Ada", List.of(), Availability.always()));
-        catalog.add(new Person(bob, "Bob", List.of(), Availability.always()));
-        catalog.add(new Vehicle(vehicleId, new Passengers(1), Availability.always()));
-        catalog.add(permit);
+        catalog.save(new Person(ada, "Ada", List.of(), Availability.always()));
+        catalog.save(new Person(bob, "Bob", List.of(), Availability.always()));
+        catalog.save(new Vehicle(vehicleId, new Passengers(1), Availability.always()));
+        catalog.save(permit);
         return new Prepared(expedition, catalog, activity);
     }
 
@@ -686,30 +684,27 @@ class ExpeditionTest {
     private static Expedition wetlandDraft() {
         return Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("Map wetland biodiversity")),
-                new TimePeriod(DAY, DAY.plusSeconds(86_400 * 5)),
-                List.of(DELTA),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("No night work"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland biodiversity")),
+                        new TimePeriod(DAY, DAY.plusSeconds(86_400 * 5)),
+                        List.of(DELTA),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("No night work"))
+                )
         );
     }
 
     private static AcceptedWarning acceptedCapacityWarning(Expedition expedition) {
         ValidationIssue issue = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle near capacity");
-        return new AcceptedWarning(issue, "extra trailer available", expedition.responsibles().getFirst());
+        return new AcceptedWarning(issue, "extra trailer available", expedition.charter().responsibles().getFirst());
     }
 
     private static Activity sampling() {
-        return Activity.sampling(
-                new ActivityId(UUID.randomUUID()),
-                "Soil sampling",
-                Duration.ofHours(4),
-                RiskLevel.MEDIUM,
-                window(0, 4),
-                Set.of(),
-                DELTA,
-                new CertificationId(UUID.randomUUID())
-        );
+        return Activity.sampling(new CertificationId(UUID.randomUUID()))
+                .named(new ActivityId(UUID.randomUUID()), "Soil sampling")
+                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
+                .in(DELTA, window(0, 4))
+                .build();
     }
 
     private static Activity transit() {
@@ -717,29 +712,19 @@ class ExpeditionTest {
     }
 
     private static Activity transit(String name, int fromHour, int toHour, WorkZone zone) {
-        return Activity.transit(
-                new ActivityId(UUID.randomUUID()),
-                name,
-                Duration.ofHours(toHour - fromHour),
-                RiskLevel.LOW,
-                window(fromHour, toHour),
-                Set.of(),
-                zone
-        );
+        return Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), name)
+                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .in(zone, window(fromHour, toHour))
+                .build();
     }
 
     private static Activity measurement() {
-        return Activity.measurement(
-                new ActivityId(UUID.randomUUID()),
-                "Water measurement",
-                Duration.ofHours(3),
-                RiskLevel.HIGH,
-                window(6, 9),
-                Set.of(),
-                DELTA,
-                new CertificationId(UUID.randomUUID()),
-                new edu.itba.fieldops.domain.shared.InstrumentKind("probe")
-        );
+        return Activity.measurement(new CertificationId(UUID.randomUUID()), new edu.itba.fieldops.domain.shared.InstrumentKind("probe"))
+                .named(new ActivityId(UUID.randomUUID()), "Water measurement")
+                .estimated(Duration.ofHours(3), RiskLevel.HIGH)
+                .in(DELTA, window(6, 9))
+                .build();
     }
 
     private static TimePeriod window(int fromHour, int toHour) {
@@ -747,7 +732,7 @@ class ExpeditionTest {
     }
 
     private static List<ActivityId> activityIds(Expedition expedition) {
-        return expedition.itinerary().stream().map(Activity::id).toList();
+        return expedition.activities().stream().map(Activity::id).toList();
     }
 
     private record Prepared(Expedition expedition, ResourceCatalog catalog, Activity activity) {

@@ -1,5 +1,6 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.domain.expedition.usecase.ProposalSnapshot;
 import edu.itba.fieldops.domain.expedition.usecase.ReviewReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
@@ -29,7 +30,7 @@ public final class ReviewReplanProposalInteractor implements ReviewReplanProposa
     @Override
     public void accept(ProposalId proposalId, PersonId responsible) {
         ReplanProposal proposal = require(proposalId);
-        Expedition original = requirePlan(proposal.originalId());
+        Expedition original = plans.require(proposal.originalId());
         requireResponsible(original, responsible);
         if (original.status() != ExpeditionStatus.APPROVED) {
             throw new InvalidExpeditionTransition(original.status(), "accept replan");
@@ -44,15 +45,16 @@ public final class ReviewReplanProposalInteractor implements ReviewReplanProposa
     @Override
     public void reject(ProposalId proposalId, PersonId responsible) {
         ReplanProposal proposal = require(proposalId);
-        Expedition original = requirePlan(proposal.originalId());
-        requireResponsible(original, responsible);
+        requireResponsible(plans.require(proposal.originalId()), responsible);
         proposal.reject(responsible, clock.now());
         proposals.save(proposal);
     }
 
     @Override
-    public List<ReplanProposal> of(ExpeditionId expeditionId) {
-        return proposals.of(Objects.requireNonNull(expeditionId, "expedition id"));
+    public List<ProposalSnapshot> of(ExpeditionId expeditionId) {
+        return proposals.of(Objects.requireNonNull(expeditionId, "expedition id")).stream()
+                .map(ProposalSnapshot::of)
+                .toList();
     }
 
     private ReplanProposal require(ProposalId proposalId) {
@@ -60,14 +62,9 @@ public final class ReviewReplanProposalInteractor implements ReviewReplanProposa
                 .orElseThrow(() -> new InvalidValue("unknown proposal: " + proposalId));
     }
 
-    private Expedition requirePlan(ExpeditionId expeditionId) {
-        return plans.find(expeditionId)
-                .orElseThrow(() -> new InvalidValue("unknown expedition: " + expeditionId));
-    }
-
     private static void requireResponsible(Expedition original, PersonId responsible) {
         Objects.requireNonNull(responsible, "responsible");
-        if (!original.responsibles().contains(responsible)) {
+        if (!original.charter().isResponsible(responsible)) {
             throw new InvalidValue("replan must be decided by a responsible");
         }
     }

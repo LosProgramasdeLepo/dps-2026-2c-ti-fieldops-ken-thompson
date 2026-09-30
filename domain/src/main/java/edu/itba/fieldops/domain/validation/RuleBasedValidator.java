@@ -1,22 +1,21 @@
 package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.ValidationResult;
-import edu.itba.fieldops.domain.catalog.Catalogs;
-import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
+import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
+import edu.itba.fieldops.domain.expedition.PlanningContext;
 
 import java.util.List;
 import java.util.Objects;
 
-public final class ExpeditionValidator {
+public final class RuleBasedValidator implements ExpeditionValidator {
     private final List<ValidationRule> rules;
 
-    public ExpeditionValidator(List<ValidationRule> rules) {
+    public RuleBasedValidator(List<ValidationRule> rules) {
         this.rules = List.copyOf(Objects.requireNonNull(rules, "rules"));
     }
 
-    public static ExpeditionValidator withDefaultRules() {
-        return new ExpeditionValidator(List.of(
+    public static RuleBasedValidator withDefaultRules() {
+        return new RuleBasedValidator(List.of(
                 new MissingResourceRule(),
                 new TemporalOverlapRule(),
                 new StockRule(),
@@ -27,11 +26,11 @@ public final class ExpeditionValidator {
         ));
     }
 
-    public ValidationResult validate(Expedition expedition, Catalogs catalogs, OccupyingExpeditions peers) {
-        ValidationContext context = new ValidationContext(expedition, catalogs, peers);
+    @Override
+    public ValidationResult validate(PlanningContext context) {
         return new ValidationResult(
-                expedition.id(),
-                expedition.version(),
+                context.plan().id(),
+                context.plan().version(),
                 rules.stream()
                         .map(rule -> rule.check(context))
                         .flatMap(List::stream)

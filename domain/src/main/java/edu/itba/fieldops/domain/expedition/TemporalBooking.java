@@ -10,7 +10,6 @@ import edu.itba.fieldops.domain.shared.TimePeriod;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 public interface TemporalBooking {
     ActivityId activityId();
@@ -39,8 +38,8 @@ public interface TemporalBooking {
 
     static List<TemporalBooking> of(Expedition expedition) {
         List<TemporalBooking> bookings = new ArrayList<>();
-        for (Assignment assignment : expedition.assignments().all()) {
-            assignment.booking(expedition.activityOf(assignment.activityId()).window()).ifPresent(bookings::add);
+        for (BookableAssignment assignment : expedition.assignments().bookable()) {
+            bookings.add(assignment.booking(expedition.activityOf(assignment.activityId()).window()));
         }
         return bookings;
     }
@@ -59,12 +58,12 @@ public interface TemporalBooking {
 
         @Override
         public boolean availableIn(BookableResources resources) {
-            return isAvailable(resources.people().person(personId).map(person -> person.availableDuring(window)));
+            return resources.people().person(personId).map(person -> person.availableDuring(window)).orElse(false);
         }
 
         @Override
         public boolean unavailableIn(BookableResources resources) {
-            return isUnavailable(resources.people().person(personId).map(person -> person.availableDuring(window)));
+            return resources.people().person(personId).map(person -> !person.availableDuring(window)).orElse(false);
         }
 
         @Override
@@ -92,12 +91,12 @@ public interface TemporalBooking {
 
         @Override
         public boolean availableIn(BookableResources resources) {
-            return isAvailable(resources.vehicles().vehicle(vehicleId).map(vehicle -> vehicle.availableDuring(window)));
+            return resources.vehicles().vehicle(vehicleId).map(vehicle -> vehicle.availableDuring(window)).orElse(false);
         }
 
         @Override
         public boolean unavailableIn(BookableResources resources) {
-            return isUnavailable(resources.vehicles().vehicle(vehicleId).map(vehicle -> vehicle.availableDuring(window)));
+            return resources.vehicles().vehicle(vehicleId).map(vehicle -> !vehicle.availableDuring(window)).orElse(false);
         }
 
         @Override
@@ -125,12 +124,12 @@ public interface TemporalBooking {
 
         @Override
         public boolean availableIn(BookableResources resources) {
-            return isAvailable(resources.instruments().instrument(instrumentId).map(instrument -> instrument.availableDuring(window)));
+            return resources.instruments().instrument(instrumentId).map(instrument -> instrument.availableDuring(window)).orElse(false);
         }
 
         @Override
         public boolean unavailableIn(BookableResources resources) {
-            return isUnavailable(resources.instruments().instrument(instrumentId).map(instrument -> instrument.availableDuring(window)));
+            return resources.instruments().instrument(instrumentId).map(instrument -> !instrument.availableDuring(window)).orElse(false);
         }
 
         @Override
@@ -142,13 +141,5 @@ public interface TemporalBooking {
         public boolean conflictsWith(InstrumentId otherInstrument, TimePeriod otherWindow) {
             return instrumentId.equals(otherInstrument) && window.overlaps(otherWindow);
         }
-    }
-
-    private static boolean isAvailable(Optional<Boolean> available) {
-        return available.orElse(false);
-    }
-
-    private static boolean isUnavailable(Optional<Boolean> available) {
-        return available.filter(ready -> !ready).isPresent();
     }
 }

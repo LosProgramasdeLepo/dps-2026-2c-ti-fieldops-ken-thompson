@@ -4,7 +4,9 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
+import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.Incident;
@@ -58,34 +60,58 @@ class ReplanProposalTest {
 
     @Test
     void incidentWithoutActivityIsRejected() {
-        assertThrows(
-                InvalidValue.class,
-                () -> new ReplanProposal(
-                        new ProposalId(UUID.randomUUID()),
-                        new ExpeditionId(UUID.randomUUID()),
-                        Incident.of("storm", DAY),
-                        draft()
-                )
-        );
+        Incident general = Incident.of("storm", DAY);
+        Expedition revision = revision();
+
+        assertThrows(InvalidValue.class, () -> new ReplanProposal(new ProposalId(UUID.randomUUID()), general, revision));
+    }
+
+    @Test
+    void theSuggestedPlanMustReviseTheOriginal() {
+        Expedition original = draft();
+
+        assertThrows(InvalidValue.class, () -> new ReplanProposal(new ProposalId(UUID.randomUUID()), incident(), original));
+    }
+
+    @Test
+    void theOriginalIsThePlanTheSuggestionRevises() {
+        Expedition revision = revision();
+
+        ReplanProposal proposal = new ReplanProposal(new ProposalId(UUID.randomUUID()), incident(), revision);
+
+        assertEquals(revision.supersedes().orElseThrow(), proposal.originalId());
     }
 
     private static ReplanProposal pending() {
-        return new ReplanProposal(
-                new ProposalId(UUID.randomUUID()),
-                new ExpeditionId(UUID.randomUUID()),
-                new Incident("storm on site", DAY, new ActivityId(UUID.randomUUID())),
-                draft()
-        );
+        return new ReplanProposal(new ProposalId(UUID.randomUUID()), incident(), revision());
+    }
+
+    private static Incident incident() {
+        return Incident.affecting(new ActivityId(UUID.randomUUID()), "storm on site", DAY);
+    }
+
+    private static Expedition revision() {
+        Expedition approved = draft();
+        approved.addActivity(Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "Approach")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(new WorkZone("Delta"), new TimePeriod(DAY, DAY.plus(Duration.ofHours(2))))
+                .build());
+        approved.submitForReview();
+        approved.markApproved();
+        return approved.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
     }
 
     private static Expedition draft() {
         return Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("Map wetland")),
-                new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
-                List.of(new WorkZone("Delta")),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("Daylight only"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland")),
+                        new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
+                        List.of(new WorkZone("Delta")),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("Daylight only"))
+                )
         );
     }
 }

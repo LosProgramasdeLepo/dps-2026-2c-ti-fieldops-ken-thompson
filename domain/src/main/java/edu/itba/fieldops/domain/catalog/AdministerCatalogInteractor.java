@@ -25,42 +25,42 @@ public final class AdministerCatalogInteractor implements AdministerCatalog {
     @Override
     public PersonId registerPerson(String name, List<Certification> certifications, Availability availability) {
         PersonId id = registry.nextPersonId();
-        registry.add(new Person(id, name, certifications, availability));
+        registry.save(new Person(id, name, certifications, availability));
         return id;
     }
 
     @Override
     public VehicleId registerVehicle(Passengers capacity, Availability availability) {
         VehicleId id = registry.nextVehicleId();
-        registry.add(new Vehicle(id, capacity, availability));
+        registry.save(new Vehicle(id, capacity, availability));
         return id;
     }
 
     @Override
     public InstrumentId registerInstrument(InstrumentKind kind, Availability availability) {
         InstrumentId id = registry.nextInstrumentId();
-        registry.add(new Instrument(id, kind, availability));
+        registry.save(new Instrument(id, kind, availability));
         return id;
     }
 
     @Override
     public ConsumableId registerConsumable(String name, Stock stock) {
         ConsumableId id = registry.nextConsumableId();
-        registry.add(new Consumable(id, name, stock));
+        registry.save(new Consumable(id, name, stock));
         return id;
     }
 
     @Override
     public PermitId registerPermit(WorkZone zone, TimePeriod validity) {
         PermitId id = registry.nextPermitId();
-        registry.add(Permit.zone(id, zone, validity));
+        registry.save(Permit.zone(id, zone, validity));
         return id;
     }
 
     @Override
     public PermitId registerNightPermit(WorkZone zone, TimePeriod validity) {
         PermitId id = registry.nextPermitId();
-        registry.add(Permit.night(id, zone, validity));
+        registry.save(Permit.night(id, zone, validity));
         return id;
     }
 }

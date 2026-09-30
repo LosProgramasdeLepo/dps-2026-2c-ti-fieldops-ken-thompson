@@ -1,6 +1,5 @@
 package edu.itba.fieldops.domain.expedition.usecase;
 
-import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
@@ -12,5 +11,5 @@ public interface ReviewReplanProposal {
 
     void reject(ProposalId proposalId, PersonId responsible);
 
-    List<ReplanProposal> of(ExpeditionId expeditionId);
+    List<ProposalSnapshot> of(ExpeditionId expeditionId);
 }

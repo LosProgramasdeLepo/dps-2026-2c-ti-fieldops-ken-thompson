@@ -5,6 +5,7 @@ import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.shared.Stock;
 
@@ -16,12 +17,12 @@ import java.util.Optional;
 
 public final class StockRule implements ValidationRule {
     @Override
-    public List<ValidationIssue> check(ValidationContext context) {
+    public List<ValidationIssue> check(PlanningContext context) {
         Consumables consumables = context.consumables();
         Map<ConsumableId, Stock> needed = new HashMap<>();
-        add(needed, context.expedition());
-        for (Expedition peer : context.occupying().plans()) {
-            add(needed, peer);
+        add(needed, context.plan());
+        for (Expedition occupying : context.occupying().plans()) {
+            add(needed, occupying);
         }
         List<ValidationIssue> issues = new ArrayList<>();
         for (Map.Entry<ConsumableId, Stock> entry : needed.entrySet()) {

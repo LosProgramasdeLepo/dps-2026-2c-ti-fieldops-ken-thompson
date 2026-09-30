@@ -74,34 +74,45 @@ class ItineraryTest {
         assertThrows(InvalidItinerary.class, () -> ActivityBlock.parallel(activity, activity));
     }
 
+    @Test
+    void rejectsABlockThatDependsOnAnUnknownActivity() {
+        Activity first = Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "first")
+                .estimated(Duration.ofHours(1), RiskLevel.LOW)
+                .in(DELTA, window(1))
+                .after(Set.of(new ActivityId(UUID.randomUUID())))
+                .build();
+        Activity second = Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "second")
+                .estimated(Duration.ofHours(1), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(START.plus(Duration.ofHours(2)), START.plus(Duration.ofHours(3))))
+                .after(Set.of(first.id()))
+                .build();
+        Itinerary itinerary = new Itinerary();
+
+        assertThrows(InvalidItinerary.class, () -> itinerary.add(ActivityBlock.parallel(second, first)));
+        assertEquals(List.of(), itinerary.activities());
+    }
+
     private static Activity transit(String name, int hours) {
         return transit(name, hours, Map.of());
     }
 
     private static Activity transit(String name, int hours, Map<ConsumableId, Stock> consumption) {
-        return Activity.transit(
-                new ActivityId(UUID.randomUUID()),
-                name,
-                Duration.ofHours(hours),
-                RiskLevel.LOW,
-                window(hours),
-                Set.of(),
-                DELTA,
-                consumption
-        );
+        return Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), name)
+                .estimated(Duration.ofHours(hours), RiskLevel.LOW)
+                .in(DELTA, window(hours))
+                .consuming(consumption)
+                .build();
     }
 
     private static Activity sampling(String name, int hours, RiskLevel risk) {
-        return Activity.sampling(
-                new ActivityId(UUID.randomUUID()),
-                name,
-                Duration.ofHours(hours),
-                risk,
-                window(hours),
-                Set.of(),
-                DELTA,
-                new CertificationId(UUID.randomUUID())
-        );
+        return Activity.sampling(new CertificationId(UUID.randomUUID()))
+                .named(new ActivityId(UUID.randomUUID()), name)
+                .estimated(Duration.ofHours(hours), risk)
+                .in(DELTA, window(hours))
+                .build();
     }
 
     private static TimePeriod window(int hours) {

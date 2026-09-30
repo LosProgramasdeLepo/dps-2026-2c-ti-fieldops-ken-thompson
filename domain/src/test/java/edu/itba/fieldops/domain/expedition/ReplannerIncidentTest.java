@@ -10,7 +10,6 @@ import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -23,40 +22,31 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ReplanProposerTest {
+class ReplannerIncidentTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
 
-    private final ReplanProposer proposer = new ReplanProposer(new Replanner(new AssignmentSuggester()));
+    private final Replanner replanner = new Replanner(new AssignmentSuggester());
 
     @Test
     void delaysAnUnstartedActivityWhenTheIncidentIsAfterItsWindow() {
         Prepared prepared = approvedSampling();
-        Incident incident = new Incident("storm on site", DAY.plus(Duration.ofHours(2)), prepared.activity.id());
+        Incident incident = Incident.affecting(prepared.activity.id(), "storm on site", DAY.plus(Duration.ofHours(2)));
 
-        ReplanProposal proposal = proposer.propose(
-                prepared.expedition,
-                prepared.execution,
-                incident,
-                prepared.catalog.bookable(),
-                OccupyingExpeditions.none(),
-                new ProposalId(UUID.randomUUID())
-        );
+        Expedition revision = respondTo(prepared, incident);
 
         assertAll(
                 () -> assertEquals(ExpeditionStatus.APPROVED, prepared.expedition.status()),
                 () -> assertEquals(window(0, 4), prepared.expedition.activityOf(prepared.activity.id()).window()),
-                () -> assertEquals(ExpeditionStatus.DRAFT, proposal.suggested().status()),
-                () -> assertEquals(window(2, 6), proposal.suggested().activityOf(prepared.activity.id()).window()),
-                () -> assertEquals(Optional.of(prepared.expedition.id()), proposal.suggested().supersedes()),
-                () -> assertEquals(incident, proposal.incident())
+                () -> assertEquals(ExpeditionStatus.DRAFT, revision.status()),
+                () -> assertEquals(window(2, 6), revision.activityOf(prepared.activity.id()).window()),
+                () -> assertEquals(Optional.of(prepared.expedition.id()), revision.supersedes())
         );
     }
 
@@ -64,91 +54,77 @@ class ReplanProposerTest {
     void cancelsWhenTheActivityHasAlreadyStarted() {
         Prepared prepared = approvedSampling();
         prepared.execution.startActivity(prepared.activity.id(), DAY, prepared.activity.predecessors());
-        Incident incident = new Incident("equipment failure", DAY, prepared.activity.id());
+        Incident incident = Incident.affecting(prepared.activity.id(), "equipment failure", DAY);
 
-        ReplanProposal proposal = proposer.propose(
-                prepared.expedition,
-                prepared.execution,
-                incident,
-                prepared.catalog.bookable(),
-                OccupyingExpeditions.none(),
-                new ProposalId(UUID.randomUUID())
-        );
+        Expedition revision = respondTo(prepared, incident);
 
         assertAll(
-                () -> assertTrue(proposal.suggested().itinerary().isEmpty()),
-                () -> assertEquals(List.of(prepared.activity.id()), prepared.expedition.itinerary().stream().map(Activity::id).toList()),
-                () -> assertEquals(1, prepared.execution.executions().size())
+                () -> assertTrue(revision.activities().isEmpty()),
+                () -> assertEquals(List.of(prepared.activity.id()), prepared.expedition.activities().stream().map(Activity::id).toList()),
+                () -> assertEquals(1, prepared.execution.activities().size())
         );
     }
 
     @Test
     void cancelsWhenTheDelayWouldLeaveThePeriod() {
         Prepared prepared = approvedSampling();
-        Incident incident = new Incident("storm on site", DAY.plus(Duration.ofDays(10)), prepared.activity.id());
+        Incident incident = Incident.affecting(prepared.activity.id(), "storm on site", DAY.plus(Duration.ofDays(10)));
 
-        ReplanProposal proposal = proposer.propose(
-                prepared.expedition,
-                prepared.execution,
-                incident,
-                prepared.catalog.bookable(),
-                OccupyingExpeditions.none(),
-                new ProposalId(UUID.randomUUID())
-        );
+        Expedition revision = respondTo(prepared, incident);
 
-        assertTrue(proposal.suggested().itinerary().isEmpty());
-        assertEquals(List.of(prepared.activity.id()), prepared.expedition.itinerary().stream().map(Activity::id).toList());
+        assertTrue(revision.activities().isEmpty());
+        assertEquals(List.of(prepared.activity.id()), prepared.expedition.activities().stream().map(Activity::id).toList());
     }
 
     @Test
     void replacesResourcesWhenTheActivityHasNotStartedAndCannotBeDelayed() {
         Prepared prepared = approvedSampling();
-        Incident incident = new Incident("forecast change", DAY, prepared.activity.id());
+        Incident incident = Incident.affecting(prepared.activity.id(), "forecast change", DAY);
 
-        ReplanProposal proposal = proposer.propose(
-                prepared.expedition,
-                prepared.execution,
-                incident,
-                prepared.catalog.bookable(),
-                OccupyingExpeditions.none(),
-                new ProposalId(UUID.randomUUID())
-        );
+        Expedition revision = respondTo(prepared, incident);
 
         assertAll(
-                () -> assertEquals(window(0, 4), proposal.suggested().activityOf(prepared.activity.id()).window()),
-                () -> assertEquals(List.of(new PersonAssignment(prepared.activity.id(), prepared.person.id())), proposal.suggested().assignments().all())
+                () -> assertEquals(window(0, 4), revision.activityOf(prepared.activity.id()).window()),
+                () -> assertEquals(List.of(new PersonAssignment(prepared.activity.id(), prepared.person.id())), revision.assignments().all())
         );
+    }
+
+    private Expedition respondTo(Prepared prepared, Incident incident) {
+        Expedition revision = prepared.expedition.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        replanner.respondTo(
+                new PlanningContext(revision, prepared.catalog.catalogs(), OccupyingExpeditions.none()),
+                incident,
+                prepared.execution
+        );
+        return revision;
     }
 
     private static Prepared approvedSampling() {
         Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
         Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
-        Activity activity = Activity.sampling(
-                new ActivityId(UUID.randomUUID()),
-                "Soil sampling",
-                Duration.ofHours(4),
-                RiskLevel.MEDIUM,
-                window(0, 4),
-                Set.of(),
-                DELTA,
-                certification.id()
-        );
+        Activity activity = Activity.sampling(certification.id())
+                .named(new ActivityId(UUID.randomUUID()), "Soil sampling")
+                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
+                .in(DELTA, window(0, 4))
+                .build();
         Permit permit = Permit.zone(new PermitId(UUID.randomUUID()), DELTA, activity.window());
         Expedition expedition = Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("Map wetland")),
-                week(),
-                List.of(DELTA),
-                List.of(person.id()),
-                List.of(new Restriction("Daylight only"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland")),
+                        week(),
+                        List.of(DELTA),
+                        List.of(person.id()),
+                        List.of(new Restriction("Daylight only"))
+                )
         );
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), person.id()));
         expedition.addPermit(permit.id());
         expedition.submitForReview();
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.add(person);
-        catalog.add(permit);
+        catalog.save(person);
+        catalog.save(permit);
         Approvals.approve(expedition, catalog);
         return new Prepared(expedition, activity, person, ExpeditionExecution.started(expedition.id()), catalog);
     }

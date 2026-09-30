@@ -18,22 +18,23 @@ public final class ReplanProposal {
     }
 
     private final ProposalId id;
-    private final ExpeditionId originalId;
     private final Incident incident;
     private final Expedition suggested;
+    private final ExpeditionId originalId;
     private Decision decision;
     private PersonId decidedBy;
     private Instant decidedAt;
 
-    ReplanProposal(ProposalId id, ExpeditionId originalId, Incident incident, Expedition suggested) {
+    ReplanProposal(ProposalId id, Incident incident, Expedition suggested) {
         this.id = Objects.requireNonNull(id, "proposal id");
-        this.originalId = Objects.requireNonNull(originalId, "original expedition id");
         this.incident = Objects.requireNonNull(incident, "incident");
         this.suggested = Objects.requireNonNull(suggested, "suggested plan");
-        this.decision = Decision.PENDING;
-        if (incident.activityId() == null) {
+        this.originalId = suggested.supersedes()
+                .orElseThrow(() -> new InvalidValue("suggested plan must revise an approved plan"));
+        if (incident.activityId().isEmpty()) {
             throw new InvalidValue("incident must affect an activity");
         }
+        this.decision = Decision.PENDING;
     }
 
     void accept(PersonId responsible, Instant at) {

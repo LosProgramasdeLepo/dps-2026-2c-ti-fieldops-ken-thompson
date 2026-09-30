@@ -6,14 +6,12 @@ import edu.itba.fieldops.domain.expedition.usecase.ReviewExpedition;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.tracking.ExecutionRepository;
-import edu.itba.fieldops.domain.validation.ExpeditionValidator;
 
 import java.util.Objects;
 
 public final class ReviewExpeditionInteractor implements ReviewExpedition {
     private final ExpeditionRepository plans;
-    private final ExecutionRepository executions;
-    private final Catalogs catalogs;
+    private final PlanningContexts contexts;
     private final ExpeditionValidator validator;
 
     public ReviewExpeditionInteractor(
@@ -23,16 +21,14 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
             ExpeditionValidator validator
     ) {
         this.plans = Objects.requireNonNull(plans, "plans");
-        this.executions = Objects.requireNonNull(executions, "executions");
-        this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
+        this.contexts = new PlanningContexts(plans, executions, catalogs);
         this.validator = Objects.requireNonNull(validator, "validator");
     }
 
     @Override
     public void submit(ExpeditionId expeditionId) {
-        Expedition expedition = require(expeditionId);
-        ValidationResult result = validator.validate(expedition, catalogs, Peers.around(expedition, plans, executions));
-        if (result.hasCritical()) {
+        Expedition expedition = plans.require(expeditionId);
+        if (validationOf(expedition).hasCritical()) {
             throw new InvalidValue("critical validation issues remain");
         }
         expedition.submitForReview();
@@ -41,26 +37,24 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
 
     @Override
     public ValidationResult validate(ExpeditionId expeditionId) {
-        Expedition expedition = require(expeditionId);
-        return validator.validate(expedition, catalogs, Peers.around(expedition, plans, executions));
+        return validationOf(plans.require(expeditionId));
     }
 
     @Override
     public void acceptWarning(ExpeditionId expeditionId, AcceptedWarning warning) {
-        Expedition expedition = require(expeditionId);
+        Expedition expedition = plans.require(expeditionId);
         expedition.acceptWarning(warning);
         plans.save(expedition);
     }
 
     @Override
     public void returnToDraft(ExpeditionId expeditionId) {
-        Expedition expedition = require(expeditionId);
+        Expedition expedition = plans.require(expeditionId);
         expedition.returnToDraft();
         plans.save(expedition);
     }
 
-    private Expedition require(ExpeditionId expeditionId) {
-        return plans.find(Objects.requireNonNull(expeditionId, "expedition id"))
-                .orElseThrow(() -> new InvalidValue("unknown expedition: " + expeditionId));
+    private ValidationResult validationOf(Expedition expedition) {
+        return validator.validate(contexts.around(expedition));
     }
 }

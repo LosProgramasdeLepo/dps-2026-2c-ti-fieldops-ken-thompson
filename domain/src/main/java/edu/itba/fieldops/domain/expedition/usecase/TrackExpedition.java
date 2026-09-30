@@ -16,9 +16,5 @@ public interface TrackExpedition {
 
     void finishActivity(ExpeditionId expeditionId, ActivityId activityId, String result);
 
-    void addIncident(ExpeditionId expeditionId, String description);
-
-    void addIncident(ExpeditionId expeditionId, String description, ActivityId activityId);
-
     void addObservation(ExpeditionId expeditionId, String text);
 }

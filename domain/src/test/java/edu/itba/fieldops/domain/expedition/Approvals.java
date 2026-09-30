@@ -3,7 +3,7 @@ package edu.itba.fieldops.domain.expedition;
 import edu.itba.fieldops.details.InMemoryExecutionRepository;
 import edu.itba.fieldops.details.InMemoryExpeditionRepository;
 import edu.itba.fieldops.details.ResourceCatalog;
-import edu.itba.fieldops.domain.validation.ExpeditionValidator;
+import edu.itba.fieldops.domain.validation.RuleBasedValidator;
 
 public final class Approvals {
     private Approvals() {
@@ -16,7 +16,7 @@ public final class Approvals {
                 plans,
                 new InMemoryExecutionRepository(),
                 catalog.catalogs(),
-                ExpeditionValidator.withDefaultRules()
+                RuleBasedValidator.withDefaultRules()
         ).approve(expedition.id());
     }
 }

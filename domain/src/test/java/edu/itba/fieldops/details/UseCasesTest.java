@@ -11,18 +11,20 @@ import edu.itba.fieldops.domain.expedition.ApproveExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.AssignResourcesInteractor;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
+import edu.itba.fieldops.domain.expedition.ConsultExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.DraftExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.PlanItineraryInteractor;
+import edu.itba.fieldops.domain.expedition.RecordIncidentInteractor;
 import edu.itba.fieldops.domain.expedition.ReplanExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
-import edu.itba.fieldops.domain.expedition.ReplanProposer;
 import edu.itba.fieldops.domain.expedition.Replanner;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.ReviewExpeditionInteractor;
@@ -30,8 +32,11 @@ import edu.itba.fieldops.domain.expedition.ReviewReplanProposalInteractor;
 import edu.itba.fieldops.domain.expedition.TrackExpeditionInteractor;
 import edu.itba.fieldops.domain.expedition.usecase.ApproveExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.AssignResources;
+import edu.itba.fieldops.domain.expedition.usecase.ConsultExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.DraftExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.PlanItinerary;
+import edu.itba.fieldops.domain.expedition.usecase.ProposalSnapshot;
+import edu.itba.fieldops.domain.expedition.usecase.RecordIncident;
 import edu.itba.fieldops.domain.expedition.usecase.ReplanExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.ReviewExpedition;
 import edu.itba.fieldops.domain.expedition.usecase.ReviewReplanProposal;
@@ -67,7 +72,7 @@ import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
-import edu.itba.fieldops.domain.validation.ExpeditionValidator;
+import edu.itba.fieldops.domain.validation.RuleBasedValidator;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -75,7 +80,6 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -92,7 +96,7 @@ class UseCasesTest {
     private final InMemoryExpeditionRepository plans = new InMemoryExpeditionRepository();
     private final InMemoryExecutionRepository runs = new InMemoryExecutionRepository();
     private final FixedClock clock = new FixedClock(DAY);
-    private final ExpeditionValidator validator = ExpeditionValidator.withDefaultRules();
+    private final RuleBasedValidator validator = RuleBasedValidator.withDefaultRules();
     private final AdministerCatalog registry = new AdministerCatalogInteractor(catalog);
     private final DraftExpedition drafts = new DraftExpeditionInteractor(plans, catalog);
     private final PlanItinerary itinerary = new PlanItineraryInteractor(plans);
@@ -102,19 +106,21 @@ class UseCasesTest {
     private final ApproveExpedition approval = new ApproveExpeditionInteractor(plans, runs, catalog.catalogs(), validator);
     private final InMemoryReplanProposalRepository proposals = new InMemoryReplanProposalRepository();
     private final Replanner replanner = new Replanner(new AssignmentSuggester());
-    private final TrackExpedition tracking = new TrackExpeditionInteractor(
+    private final TrackExpedition tracking = new TrackExpeditionInteractor(plans, runs, clock);
+    private final RecordIncident incidents = new RecordIncidentInteractor(
             plans,
             runs,
             clock,
-            catalog.bookable(),
-            new ReplanProposer(replanner),
+            catalog.catalogs(),
+            replanner,
             proposals
     );
+    private final ConsultExpedition consult = new ConsultExpeditionInteractor(plans);
     private final ReviewReplanProposal proposalReview = new ReviewReplanProposalInteractor(plans, proposals, clock);
     private final ReplanExpedition replan = new ReplanExpeditionInteractor(
             plans,
             runs,
-            catalog.bookable(),
+            catalog.catalogs(),
             replanner
     );
     private final ReportExpedition reports = new ReportExpeditionInteractor(plans, runs);
@@ -138,11 +144,13 @@ class UseCasesTest {
     @Test
     void rejectsAResponsibleThatIsNotInTheCatalog() {
         assertThrows(InvalidValue.class, () -> drafts.draft(
-                List.of(new Objective("Map wetland")),
-                PERIOD,
-                List.of(DELTA),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("Daylight only"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland")),
+                        PERIOD,
+                        List.of(DELTA),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("Daylight only"))
+                )
         ));
     }
 
@@ -153,24 +161,20 @@ class UseCasesTest {
         InstrumentId lamp = registry.registerInstrument(new InstrumentKind("lighting"), Availability.always());
         PermitId permitId = registry.registerNightPermit(DELTA, PERIOD);
         ExpeditionId expeditionId = drafts.draft(
-                List.of(new Objective("Night survey")),
-                PERIOD,
-                List.of(DELTA),
-                List.of(ada),
-                List.of(new Restriction("Stay on the water"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Night survey")),
+                        PERIOD,
+                        List.of(DELTA),
+                        List.of(ada),
+                        List.of(new Restriction("Stay on the water"))
+                )
         );
         ActivityId activityId = new ActivityId(UUID.randomUUID());
-        itinerary.addActivity(expeditionId, Activity.night(
-                activityId,
-                "Night survey",
-                Duration.ofHours(3),
-                RiskLevel.MEDIUM,
-                new TimePeriod(DAY, DAY.plus(Duration.ofHours(3))),
-                Set.of(),
-                DELTA,
-                nightOperation,
-                new InstrumentKind("lighting")
-        ));
+        itinerary.addActivity(expeditionId, Activity.night(nightOperation)
+                .named(activityId, "Night survey")
+                .estimated(Duration.ofHours(3), RiskLevel.MEDIUM)
+                .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(3))))
+                .build());
         assignments.addAssignment(expeditionId, new PersonAssignment(activityId, ada));
         assignments.addAssignment(expeditionId, new InstrumentAssignment(activityId, lamp));
         assignments.addPermit(expeditionId, permitId);
@@ -189,41 +193,29 @@ class UseCasesTest {
         CertificationId certificationId = new CertificationId(UUID.randomUUID());
         PersonId ada = registry.registerPerson("Ada", List.of(new Certification(certificationId, "Sampling")), Availability.always());
         ExpeditionId expeditionId = drafts.draft(
-                List.of(new Objective("Survey the delta")),
-                PERIOD,
-                List.of(DELTA),
-                List.of(ada),
-                List.of(new Restriction("Stay on the water"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Survey the delta")),
+                        PERIOD,
+                        List.of(DELTA),
+                        List.of(ada),
+                        List.of(new Restriction("Stay on the water"))
+                )
         );
-        Activity approach = Activity.transit(
-                new ActivityId(UUID.randomUUID()),
-                "Approach",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                new TimePeriod(DAY, DAY.plus(Duration.ofHours(2))),
-                Set.of(),
-                DELTA
-        );
-        Activity left = Activity.sampling(
-                new ActivityId(UUID.randomUUID()),
-                "Left bank",
-                Duration.ofHours(4),
-                RiskLevel.MEDIUM,
-                new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))),
-                Set.of(),
-                DELTA,
-                certificationId
-        );
-        Activity right = Activity.sampling(
-                new ActivityId(UUID.randomUUID()),
-                "Right bank",
-                Duration.ofHours(3),
-                RiskLevel.HIGH,
-                new TimePeriod(DAY, DAY.plus(Duration.ofHours(3))),
-                Set.of(),
-                DELTA,
-                certificationId
-        );
+        Activity approach = Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "Approach")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(2))))
+                .build();
+        Activity left = Activity.sampling(certificationId)
+                .named(new ActivityId(UUID.randomUUID()), "Left bank")
+                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
+                .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))))
+                .build();
+        Activity right = Activity.sampling(certificationId)
+                .named(new ActivityId(UUID.randomUUID()), "Right bank")
+                .estimated(Duration.ofHours(3), RiskLevel.HIGH)
+                .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(3))))
+                .build();
         itinerary.addBlock(expeditionId, ActivityBlock.sequential(approach, ActivityBlock.parallel(left, right)));
 
         Estimate estimate = estimates.of(expeditionId);
@@ -272,7 +264,7 @@ class UseCasesTest {
         clock.set(DAY.minus(Duration.ofHours(1)));
 
         assertThrows(InvalidActivityExecution.class, () -> tracking.startActivity(prepared.expeditionId, prepared.activityId));
-        assertTrue(runs.find(prepared.expeditionId).orElseThrow().executions().isEmpty());
+        assertTrue(runs.find(prepared.expeditionId).orElseThrow().activities().isEmpty());
     }
 
     @Test
@@ -292,16 +284,11 @@ class UseCasesTest {
         ActivityId ride = new ActivityId(UUID.randomUUID());
         CertificationId certificationId = new CertificationId(UUID.randomUUID());
         PersonId bob = registry.registerPerson("Bob", List.of(new Certification(certificationId, "Sampling")), Availability.always());
-        itinerary.addActivity(prepared.expeditionId, Activity.sampling(
-                ride,
-                "Later sampling",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))),
-                Set.of(),
-                DELTA,
-                certificationId
-        ));
+        itinerary.addActivity(prepared.expeditionId, Activity.sampling(certificationId)
+                .named(ride, "Later sampling")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))))
+                .build());
         assignments.addAssignment(prepared.expeditionId, new PersonAssignment(ride, bob));
         review.submit(prepared.expeditionId);
         approval.approve(prepared.expeditionId);
@@ -329,16 +316,11 @@ class UseCasesTest {
         ActivityId later = new ActivityId(UUID.randomUUID());
         CertificationId certificationId = new CertificationId(UUID.randomUUID());
         PersonId bob = registry.registerPerson("Bob", List.of(new Certification(certificationId, "Sampling")), Availability.always());
-        itinerary.addActivity(prepared.expeditionId, Activity.sampling(
-                later,
-                "Later sampling",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))),
-                Set.of(),
-                DELTA,
-                certificationId
-        ));
+        itinerary.addActivity(prepared.expeditionId, Activity.sampling(certificationId)
+                .named(later, "Later sampling")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))))
+                .build());
         assignments.addAssignment(prepared.expeditionId, new PersonAssignment(later, bob));
         review.submit(prepared.expeditionId);
         approval.approve(prepared.expeditionId);
@@ -360,16 +342,11 @@ class UseCasesTest {
         ActivityId later = new ActivityId(UUID.randomUUID());
         CertificationId certificationId = new CertificationId(UUID.randomUUID());
         PersonId bob = registry.registerPerson("Bob", List.of(new Certification(certificationId, "Sampling")), Availability.always());
-        itinerary.addActivity(prepared.expeditionId, Activity.sampling(
-                later,
-                "Later sampling",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))),
-                Set.of(),
-                DELTA,
-                certificationId
-        ));
+        itinerary.addActivity(prepared.expeditionId, Activity.sampling(certificationId)
+                .named(later, "Later sampling")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))))
+                .build());
         assignments.addAssignment(prepared.expeditionId, new PersonAssignment(later, bob));
         review.submit(prepared.expeditionId);
         approval.approve(prepared.expeditionId);
@@ -391,16 +368,11 @@ class UseCasesTest {
         ActivityId second = new ActivityId(UUID.randomUUID());
         CertificationId certificationId = new CertificationId(UUID.randomUUID());
         PersonId bob = registry.registerPerson("Bob", List.of(new Certification(certificationId, "Sampling")), Availability.always());
-        itinerary.addActivity(prepared.expeditionId, Activity.sampling(
-                second,
-                "Later sampling",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))),
-                Set.of(),
-                DELTA,
-                certificationId
-        ));
+        itinerary.addActivity(prepared.expeditionId, Activity.sampling(certificationId)
+                .named(second, "Later sampling")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, new TimePeriod(DAY.plus(Duration.ofHours(4)), DAY.plus(Duration.ofHours(6))))
+                .build());
         assignments.addAssignment(prepared.expeditionId, new PersonAssignment(second, bob));
         ConsumableId vials = registry.registerConsumable("vials", new Stock(20));
         assignments.addAssignment(prepared.expeditionId, new ConsumableAssignment(prepared.activityId, vials, new Stock(5)));
@@ -413,7 +385,7 @@ class UseCasesTest {
         tracking.finishActivity(prepared.expeditionId, prepared.activityId, "samples stored");
 
         OperationalReport report = reports.of(prepared.expeditionId);
-        ActivityExecution run = runs.find(prepared.expeditionId).orElseThrow().executions().getFirst();
+        ActivityExecution run = runs.find(prepared.expeditionId).orElseThrow().activities().getFirst();
 
         assertEquals(DAY, run.startedAt());
         assertEquals(DAY.plus(Duration.ofHours(2)), run.finishedAt().orElseThrow());
@@ -459,7 +431,7 @@ class UseCasesTest {
         assertEquals(ExpeditionExecution.Status.SUSPENDED, runs.find(prepared.expeditionId).orElseThrow().status());
 
         tracking.resume(prepared.expeditionId);
-        tracking.addIncident(prepared.expeditionId, "storm on site", prepared.activityId);
+        incidents.record(prepared.expeditionId, "storm on site", prepared.activityId);
         tracking.addObservation(prepared.expeditionId, "ice on the trail");
         clock.set(DAY.plus(Duration.ofHours(4)));
         tracking.finishActivity(prepared.expeditionId, prepared.activityId, "samples stored");
@@ -468,7 +440,7 @@ class UseCasesTest {
         OperationalReport report = reports.of(prepared.expeditionId);
         ExpeditionExecution execution = runs.find(prepared.expeditionId).orElseThrow();
         assertEquals(ExpeditionExecution.Status.FINISHED, execution.status());
-        assertEquals(List.of(new Incident("storm on site", DAY, prepared.activityId)), execution.incidents());
+        assertEquals(List.of(Incident.affecting(prepared.activityId, "storm on site", DAY)), execution.incidents());
         assertEquals(List.of(new Observation("ice on the trail", DAY)), execution.observations());
         assertEquals(OperationalStatus.FINISHED, report.status());
         assertEquals(Duration.ofHours(4), report.duration());
@@ -478,18 +450,18 @@ class UseCasesTest {
     void anIncidentOnARunningExpeditionProposesAReplanTheResponsibleCanAccept() {
         Prepared prepared = approvedSampling();
         clock.set(DAY.plus(Duration.ofHours(2)));
-        tracking.addIncident(prepared.expeditionId, "storm on site", prepared.activityId);
+        incidents.record(prepared.expeditionId, "storm on site", prepared.activityId);
 
-        List<ReplanProposal> found = proposalReview.of(prepared.expeditionId);
-        ReplanProposal proposal = found.getFirst();
-        PersonId ada = plans.find(prepared.expeditionId).orElseThrow().responsibles().getFirst();
+        List<ProposalSnapshot> found = proposalReview.of(prepared.expeditionId);
+        ProposalSnapshot proposal = found.getFirst();
+        PersonId ada = plans.find(prepared.expeditionId).orElseThrow().charter().responsibles().getFirst();
         proposalReview.accept(proposal.id(), ada);
 
         Expedition original = plans.find(prepared.expeditionId).orElseThrow();
         Expedition suggested = plans.find(proposal.suggested().id()).orElseThrow();
-        ReplanProposal decided = proposalReview.of(prepared.expeditionId).getFirst();
+        ProposalSnapshot decided = proposalReview.of(prepared.expeditionId).getFirst();
         assertEquals(1, found.size());
-        assertEquals(new Incident("storm on site", DAY.plus(Duration.ofHours(2)), prepared.activityId), proposal.incident());
+        assertEquals(Incident.affecting(prepared.activityId, "storm on site", DAY.plus(Duration.ofHours(2))), proposal.incident());
         assertEquals(ExpeditionStatus.SUPERSEDED, original.status());
         assertEquals(ExpeditionStatus.DRAFT, suggested.status());
         assertEquals(
@@ -498,32 +470,38 @@ class UseCasesTest {
         );
         assertEquals(ReplanProposal.Decision.ACCEPTED, decided.decision());
         assertEquals(ada, decided.decidedBy().orElseThrow());
-        assertEquals(List.of(new Incident("storm on site", DAY.plus(Duration.ofHours(2)), prepared.activityId)), runs.find(prepared.expeditionId).orElseThrow().incidents());
+        assertEquals(List.of(Incident.affecting(prepared.activityId, "storm on site", DAY.plus(Duration.ofHours(2)))), runs.find(prepared.expeditionId).orElseThrow().incidents());
     }
 
     @Test
     void rejectingAProposalLeavesTheOriginalApprovedAndStillConsultable() {
         Prepared prepared = approvedSampling();
         tracking.startActivity(prepared.expeditionId, prepared.activityId);
-        tracking.addIncident(prepared.expeditionId, "equipment failure", prepared.activityId);
+        incidents.record(prepared.expeditionId, "equipment failure", prepared.activityId);
 
-        ReplanProposal proposal = proposalReview.of(prepared.expeditionId).getFirst();
-        PersonId ada = plans.find(prepared.expeditionId).orElseThrow().responsibles().getFirst();
+        ProposalSnapshot proposal = proposalReview.of(prepared.expeditionId).getFirst();
+        PersonId ada = plans.find(prepared.expeditionId).orElseThrow().charter().responsibles().getFirst();
         proposalReview.reject(proposal.id(), ada);
 
-        ReplanProposal decided = proposalReview.of(prepared.expeditionId).getFirst();
+        ProposalSnapshot decided = proposalReview.of(prepared.expeditionId).getFirst();
         assertTrue(proposal.suggested().itinerary().isEmpty());
         assertEquals(ExpeditionStatus.APPROVED, plans.find(prepared.expeditionId).orElseThrow().status());
         assertTrue(plans.find(proposal.suggested().id()).isEmpty());
         assertEquals(ReplanProposal.Decision.REJECTED, decided.decision());
-        assertEquals(new Incident("equipment failure", DAY, prepared.activityId), decided.incident());
-        assertEquals(List.of("Soil sampling"), plans.find(prepared.expeditionId).orElseThrow().itinerary().stream().map(Activity::name).toList());
+        assertEquals(Incident.affecting(prepared.activityId, "equipment failure", DAY), decided.incident());
+        assertEquals(
+                List.of("Soil sampling"),
+                consult.of(prepared.expeditionId).itinerary().stream()
+                        .flatMap(item -> item.activities().stream())
+                        .map(Activity::name)
+                        .toList()
+        );
     }
 
     @Test
     void anIncidentWithoutAnActivityDoesNotProposeAReplan() {
         Prepared prepared = approvedSampling();
-        tracking.addIncident(prepared.expeditionId, "storm on site");
+        incidents.record(prepared.expeditionId, "storm on site");
 
         assertTrue(proposalReview.of(prepared.expeditionId).isEmpty());
         assertEquals(List.of(Incident.of("storm on site", DAY)), runs.find(prepared.expeditionId).orElseThrow().incidents());
@@ -532,8 +510,8 @@ class UseCasesTest {
     @Test
     void onlyAResponsibleCanDecideAProposal() {
         Prepared prepared = approvedSampling();
-        tracking.addIncident(prepared.expeditionId, "storm on site", prepared.activityId);
-        ReplanProposal proposal = proposalReview.of(prepared.expeditionId).getFirst();
+        incidents.record(prepared.expeditionId, "storm on site", prepared.activityId);
+        ProposalSnapshot proposal = proposalReview.of(prepared.expeditionId).getFirst();
 
         assertThrows(InvalidValue.class, () -> proposalReview.accept(proposal.id(), new PersonId(UUID.randomUUID())));
         assertEquals(ReplanProposal.Decision.PENDING, proposalReview.of(prepared.expeditionId).getFirst().decision());
@@ -586,24 +564,21 @@ class UseCasesTest {
         );
         PermitId permitId = registry.registerPermit(DELTA, PERIOD);
         ExpeditionId expeditionId = drafts.draft(
-                List.of(new Objective("Map wetland")),
-                PERIOD,
-                List.of(DELTA),
-                List.of(personId),
-                List.of(new Restriction("Daylight only"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland")),
+                        PERIOD,
+                        List.of(DELTA),
+                        List.of(personId),
+                        List.of(new Restriction("Daylight only"))
+                )
         );
         ActivityId activityId = new ActivityId(UUID.randomUUID());
-        itinerary.addActivity(expeditionId, Activity.sampling(
-                activityId,
-                "Soil sampling",
-                Duration.ofHours(4),
-                RiskLevel.MEDIUM,
-                new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))),
-                Set.of(),
-                DELTA,
-                certificationId,
-                estimated
-        ));
+        itinerary.addActivity(expeditionId, Activity.sampling(certificationId)
+                .named(activityId, "Soil sampling")
+                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
+                .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))))
+                .consuming(estimated)
+                .build());
         assignments.addAssignment(expeditionId, new PersonAssignment(activityId, personId));
         assignments.addPermit(expeditionId, permitId);
         ConsumableId required = estimated.keySet().stream().findFirst().orElse(null);
@@ -613,11 +588,13 @@ class UseCasesTest {
     private ExpeditionId draft() {
         PersonId personId = registry.registerPerson("Ada", List.of(), Availability.always());
         return drafts.draft(
-                List.of(new Objective("Map wetland")),
-                PERIOD,
-                List.of(DELTA),
-                List.of(personId),
-                List.of(new Restriction("Daylight only"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland")),
+                        PERIOD,
+                        List.of(DELTA),
+                        List.of(personId),
+                        List.of(new Restriction("Daylight only"))
+                )
         );
     }
 
@@ -629,23 +606,20 @@ class UseCasesTest {
                 Availability.always()
         );
         ExpeditionId expeditionId = drafts.draft(
-                List.of(new Objective("Map wetland")),
-                PERIOD,
-                List.of(DELTA),
-                List.of(personId),
-                List.of(new Restriction("Daylight only"))
+                new ExpeditionCharter(
+                        List.of(new Objective("Map wetland")),
+                        PERIOD,
+                        List.of(DELTA),
+                        List.of(personId),
+                        List.of(new Restriction("Daylight only"))
+                )
         );
         ActivityId activityId = new ActivityId(UUID.randomUUID());
-        itinerary.addActivity(expeditionId, Activity.sampling(
-                activityId,
-                "Soil sampling",
-                Duration.ofHours(4),
-                RiskLevel.MEDIUM,
-                new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))),
-                Set.of(),
-                DELTA,
-                certificationId
-        ));
+        itinerary.addActivity(expeditionId, Activity.sampling(certificationId)
+                .named(activityId, "Soil sampling")
+                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
+                .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))))
+                .build());
         return new OpenSampling(expeditionId, activityId, personId);
     }
 

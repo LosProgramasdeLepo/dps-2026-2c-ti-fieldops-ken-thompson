@@ -16,10 +16,12 @@ import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.Vehicles;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionEditing;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
+import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
@@ -39,7 +41,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,7 +54,7 @@ class ValidationExtensionTest {
     @Test
     void acceptsARuleThatTheValidatorDoesNotKnowAbout() {
         Expedition expedition = expeditionWithTransit();
-        ValidationRule everyActivityNeedsABriefing = context -> context.expedition().itinerary().stream()
+        ValidationRule everyActivityNeedsABriefing = context -> context.plan().activities().stream()
                 .map(activity -> new ValidationIssue(
                         IssueSeverity.WARNING,
                         "BRIEFING",
@@ -61,8 +62,8 @@ class ValidationExtensionTest {
                 ))
                 .toList();
 
-        ValidationResult result = new ExpeditionValidator(List.of(everyActivityNeedsABriefing))
-                .validate(expedition, emptyCatalog(), OccupyingExpeditions.none());
+        ValidationResult result = new RuleBasedValidator(List.of(everyActivityNeedsABriefing))
+                .validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.none()));
 
         assertEquals(1, result.issues().size());
         assertEquals("BRIEFING", result.issues().getFirst().code());
@@ -71,13 +72,13 @@ class ValidationExtensionTest {
     @Test
     void combinesACustomRuleWithAStandardRule() {
         Expedition expedition = expeditionWithTransit();
-        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(expedition.itinerary().getFirst().id(), new PersonId(UUID.randomUUID())));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(expedition.activities().getFirst().id(), new PersonId(UUID.randomUUID())));
         ValidationRule alwaysCritical = context -> List.of(
                 new ValidationIssue(IssueSeverity.CRITICAL, "BRIEFING", "no briefing on file")
         );
 
-        ValidationResult result = new ExpeditionValidator(List.of(new MissingResourceRule(), alwaysCritical))
-                .validate(expedition, emptyCatalog(), OccupyingExpeditions.none());
+        ValidationResult result = new RuleBasedValidator(List.of(new MissingResourceRule(), alwaysCritical))
+                .validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.none()));
 
         assertTrue(result.hasCritical());
         assertTrue(hasCode(result, "RESOURCE"), () -> "expected RESOURCE in " + result.issues());
@@ -87,10 +88,10 @@ class ValidationExtensionTest {
     @Test
     void validatesAgainstAnyCatalogImplementation() {
         Expedition expedition = expeditionWithTransit();
-        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(expedition.itinerary().getFirst().id(), new PersonId(UUID.randomUUID())));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(expedition.activities().getFirst().id(), new PersonId(UUID.randomUUID())));
 
-        ValidationResult result = ExpeditionValidator.withDefaultRules()
-                .validate(expedition, emptyCatalog(), OccupyingExpeditions.none());
+        ValidationResult result = RuleBasedValidator.withDefaultRules()
+                .validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.none()));
 
         assertTrue(hasCode(result, "RESOURCE"), () -> "expected RESOURCE in " + result.issues());
     }
@@ -102,10 +103,10 @@ class ValidationExtensionTest {
                 new ValidationIssue(IssueSeverity.WARNING, "NOISE", "should not reach the validator")
         );
         List<ValidationRule> mutable = new ArrayList<>();
-        ExpeditionValidator validator = new ExpeditionValidator(mutable);
+        RuleBasedValidator validator = new RuleBasedValidator(mutable);
         mutable.add(noise);
 
-        ValidationResult result = validator.validate(expedition, emptyCatalog(), OccupyingExpeditions.none());
+        ValidationResult result = validator.validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.none()));
 
         assertFalse(hasCode(result, "NOISE"), () -> "validator kept a live view of the rule list: " + result.issues());
     }
@@ -117,21 +118,19 @@ class ValidationExtensionTest {
     private static Expedition expeditionWithTransit() {
         Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
-                List.of(new Objective("relevar el frente del glaciar")),
-                new TimePeriod(DAY, DAY.plusSeconds(24 * 3600L)),
-                List.of(ZONE),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("sin vuelos nocturnos"))
+                new ExpeditionCharter(
+                        List.of(new Objective("relevar el frente del glaciar")),
+                        new TimePeriod(DAY, DAY.plusSeconds(24 * 3600L)),
+                        List.of(ZONE),
+                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(new Restriction("sin vuelos nocturnos"))
+                )
         );
-        ExpeditionEditing.addActivity(expedition, Activity.transit(
-                new ActivityId(UUID.randomUUID()),
-                "Traslado al campamento",
-                Duration.ofHours(2),
-                RiskLevel.LOW,
-                new TimePeriod(DAY, DAY.plusSeconds(4 * 3600L)),
-                Set.of(),
-                ZONE
-        ));
+        ExpeditionEditing.addActivity(expedition, Activity.transit()
+                .named(new ActivityId(UUID.randomUUID()), "Traslado al campamento")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(ZONE, new TimePeriod(DAY, DAY.plusSeconds(4 * 3600L)))
+                .build());
         return expedition;
     }
 

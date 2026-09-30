@@ -17,13 +17,13 @@ public interface CatalogRegistry {
 
     PermitId nextPermitId();
 
-    void add(Person person);
+    void save(Person person);
 
-    void add(Vehicle vehicle);
+    void save(Vehicle vehicle);
 
-    void add(Instrument instrument);
+    void save(Instrument instrument);
 
-    void add(Consumable consumable);
+    void save(Consumable consumable);
 
-    void add(Permit permit);
+    void save(Permit permit);
 }

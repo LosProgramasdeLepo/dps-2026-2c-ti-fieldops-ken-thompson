@@ -12,8 +12,8 @@ import java.util.Objects;
 
 public final class AssignResourcesInteractor implements AssignResources {
     private final ExpeditionRepository plans;
-    private final ExecutionRepository executions;
     private final Catalogs catalogs;
+    private final PlanningContexts contexts;
     private final AssignmentSuggester suggester;
 
     public AssignResourcesInteractor(
@@ -23,8 +23,8 @@ public final class AssignResourcesInteractor implements AssignResources {
             AssignmentSuggester suggester
     ) {
         this.plans = Objects.requireNonNull(plans, "plans");
-        this.executions = Objects.requireNonNull(executions, "executions");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
+        this.contexts = new PlanningContexts(plans, executions, catalogs);
         this.suggester = Objects.requireNonNull(suggester, "suggester");
     }
 
@@ -34,7 +34,7 @@ public final class AssignResourcesInteractor implements AssignResources {
         assignment.unknownIn(catalogs).ifPresent(label -> {
             throw new InvalidAssignment("unknown " + label);
         });
-        Expedition expedition = require(expeditionId);
+        Expedition expedition = plans.require(expeditionId);
         expedition.addAssignment(assignment);
         plans.save(expedition);
     }
@@ -44,19 +44,13 @@ public final class AssignResourcesInteractor implements AssignResources {
         if (catalogs.permits().permit(Objects.requireNonNull(permitId, "permit id")).isEmpty()) {
             throw new InvalidValue("unknown permit: " + permitId);
         }
-        Expedition expedition = require(expeditionId);
+        Expedition expedition = plans.require(expeditionId);
         expedition.addPermit(permitId);
         plans.save(expedition);
     }
 
     @Override
     public List<Assignment> suggest(ExpeditionId expeditionId) {
-        Expedition expedition = require(expeditionId);
-        return suggester.suggest(expedition, catalogs.bookable(), Peers.around(expedition, plans, executions));
-    }
-
-    private Expedition require(ExpeditionId expeditionId) {
-        return plans.find(Objects.requireNonNull(expeditionId, "expedition id"))
-                .orElseThrow(() -> new InvalidValue("unknown expedition: " + expeditionId));
+        return suggester.suggest(contexts.around(plans.require(expeditionId)));
     }
 }
