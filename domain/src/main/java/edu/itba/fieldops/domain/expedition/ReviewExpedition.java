@@ -9,4 +9,6 @@ public interface ReviewExpedition {
     ValidationResult validate(ExpeditionId expeditionId);
 
     void acceptWarning(ExpeditionId expeditionId, AcceptedWarning warning);
+
+    void returnToDraft(ExpeditionId expeditionId);
 }

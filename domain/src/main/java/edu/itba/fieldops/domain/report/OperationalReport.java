@@ -2,7 +2,6 @@ package edu.itba.fieldops.domain.report;
 
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.itinerary.Activity;
@@ -23,7 +22,7 @@ import java.util.Objects;
 import java.util.Set;
 
 public record OperationalReport(
-        ExpeditionStatus status,
+        OperationalStatus status,
         int plannedActivities,
         int startedActivities,
         int finishedActivities,
@@ -52,7 +51,7 @@ public record OperationalReport(
         Objects.requireNonNull(expedition, "expedition");
         List<ActivityExecution> executions = execution == null ? List.of() : execution.executions();
         return new OperationalReport(
-                expedition.status(),
+                OperationalStatus.of(expedition, execution),
                 expedition.itinerary().size(),
                 executions.size(),
                 (int) executions.stream().filter(ActivityExecution::isFinished).count(),

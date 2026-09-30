@@ -10,7 +10,6 @@ import edu.itba.fieldops.domain.expedition.Approvals;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionEditing;
-import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
@@ -59,7 +58,7 @@ class OperationalReportTest {
         OperationalReport report = OperationalReport.of(prepared.expedition());
 
         assertAll(
-                () -> assertEquals(ExpeditionStatus.DRAFT, report.status()),
+                () -> assertEquals(OperationalStatus.DRAFT, report.status()),
                 () -> assertEquals(1, report.plannedActivities()),
                 () -> assertEquals(0, report.startedActivities()),
                 () -> assertEquals(0, report.finishedActivities()),
@@ -83,7 +82,7 @@ class OperationalReportTest {
         OperationalReport report = OperationalReport.of(prepared.expedition(), execution);
 
         assertAll(
-                () -> assertEquals(ExpeditionStatus.APPROVED, report.status()),
+                () -> assertEquals(OperationalStatus.IN_PROGRESS, report.status()),
                 () -> assertEquals(1, report.plannedActivities()),
                 () -> assertEquals(1, report.startedActivities()),
                 () -> assertEquals(1, report.finishedActivities()),
@@ -103,6 +102,22 @@ class OperationalReportTest {
         OperationalReport report = OperationalReport.of(prepared.expedition(), execution);
 
         assertEquals(List.of(incident), report.incidents());
+        assertEquals(OperationalStatus.IN_PROGRESS, report.status());
+    }
+
+    @Test
+    void reportsFinishedWhenTheRunIsFinished() {
+        Prepared prepared = draftWithMeasurement(Map.of());
+        ExpeditionEditing.submitForReview(prepared.expedition());
+        Approvals.approve(prepared.expedition(), prepared.catalog());
+        ExpeditionExecution execution = ExpeditionExecution.started(prepared.expedition().id());
+        execution.startActivity(prepared.activity().id(), START, prepared.expedition().activityOf(prepared.activity().id()).predecessors());
+        execution.finishActivity(prepared.activity().id(), START.plus(Duration.ofHours(3)), "samples stored");
+        execution.finish(prepared.expedition().itinerary());
+
+        OperationalReport report = OperationalReport.of(prepared.expedition(), execution);
+
+        assertEquals(OperationalStatus.FINISHED, report.status());
     }
 
     private static Prepared draftWithMeasurement(Map<ConsumableId, Stock> estimated) {

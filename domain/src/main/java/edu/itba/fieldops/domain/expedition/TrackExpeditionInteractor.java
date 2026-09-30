@@ -95,17 +95,6 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
         executions.save(execution);
     }
 
-    @Override
-    public void returnToDraft(ExpeditionId expeditionId) {
-        Expedition plan = requirePlan(expeditionId);
-        ExpeditionExecution execution = executions.find(expeditionId).orElse(null);
-        if (execution != null && !execution.isFinished()) {
-            throw new InvalidExpeditionTransition(execution.status(), "return to draft");
-        }
-        plan.returnToDraft();
-        plans.save(plan);
-    }
-
     private static void requireInsideWindow(Expedition plan, Activity activity, Instant at) {
         if (!plan.period().contains(at) || !activity.window().contains(at)) {
             throw new InvalidActivityExecution("activity instant is outside the planned window");

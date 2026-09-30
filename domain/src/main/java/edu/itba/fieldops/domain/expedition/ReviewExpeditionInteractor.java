@@ -47,6 +47,13 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
         plans.save(expedition);
     }
 
+    @Override
+    public void returnToDraft(ExpeditionId expeditionId) {
+        Expedition expedition = require(expeditionId);
+        expedition.returnToDraft();
+        plans.save(expedition);
+    }
+
     private Expedition require(ExpeditionId expeditionId) {
         return plans.find(Objects.requireNonNull(expeditionId, "expedition id"))
                 .orElseThrow(() -> new InvalidValue("unknown expedition: " + expeditionId));

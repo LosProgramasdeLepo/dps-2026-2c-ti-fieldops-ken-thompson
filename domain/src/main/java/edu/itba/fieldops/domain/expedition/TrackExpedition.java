@@ -21,6 +21,4 @@ public interface TrackExpedition {
     void addIncident(ExpeditionId expeditionId, Incident incident);
 
     void addObservation(ExpeditionId expeditionId, Observation observation);
-
-    void returnToDraft(ExpeditionId expeditionId);
 }
