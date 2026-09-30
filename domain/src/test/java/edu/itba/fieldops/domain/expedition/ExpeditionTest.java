@@ -4,7 +4,7 @@ import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
-import edu.itba.fieldops.domain.catalog.ResourceCatalog;
+import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
@@ -43,9 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExpeditionTest {
-    private final ExpeditionLifecycle lifecycle = new ExpeditionLifecycle();
-    private final ApproveExpedition approve = new ApproveExpedition(ExpeditionValidator.withDefaultRules());
-
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
 
@@ -122,54 +119,6 @@ class ExpeditionTest {
     }
 
     @Test
-    void reordersItineraryInDraft() {
-        Expedition expedition = wetlandDraft();
-        Activity first = sampling();
-        Activity second = transit();
-        Activity third = measurement();
-        expedition.addActivity(first);
-        expedition.addActivity(second);
-        expedition.addActivity(third);
-
-        expedition.reorderActivities(List.of(third.id(), first.id(), second.id()));
-
-        assertEquals(List.of(third.id(), first.id(), second.id()), activityIds(expedition));
-    }
-
-    @Test
-    void rejectsReorderThatDropsOrRepeatsActivities() {
-        Expedition expedition = wetlandDraft();
-        Activity first = sampling();
-        Activity second = transit();
-        expedition.addActivity(first);
-        expedition.addActivity(second);
-
-        assertAll(
-                () -> assertThrows(
-                        InvalidItinerary.class,
-                        () -> expedition.reorderActivities(List.of(first.id(), first.id()))
-                ),
-                () -> assertThrows(
-                        InvalidItinerary.class,
-                        () -> expedition.reorderActivities(List.of(first.id()))
-                )
-        );
-    }
-
-    @Test
-    void rejectsReorderOutsideDraft() {
-        Expedition expedition = wetlandDraft();
-        Activity activity = sampling();
-        expedition.addActivity(activity);
-        expedition.submitForReview();
-
-        assertThrows(
-                InvalidExpeditionTransition.class,
-                () -> expedition.reorderActivities(List.of(activity.id()))
-        );
-    }
-
-    @Test
     void addsDependencyWhenPredecessorFinishesBefore() {
         Expedition expedition = wetlandDraft();
         Activity first = sampling();
@@ -224,17 +173,17 @@ class ExpeditionTest {
         Expedition expedition = approvedWithTwoDependentActivities();
         Activity first = expedition.itinerary().getFirst();
         Activity second = expedition.itinerary().getLast();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
 
         assertThrows(
                 InvalidActivityExecution.class,
-                () -> lifecycle.startActivity(expedition, execution, second.id(), DAY.plusSeconds(4 * 3600L))
+                () -> execution.startActivity(second.id(), DAY.plusSeconds(4 * 3600L), expedition.activityOf(second.id()).predecessors())
         );
 
-        lifecycle.startActivity(expedition, execution, first.id(), DAY);
+        execution.startActivity(first.id(), DAY, expedition.activityOf(first.id()).predecessors());
         assertThrows(
                 InvalidActivityExecution.class,
-                () -> lifecycle.startActivity(expedition, execution, second.id(), DAY.plusSeconds(4 * 3600L))
+                () -> execution.startActivity(second.id(), DAY.plusSeconds(4 * 3600L), expedition.activityOf(second.id()).predecessors())
         );
     }
 
@@ -243,11 +192,11 @@ class ExpeditionTest {
         Expedition expedition = approvedWithTwoDependentActivities();
         Activity first = expedition.itinerary().getFirst();
         Activity second = expedition.itinerary().getLast();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
-        lifecycle.startActivity(expedition, execution, first.id(), DAY);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+        execution.startActivity(first.id(), DAY, expedition.activityOf(first.id()).predecessors());
         execution.finishActivity(first.id(), DAY.plusSeconds(4 * 3600L), "site reached");
 
-        lifecycle.startActivity(expedition, execution, second.id(), DAY.plusSeconds(4 * 3600L));
+        execution.startActivity(second.id(), DAY.plusSeconds(4 * 3600L), expedition.activityOf(second.id()).predecessors());
 
         assertEquals(2, execution.executions().size());
     }
@@ -266,11 +215,11 @@ class ExpeditionTest {
     void simpleTransitionsReachFinished() {
         Expedition expedition = approvedWithActivity();
         Activity activity = expedition.itinerary().getFirst();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
-        lifecycle.startActivity(expedition, execution, activity.id(), DAY);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+        execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
         execution.finishActivity(activity.id(), DAY.plusSeconds(3600), "samples stored");
 
-        lifecycle.finish(expedition, execution);
+        execution.finish(expedition.itinerary());
 
         assertAll(
                 () -> assertEquals(ExpeditionStatus.APPROVED, expedition.status()),
@@ -282,12 +231,12 @@ class ExpeditionTest {
     void cannotFinishWhileActivitiesRemainOpen() {
         Expedition expedition = approvedWithActivity();
         Activity activity = expedition.itinerary().getFirst();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
 
-        assertThrows(InvalidActivityExecution.class, () -> lifecycle.finish(expedition, execution));
+        assertThrows(InvalidActivityExecution.class, () -> execution.finish(expedition.itinerary()));
 
-        lifecycle.startActivity(expedition, execution, activity.id(), DAY);
-        assertThrows(InvalidActivityExecution.class, () -> lifecycle.finish(expedition, execution));
+        execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
+        assertThrows(InvalidActivityExecution.class, () -> execution.finish(expedition.itinerary()));
     }
 
     @Test
@@ -324,8 +273,9 @@ class ExpeditionTest {
     @Test
     void rejectsDuplicateAcceptedWarning() {
         Expedition expedition = wetlandDraft();
+        expedition.addActivity(sampling());
         expedition.submitForReview();
-        AcceptedWarning warning = acceptedCapacityWarning();
+        AcceptedWarning warning = acceptedCapacityWarning(expedition);
         expedition.acceptWarning(warning);
 
         assertThrows(InvalidValue.class, () -> expedition.acceptWarning(warning));
@@ -334,8 +284,9 @@ class ExpeditionTest {
     @Test
     void returnToDraftClearsAcceptedWarnings() {
         Expedition expedition = wetlandDraft();
+        expedition.addActivity(sampling());
         expedition.submitForReview();
-        expedition.acceptWarning(acceptedCapacityWarning());
+        expedition.acceptWarning(acceptedCapacityWarning(expedition));
 
         expedition.returnToDraft();
 
@@ -348,7 +299,7 @@ class ExpeditionTest {
 
         assertThrows(
                 InvalidExpeditionTransition.class,
-                () -> approve.approve(expedition, new ResourceCatalog(), OccupyingExpeditions.none())
+                () -> Approvals.approve(expedition, new ResourceCatalog())
         );
         assertEquals(ExpeditionStatus.DRAFT, expedition.status());
     }
@@ -361,26 +312,22 @@ class ExpeditionTest {
 
         assertThrows(
                 ExpeditionNotApprovable.class,
-                () -> approve.approve(expedition, new ResourceCatalog(), OccupyingExpeditions.none())
+                () -> Approvals.approve(expedition, new ResourceCatalog())
         );
         assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
     }
 
     @Test
-    void approveRevalidatesAfterAnInvalidAssignment() {
+    void rejectsEditsWhileInReview() {
         Prepared sampling = preparedSampling();
         sampling.expedition().submitForReview();
-        ValidationResult clean = ExpeditionValidator.withDefaultRules()
-                .validate(sampling.expedition(), sampling.catalog(), OccupyingExpeditions.none());
-        assertTrue(clean.issues().isEmpty());
-        sampling.expedition().addAssignment(new PersonAssignment(
-                sampling.activity().id(),
-                new PersonId(UUID.randomUUID())
-        ));
 
         assertThrows(
-                ExpeditionNotApprovable.class,
-                () -> approve.approve(sampling.expedition(), sampling.catalog(), OccupyingExpeditions.none())
+                InvalidExpeditionTransition.class,
+                () -> sampling.expedition().addAssignment(new PersonAssignment(
+                        sampling.activity().id(),
+                        new PersonId(UUID.randomUUID())
+                ))
         );
         assertEquals(ExpeditionStatus.IN_REVIEW, sampling.expedition().status());
     }
@@ -392,7 +339,7 @@ class ExpeditionTest {
 
         assertThrows(
                 ExpeditionNotApprovable.class,
-                () -> approve.approve(crowded.expedition(), crowded.catalog(), OccupyingExpeditions.none())
+                () -> Approvals.approve(crowded.expedition(), crowded.catalog())
         );
     }
 
@@ -401,33 +348,31 @@ class ExpeditionTest {
         Prepared crowded = crowdedTransit();
         crowded.expedition().submitForReview();
         ValidationResult result = ExpeditionValidator.withDefaultRules()
-                .validate(crowded.expedition(), crowded.catalog(), OccupyingExpeditions.none());
+                .validate(crowded.expedition(), crowded.catalog().catalogs(), OccupyingExpeditions.none());
         result.warnings().forEach(warning -> crowded.expedition().acceptWarning(
-                new AcceptedWarning(warning, "backup team on site", new PersonId(UUID.randomUUID()))
+                new AcceptedWarning(warning, "backup team on site", crowded.expedition().responsibles().getFirst())
         ));
 
-        approve.approve(crowded.expedition(), crowded.catalog(), OccupyingExpeditions.none());
+        Approvals.approve(crowded.expedition(), crowded.catalog());
 
         assertEquals(ExpeditionStatus.APPROVED, crowded.expedition().status());
     }
 
     @Test
-    void suspendsFromApproved() {
-        Expedition expedition = approvedWithActivity();
+    void suspendRequiresAnInProgressRun() {
+        ExpeditionExecution execution = ExpeditionExecution.started(new ExpeditionId(UUID.randomUUID()));
 
-        ExpeditionExecution execution = lifecycle.suspend(expedition, null);
+        execution.suspend();
 
-        assertAll(
-                () -> assertEquals(ExpeditionStatus.APPROVED, expedition.status()),
-                () -> assertEquals(ExpeditionExecution.Status.SUSPENDED, execution.status())
-        );
+        assertEquals(ExpeditionExecution.Status.SUSPENDED, execution.status());
+        assertThrows(InvalidExpeditionTransition.class, execution::suspend);
     }
 
     @Test
     void resumeReturnsToInProgress() {
         Expedition expedition = approvedWithActivity();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
-        lifecycle.suspend(expedition, execution);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+        execution.suspend();
 
         execution.resume();
 
@@ -468,26 +413,26 @@ class ExpeditionTest {
     }
 
     @Test
-    void returnToDraftFromApprovedClearsTheApproval() {
+    void cannotReturnAnApprovedPlanToDraft() {
         Expedition expedition = approvedWithActivity();
 
-        lifecycle.returnToDraft(expedition, null);
+        assertThrows(InvalidExpeditionTransition.class, expedition::returnToDraft);
 
-        assertEquals(ExpeditionStatus.DRAFT, expedition.status());
+        assertEquals(ExpeditionStatus.APPROVED, expedition.status());
     }
 
     @Test
-    void returnToDraftFromInProgressClearsExecutions() {
+    void cannotReturnToDraftWhileTheRunIsInProgress() {
         Expedition expedition = approvedWithActivity();
         Activity activity = expedition.itinerary().getFirst();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
-        lifecycle.startActivity(expedition, execution, activity.id(), DAY);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+        execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
 
-        lifecycle.returnToDraft(expedition, execution);
+        assertThrows(InvalidExpeditionTransition.class, expedition::returnToDraft);
 
         assertAll(
-                () -> assertEquals(ExpeditionStatus.DRAFT, expedition.status()),
-                () -> assertTrue(execution.executions().isEmpty())
+                () -> assertEquals(ExpeditionStatus.APPROVED, expedition.status()),
+                () -> assertEquals(1, execution.executions().size())
         );
     }
 
@@ -495,23 +440,13 @@ class ExpeditionTest {
     void cannotReturnToDraftFromFinished() {
         Expedition expedition = approvedWithActivity();
         Activity activity = expedition.itinerary().getFirst();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
-        lifecycle.startActivity(expedition, execution, activity.id(), DAY);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+        execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
         execution.finishActivity(activity.id(), DAY.plusSeconds(3600), "samples stored");
-        lifecycle.finish(expedition, execution);
+        execution.finish(expedition.itinerary());
 
-        assertThrows(InvalidExpeditionTransition.class, () -> lifecycle.returnToDraft(expedition, execution));
+        assertThrows(InvalidExpeditionTransition.class, () -> expedition.returnToDraft());
         assertEquals(ExpeditionExecution.Status.FINISHED, execution.status());
-    }
-
-    @Test
-    void lifecycleRejectsAnExecutionFromAnotherExpedition() {
-        Expedition first = approvedWithActivity();
-        Expedition second = approvedWithActivity();
-        ExpeditionExecution execution = lifecycle.start(first, null);
-
-        assertThrows(InvalidValue.class, () -> lifecycle.finish(second, execution));
-        assertEquals(ExpeditionExecution.Status.IN_PROGRESS, execution.status());
     }
 
     @Test
@@ -542,7 +477,6 @@ class ExpeditionTest {
         expedition.addActivity(third);
         expedition.addDependency(second.id(), first.id());
         expedition.addDependency(third.id(), second.id());
-        expedition.reorderActivities(List.of(third.id(), second.id(), first.id()));
 
         expedition.delay(first.id(), Duration.ofHours(2));
 
@@ -589,7 +523,7 @@ class ExpeditionTest {
     @Test
     void recordsObservationWhileInProgress() {
         Expedition expedition = approvedWithActivity();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         Observation observation = new Observation("site wet", DAY);
 
         execution.addObservation(observation);
@@ -600,7 +534,7 @@ class ExpeditionTest {
     @Test
     void recordsIncidentWhileInProgress() {
         Expedition expedition = approvedWithActivity();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         Incident incident = Incident.of("rain delay", DAY);
 
         execution.addIncident(incident);
@@ -612,8 +546,8 @@ class ExpeditionTest {
     void tracksActivityExecution() {
         Expedition expedition = approvedWithActivity();
         Activity activity = expedition.itinerary().getFirst();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
-        lifecycle.startActivity(expedition, execution, activity.id(), DAY);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+        execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
 
         execution.finishActivity(activity.id(), DAY.plusSeconds(3600), "samples stored");
 
@@ -627,8 +561,8 @@ class ExpeditionTest {
     void cannotFinishActivityTwice() {
         Expedition expedition = approvedWithActivity();
         Activity activity = expedition.itinerary().getFirst();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
-        lifecycle.startActivity(expedition, execution, activity.id(), DAY);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+        execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
         execution.finishActivity(activity.id(), DAY.plusSeconds(3600), "samples stored");
 
         assertThrows(
@@ -641,8 +575,8 @@ class ExpeditionTest {
     void finishingAReturnedExecutionDoesNotChangeTheExpedition() {
         Expedition expedition = approvedWithActivity();
         Activity activity = expedition.itinerary().getFirst();
-        ExpeditionExecution execution = lifecycle.start(expedition, null);
-        lifecycle.startActivity(expedition, execution, activity.id(), DAY);
+        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+        execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
 
         execution.executions().getFirst().finish(DAY.plusSeconds(3600), "samples stored");
 
@@ -652,7 +586,7 @@ class ExpeditionTest {
     private Expedition approvedWithActivity() {
         Prepared prepared = preparedSampling();
         prepared.expedition().submitForReview();
-        approve.approve(prepared.expedition(), prepared.catalog(), OccupyingExpeditions.none());
+        Approvals.approve(prepared.expedition(), prepared.catalog());
         return prepared.expedition();
     }
 
@@ -677,7 +611,7 @@ class ExpeditionTest {
         catalog.add(firstPermit);
         catalog.add(secondPermit);
         expedition.submitForReview();
-        approve.approve(expedition, catalog, OccupyingExpeditions.none());
+        Approvals.approve(expedition, catalog);
         return expedition;
     }
 
@@ -743,9 +677,9 @@ class ExpeditionTest {
         );
     }
 
-    private static AcceptedWarning acceptedCapacityWarning() {
+    private static AcceptedWarning acceptedCapacityWarning(Expedition expedition) {
         ValidationIssue issue = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle near capacity");
-        return new AcceptedWarning(issue, "extra trailer available", new PersonId(UUID.randomUUID()));
+        return new AcceptedWarning(issue, "extra trailer available", expedition.responsibles().getFirst());
     }
 
     private static Activity sampling() {

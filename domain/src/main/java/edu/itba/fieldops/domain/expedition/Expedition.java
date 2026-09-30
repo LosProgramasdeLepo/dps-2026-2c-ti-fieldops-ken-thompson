@@ -35,7 +35,7 @@ public final class Expedition {
     private final AcceptedWarnings acceptedWarnings;
     private ExpeditionStatus status;
 
-    public static Expedition draft(
+    static Expedition draft(
             ExpeditionId id,
             List<Objective> objectives,
             TimePeriod period,
@@ -85,11 +85,11 @@ public final class Expedition {
         this.status = ExpeditionStatus.DRAFT;
     }
 
-    public Expedition reviseAsDraft() {
+    Expedition reviseAsDraft() {
         return new Expedition(this);
     }
 
-    public void addActivity(Activity activity) {
+    void addActivity(Activity activity) {
         requireStatus(ExpeditionStatus.DRAFT, "add activity");
         Objects.requireNonNull(activity, "activity");
         if (!zones.contains(activity.zone())) {
@@ -99,36 +99,31 @@ public final class Expedition {
         itinerary.add(activity);
     }
 
-    public void removeActivity(ActivityId activityId) {
+    void removeActivity(ActivityId activityId) {
         requireStatus(ExpeditionStatus.DRAFT, "remove activity");
         itinerary.remove(activityId);
         assignments.removeActivity(activityId);
     }
 
-    public void reorderActivities(List<ActivityId> orderedIds) {
-        requireStatus(ExpeditionStatus.DRAFT, "reorder activities");
-        itinerary.reorder(orderedIds);
-    }
-
-    public void addDependency(ActivityId activityId, ActivityId predecessorId) {
+    void addDependency(ActivityId activityId, ActivityId predecessorId) {
         requireStatus(ExpeditionStatus.DRAFT, "add dependency");
         itinerary.addDependency(activityId, predecessorId);
     }
 
-    public void addAssignment(Assignment assignment) {
+    void addAssignment(Assignment assignment) {
         requireEditable("assign resources");
         Objects.requireNonNull(assignment, "assignment");
         itinerary.activityOf(assignment.activityId());
         assignments.add(assignment);
     }
 
-    public void removeAssignment(Assignment assignment) {
+    void removeAssignment(Assignment assignment) {
         requireEditable("unassign resources");
         Objects.requireNonNull(assignment, "assignment");
         assignments.remove(assignment);
     }
 
-    public void delay(ActivityId activityId, Duration delay) {
+    void delay(ActivityId activityId, Duration delay) {
         requireStatus(ExpeditionStatus.DRAFT, "delay activity");
         Objects.requireNonNull(delay, "delay");
         if (delay.isNegative()) {
@@ -140,7 +135,7 @@ public final class Expedition {
         itinerary.delay(activityId, delay);
     }
 
-    public void addPermit(PermitId permitId) {
+    void addPermit(PermitId permitId) {
         requireEditable("attach permit");
         Objects.requireNonNull(permitId, "permit id");
         if (permits.contains(permitId)) {
@@ -149,17 +144,23 @@ public final class Expedition {
         permits.add(permitId);
     }
 
-    public void acceptWarning(AcceptedWarning warning) {
+    void acceptWarning(AcceptedWarning warning) {
         requireStatus(ExpeditionStatus.IN_REVIEW, "accept warning");
         Objects.requireNonNull(warning, "warning");
+        if (!responsibles.contains(warning.acceptedBy())) {
+            throw new InvalidValue("warning must be accepted by a responsible");
+        }
         acceptedWarnings.accept(warning);
     }
 
-    public void submitForReview() {
+    void submitForReview() {
+        if (itinerary.activities().isEmpty()) {
+            throw new InvalidItinerary("expedition has no activities");
+        }
         transition(ExpeditionStatus.DRAFT, ExpeditionStatus.IN_REVIEW, "submit for review");
     }
 
-    public void returnToDraft() {
+    void returnToDraft() {
         if (!status.canReturnToDraft()) {
             throw new InvalidExpeditionTransition(status, "return to draft");
         }
@@ -169,6 +170,10 @@ public final class Expedition {
 
     void markApproved() {
         transition(ExpeditionStatus.IN_REVIEW, ExpeditionStatus.APPROVED, "approve");
+    }
+
+    void markSuperseded() {
+        transition(ExpeditionStatus.APPROVED, ExpeditionStatus.SUPERSEDED, "supersede");
     }
 
     public boolean hasAccepted(ValidationIssue warning) {

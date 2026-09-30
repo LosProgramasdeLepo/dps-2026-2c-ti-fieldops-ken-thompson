@@ -6,13 +6,16 @@ import java.util.Set;
 
 public enum ExpeditionStatus {
     DRAFT(Capability.EDITABLE),
-    IN_REVIEW(Capability.EDITABLE, Capability.OCCUPIES_RESOURCES, Capability.RETURNS_TO_DRAFT),
-    APPROVED(Capability.OCCUPIES_RESOURCES, Capability.APPROVED, Capability.RETURNS_TO_DRAFT);
+    IN_REVIEW(Capability.OCCUPIES_RESOURCES, Capability.RETURNS_TO_DRAFT),
+    APPROVED(Capability.OCCUPIES_RESOURCES, Capability.APPROVED),
+    SUPERSEDED;
 
     private final Set<Capability> capabilities;
 
     ExpeditionStatus(Capability... capabilities) {
-        this.capabilities = EnumSet.copyOf(List.of(capabilities));
+        this.capabilities = capabilities.length == 0
+                ? EnumSet.noneOf(Capability.class)
+                : EnumSet.copyOf(List.of(capabilities));
     }
 
     public boolean isEditable() {

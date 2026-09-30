@@ -4,7 +4,7 @@ import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Person;
-import edu.itba.fieldops.domain.catalog.ResourceCatalog;
+import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
@@ -45,7 +45,7 @@ class AssignmentSuggesterTest {
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(ada);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog, OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
 
         assertEquals(List.of(new PersonAssignment(activity.id(), ada.id())), suggestions);
     }
@@ -60,7 +60,7 @@ class AssignmentSuggesterTest {
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(ada);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog, OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
 
         assertTrue(suggestions.isEmpty());
     }
@@ -82,7 +82,7 @@ class AssignmentSuggesterTest {
 
         List<Assignment> suggestions = suggester.suggest(
                 expedition,
-                catalog,
+                catalog.bookable(),
                 OccupyingExpeditions.of(expedition, List.of(occupying))
         );
 
@@ -104,7 +104,7 @@ class AssignmentSuggesterTest {
 
         List<Assignment> suggestions = suggester.suggest(
                 expedition,
-                catalog,
+                catalog.bookable(),
                 OccupyingExpeditions.of(expedition, List.of(occupying))
         );
 
@@ -119,7 +119,7 @@ class AssignmentSuggesterTest {
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(vehicle);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog, OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
 
         assertEquals(List.of(new VehicleAssignment(activity.id(), vehicle.id())), suggestions);
     }
@@ -135,7 +135,7 @@ class AssignmentSuggesterTest {
         catalog.add(ada);
         catalog.add(meter);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog, OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
 
         assertEquals(
                 List.of(
@@ -155,7 +155,7 @@ class AssignmentSuggesterTest {
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(ada);
 
-        List<Assignment> suggestions = suggester.suggest(expedition, catalog, OccupyingExpeditions.none());
+        List<Assignment> suggestions = suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none());
 
         assertTrue(suggestions.isEmpty());
     }
@@ -169,7 +169,7 @@ class AssignmentSuggesterTest {
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(ada);
 
-        suggester.suggest(expedition, catalog, OccupyingExpeditions.none()).forEach(expedition::addAssignment);
+        suggester.suggest(expedition, catalog.bookable(), OccupyingExpeditions.none()).forEach(expedition::addAssignment);
 
         assertEquals(List.of(new PersonAssignment(activity.id(), ada.id())), expedition.assignments().all());
     }

@@ -1,14 +1,14 @@
 package edu.itba.fieldops.domain.assessment;
 
+import edu.itba.fieldops.domain.identity.ExpeditionId;
+
 import java.util.List;
+import java.util.Objects;
 
-public record ValidationResult(List<ValidationIssue> issues) {
+public record ValidationResult(ExpeditionId expeditionId, int version, List<ValidationIssue> issues) {
     public ValidationResult {
+        Objects.requireNonNull(expeditionId, "expedition id");
         issues = List.copyOf(issues);
-    }
-
-    public static ValidationResult empty() {
-        return new ValidationResult(List.of());
     }
 
     public boolean hasCritical() {

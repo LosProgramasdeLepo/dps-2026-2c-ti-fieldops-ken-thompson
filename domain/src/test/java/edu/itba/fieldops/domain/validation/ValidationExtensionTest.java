@@ -3,13 +3,20 @@ package edu.itba.fieldops.domain.validation;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
-import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.catalog.BookableResources;
+import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.catalog.Instrument;
+import edu.itba.fieldops.domain.catalog.Instruments;
 import edu.itba.fieldops.domain.catalog.Permit;
+import edu.itba.fieldops.domain.catalog.Permits;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Vehicle;
+import edu.itba.fieldops.domain.catalog.Vehicles;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionEditing;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
@@ -64,7 +71,7 @@ class ValidationExtensionTest {
     @Test
     void combinesACustomRuleWithAStandardRule() {
         Expedition expedition = expeditionWithTransit();
-        expedition.addAssignment(new PersonAssignment(expedition.itinerary().getFirst().id(), new PersonId(UUID.randomUUID())));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(expedition.itinerary().getFirst().id(), new PersonId(UUID.randomUUID())));
         ValidationRule alwaysCritical = context -> List.of(
                 new ValidationIssue(IssueSeverity.CRITICAL, "BRIEFING", "no briefing on file")
         );
@@ -80,7 +87,7 @@ class ValidationExtensionTest {
     @Test
     void validatesAgainstAnyCatalogImplementation() {
         Expedition expedition = expeditionWithTransit();
-        expedition.addAssignment(new PersonAssignment(expedition.itinerary().getFirst().id(), new PersonId(UUID.randomUUID())));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(expedition.itinerary().getFirst().id(), new PersonId(UUID.randomUUID())));
 
         ValidationResult result = ExpeditionValidator.withDefaultRules()
                 .validate(expedition, emptyCatalog(), OccupyingExpeditions.none());
@@ -108,7 +115,7 @@ class ValidationExtensionTest {
     }
 
     private static Expedition expeditionWithTransit() {
-        Expedition expedition = Expedition.draft(
+        Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 List.of(new Objective("relevar el frente del glaciar")),
                 new TimePeriod(DAY, DAY.plusSeconds(24 * 3600L)),
@@ -116,7 +123,7 @@ class ValidationExtensionTest {
                 List.of(new PersonId(UUID.randomUUID())),
                 List.of(new Restriction("sin vuelos nocturnos"))
         );
-        expedition.addActivity(Activity.transit(
+        ExpeditionEditing.addActivity(expedition, Activity.transit(
                 new ActivityId(UUID.randomUUID()),
                 "Traslado al campamento",
                 Duration.ofHours(2),
@@ -128,47 +135,50 @@ class ValidationExtensionTest {
         return expedition;
     }
 
-    private static Catalog emptyCatalog() {
-        return new Catalog() {
-            @Override
-            public Optional<Person> person(PersonId id) {
-                return Optional.empty();
-            }
+    private static Catalogs emptyCatalog() {
+        Empty empty = new Empty();
+        return new Catalogs(new BookableResources(empty, empty, empty), empty, empty);
+    }
 
-            @Override
-            public Optional<Vehicle> vehicle(VehicleId id) {
-                return Optional.empty();
-            }
+    private static final class Empty implements People, Vehicles, Instruments, Consumables, Permits {
+        @Override
+        public Optional<Person> person(PersonId id) {
+            return Optional.empty();
+        }
 
-            @Override
-            public Optional<Instrument> instrument(InstrumentId id) {
-                return Optional.empty();
-            }
+        @Override
+        public List<Person> people() {
+            return List.of();
+        }
 
-            @Override
-            public Optional<Consumable> consumable(ConsumableId id) {
-                return Optional.empty();
-            }
+        @Override
+        public Optional<Vehicle> vehicle(VehicleId id) {
+            return Optional.empty();
+        }
 
-            @Override
-            public Optional<Permit> permit(PermitId id) {
-                return Optional.empty();
-            }
+        @Override
+        public List<Vehicle> vehicles() {
+            return List.of();
+        }
 
-            @Override
-            public List<Person> people() {
-                return List.of();
-            }
+        @Override
+        public Optional<Instrument> instrument(InstrumentId id) {
+            return Optional.empty();
+        }
 
-            @Override
-            public List<Vehicle> vehicles() {
-                return List.of();
-            }
+        @Override
+        public List<Instrument> instruments() {
+            return List.of();
+        }
 
-            @Override
-            public List<Instrument> instruments() {
-                return List.of();
-            }
-        };
+        @Override
+        public Optional<Consumable> consumable(ConsumableId id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Permit> permit(PermitId id) {
+            return Optional.empty();
+        }
     }
 }

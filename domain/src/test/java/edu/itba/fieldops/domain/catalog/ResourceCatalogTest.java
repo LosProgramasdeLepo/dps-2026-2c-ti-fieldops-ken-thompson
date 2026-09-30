@@ -1,5 +1,7 @@
 package edu.itba.fieldops.domain.catalog;
 
+import edu.itba.fieldops.details.ResourceCatalog;
+
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;

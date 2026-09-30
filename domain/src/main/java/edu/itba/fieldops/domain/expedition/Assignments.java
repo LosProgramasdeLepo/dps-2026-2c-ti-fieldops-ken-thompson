@@ -16,24 +16,45 @@ public final class Assignments {
     private final List<ConsumableAssignment> consumables = new ArrayList<>();
 
     void add(Assignment assignment) {
-        switch (assignment) {
-            case PersonAssignment person -> addOne(people, person);
-            case VehicleAssignment vehicle -> addOne(vehicles, vehicle);
-            case InstrumentAssignment instrument -> addOne(instruments, instrument);
-            case ConsumableAssignment consumable -> addOne(consumables, consumable);
-        }
+        assignment.fileInto(this);
     }
 
     void remove(Assignment assignment) {
-        boolean removed = switch (assignment) {
-            case PersonAssignment person -> people.remove(person);
-            case VehicleAssignment vehicle -> vehicles.remove(vehicle);
-            case InstrumentAssignment instrument -> instruments.remove(instrument);
-            case ConsumableAssignment consumable -> consumables.remove(consumable);
-        };
-        if (!removed) {
+        if (!assignment.withdrawFrom(this)) {
             throw new InvalidAssignment("unknown assignment");
         }
+    }
+
+    void file(PersonAssignment person) {
+        addOne(people, person);
+    }
+
+    void file(VehicleAssignment vehicle) {
+        addOne(vehicles, vehicle);
+    }
+
+    void file(InstrumentAssignment instrument) {
+        addOne(instruments, instrument);
+    }
+
+    void file(ConsumableAssignment consumable) {
+        addOne(consumables, consumable);
+    }
+
+    boolean withdraw(PersonAssignment person) {
+        return people.remove(person);
+    }
+
+    boolean withdraw(VehicleAssignment vehicle) {
+        return vehicles.remove(vehicle);
+    }
+
+    boolean withdraw(InstrumentAssignment instrument) {
+        return instruments.remove(instrument);
+    }
+
+    boolean withdraw(ConsumableAssignment consumable) {
+        return consumables.remove(consumable);
     }
 
     void removeActivity(ActivityId activityId) {

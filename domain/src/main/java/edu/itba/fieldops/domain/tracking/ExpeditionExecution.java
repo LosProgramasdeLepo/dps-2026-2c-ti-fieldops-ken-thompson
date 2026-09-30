@@ -21,7 +21,6 @@ public final class ExpeditionExecution {
 
     private final ExpeditionId expeditionId;
     private Status status;
-    private boolean discarded;
     private final List<ActivityExecution> executions = new ArrayList<>();
     private final List<Incident> incidents = new ArrayList<>();
     private final List<Observation> observations = new ArrayList<>();
@@ -33,10 +32,6 @@ public final class ExpeditionExecution {
 
     public static ExpeditionExecution started(ExpeditionId expeditionId) {
         return new ExpeditionExecution(expeditionId, Status.IN_PROGRESS);
-    }
-
-    public static ExpeditionExecution suspended(ExpeditionId expeditionId) {
-        return new ExpeditionExecution(expeditionId, Status.SUSPENDED);
     }
 
     public void suspend() {
@@ -57,16 +52,6 @@ public final class ExpeditionExecution {
             }
         }
         status = Status.FINISHED;
-    }
-
-    public void discard() {
-        if (status == Status.FINISHED) {
-            throw new InvalidExpeditionTransition(status, "return to draft");
-        }
-        executions.clear();
-        incidents.clear();
-        observations.clear();
-        discarded = true;
     }
 
     public void startActivity(ActivityId activityId, Instant at, Set<ActivityId> predecessors) {
@@ -139,13 +124,13 @@ public final class ExpeditionExecution {
     }
 
     private void requireStatus(Status expected, String action) {
-        if (discarded || status != expected) {
+        if (status != expected) {
             throw new InvalidExpeditionTransition(status, action);
         }
     }
 
     private void requireActive(String action) {
-        if (discarded || (status != Status.IN_PROGRESS && status != Status.SUSPENDED)) {
+        if (status != Status.IN_PROGRESS && status != Status.SUSPENDED) {
             throw new InvalidExpeditionTransition(status, action);
         }
     }

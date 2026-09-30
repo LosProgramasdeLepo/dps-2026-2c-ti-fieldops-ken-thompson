@@ -1,6 +1,6 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.identity.ActivityId;
 
 import java.time.Duration;
@@ -16,13 +16,10 @@ public final class Replanner {
         this.suggester = Objects.requireNonNull(suggester, "assignment suggester");
     }
 
-    public Expedition cancel(Expedition expedition, ActivityId activityId, Catalog catalog, OccupyingExpeditions peers) {
-        Objects.requireNonNull(expedition, "expedition");
-        Objects.requireNonNull(catalog, "catalog");
-        Objects.requireNonNull(peers, "peers");
+    public Expedition cancel(Expedition expedition, ActivityId activityId, BookableResources resources, OccupyingExpeditions peers) {
         Expedition plan = editablePlanFor(expedition);
         plan.removeActivity(activityId);
-        refill(plan, catalog, peers);
+        refill(plan, resources, peers);
         return plan;
     }
 
@@ -30,26 +27,20 @@ public final class Replanner {
             Expedition expedition,
             ActivityId activityId,
             Duration delay,
-            Catalog catalog,
+            BookableResources resources,
             OccupyingExpeditions peers
     ) {
-        Objects.requireNonNull(expedition, "expedition");
-        Objects.requireNonNull(catalog, "catalog");
-        Objects.requireNonNull(peers, "peers");
         Expedition plan = editablePlanFor(expedition);
         plan.delay(activityId, delay);
-        dropInvalid(plan, catalog, peers);
-        refill(plan, catalog, peers);
+        dropInvalid(plan, resources, peers);
+        refill(plan, resources, peers);
         return plan;
     }
 
-    public Expedition replaceUnavailable(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
-        Objects.requireNonNull(expedition, "expedition");
-        Objects.requireNonNull(catalog, "catalog");
-        Objects.requireNonNull(peers, "peers");
-        Expedition plan = revisionOrSelf(expedition);
-        dropInvalid(plan, catalog, peers);
-        refill(plan, catalog, peers);
+    public Expedition replaceUnavailable(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
+        Expedition plan = editablePlanFor(expedition);
+        dropInvalid(plan, resources, peers);
+        refill(plan, resources, peers);
         return plan;
     }
 
@@ -65,13 +56,13 @@ public final class Replanner {
         return expedition.status().hasBeenApproved() ? expedition.reviseAsDraft() : expedition;
     }
 
-    private void refill(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
-        for (Assignment assignment : suggester.suggest(expedition, catalog, peers)) {
+    private void refill(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
+        for (Assignment assignment : suggester.suggest(expedition, resources, peers)) {
             expedition.addAssignment(assignment);
         }
     }
 
-    private static void dropInvalid(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
+    private static void dropInvalid(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
         List<TemporalBooking> occupying = new ArrayList<>();
         for (Expedition peer : peers.plans()) {
             occupying.addAll(TemporalBooking.of(peer));
@@ -86,7 +77,7 @@ public final class Replanner {
                 continue;
             }
             TemporalBooking slot = booking.get();
-            boolean invalid = !slot.availableIn(catalog)
+            boolean invalid = !slot.availableIn(resources)
                     || occupying.stream().anyMatch(slot::conflicts)
                     || kept.stream().anyMatch(slot::conflicts);
             if (invalid) {

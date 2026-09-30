@@ -13,6 +13,11 @@ public record TimePeriod(Instant start, Instant end) {
         }
     }
 
+    public boolean contains(Instant instant) {
+        Objects.requireNonNull(instant, "instant");
+        return !instant.isBefore(start) && !instant.isAfter(end);
+    }
+
     public boolean contains(TimePeriod other) {
         Objects.requireNonNull(other, "other period");
         return !other.start.isBefore(start) && !other.end.isAfter(end);

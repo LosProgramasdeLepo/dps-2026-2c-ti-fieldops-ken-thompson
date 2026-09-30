@@ -36,14 +36,15 @@ public final class OccupyingExpeditions {
             if (peer.id().equals(plan.id())) {
                 continue;
             }
-            if (plan.supersedes().filter(peer.id()::equals).isPresent()) {
-                continue;
-            }
             ExpeditionExecution execution = executions.get(peer.id());
             if (execution != null && execution.isFinished()) {
                 continue;
             }
-            if (peer.status().occupiesResources()) {
+            boolean replaced = plan.supersedes().filter(peer.id()::equals).isPresent();
+            if (replaced && !occupiesWhileRunning(peer, execution)) {
+                continue;
+            }
+            if (peer.status().occupiesResources() || occupiesWhileRunning(peer, execution)) {
                 occupying.add(peer);
             }
         }
@@ -52,5 +53,9 @@ public final class OccupyingExpeditions {
 
     public List<Expedition> plans() {
         return plans;
+    }
+
+    private static boolean occupiesWhileRunning(Expedition peer, ExpeditionExecution execution) {
+        return peer.status() == ExpeditionStatus.SUPERSEDED && execution != null;
     }
 }

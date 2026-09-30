@@ -1,6 +1,6 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PersonId;
@@ -12,20 +12,30 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-public sealed interface TemporalBooking
-        permits TemporalBooking.PersonBooking, TemporalBooking.VehicleBooking, TemporalBooking.InstrumentBooking {
-
+public interface TemporalBooking {
     ActivityId activityId();
 
     TimePeriod window();
 
     String label();
 
-    boolean availableIn(Catalog catalog);
+    boolean availableIn(BookableResources resources);
 
-    boolean unavailableIn(Catalog catalog);
+    boolean unavailableIn(BookableResources resources);
 
     boolean conflicts(TemporalBooking other);
+
+    default boolean conflictsWith(PersonId personId, TimePeriod window) {
+        return false;
+    }
+
+    default boolean conflictsWith(VehicleId vehicleId, TimePeriod window) {
+        return false;
+    }
+
+    default boolean conflictsWith(InstrumentId instrumentId, TimePeriod window) {
+        return false;
+    }
 
     static List<TemporalBooking> of(Expedition expedition) {
         List<TemporalBooking> bookings = new ArrayList<>();
@@ -48,20 +58,23 @@ public sealed interface TemporalBooking
         }
 
         @Override
-        public boolean availableIn(Catalog catalog) {
-            return isAvailable(catalog.person(personId).map(person -> person.availableDuring(window)));
+        public boolean availableIn(BookableResources resources) {
+            return isAvailable(resources.people().person(personId).map(person -> person.availableDuring(window)));
         }
 
         @Override
-        public boolean unavailableIn(Catalog catalog) {
-            return isUnavailable(catalog.person(personId).map(person -> person.availableDuring(window)));
+        public boolean unavailableIn(BookableResources resources) {
+            return isUnavailable(resources.people().person(personId).map(person -> person.availableDuring(window)));
         }
 
         @Override
         public boolean conflicts(TemporalBooking other) {
-            return other instanceof PersonBooking person
-                    && personId.equals(person.personId)
-                    && window.overlaps(person.window);
+            return other.conflictsWith(personId, window);
+        }
+
+        @Override
+        public boolean conflictsWith(PersonId otherPerson, TimePeriod otherWindow) {
+            return personId.equals(otherPerson) && window.overlaps(otherWindow);
         }
     }
 
@@ -78,20 +91,23 @@ public sealed interface TemporalBooking
         }
 
         @Override
-        public boolean availableIn(Catalog catalog) {
-            return isAvailable(catalog.vehicle(vehicleId).map(vehicle -> vehicle.availableDuring(window)));
+        public boolean availableIn(BookableResources resources) {
+            return isAvailable(resources.vehicles().vehicle(vehicleId).map(vehicle -> vehicle.availableDuring(window)));
         }
 
         @Override
-        public boolean unavailableIn(Catalog catalog) {
-            return isUnavailable(catalog.vehicle(vehicleId).map(vehicle -> vehicle.availableDuring(window)));
+        public boolean unavailableIn(BookableResources resources) {
+            return isUnavailable(resources.vehicles().vehicle(vehicleId).map(vehicle -> vehicle.availableDuring(window)));
         }
 
         @Override
         public boolean conflicts(TemporalBooking other) {
-            return other instanceof VehicleBooking vehicle
-                    && vehicleId.equals(vehicle.vehicleId)
-                    && window.overlaps(vehicle.window);
+            return other.conflictsWith(vehicleId, window);
+        }
+
+        @Override
+        public boolean conflictsWith(VehicleId otherVehicle, TimePeriod otherWindow) {
+            return vehicleId.equals(otherVehicle) && window.overlaps(otherWindow);
         }
     }
 
@@ -108,20 +124,23 @@ public sealed interface TemporalBooking
         }
 
         @Override
-        public boolean availableIn(Catalog catalog) {
-            return isAvailable(catalog.instrument(instrumentId).map(instrument -> instrument.availableDuring(window)));
+        public boolean availableIn(BookableResources resources) {
+            return isAvailable(resources.instruments().instrument(instrumentId).map(instrument -> instrument.availableDuring(window)));
         }
 
         @Override
-        public boolean unavailableIn(Catalog catalog) {
-            return isUnavailable(catalog.instrument(instrumentId).map(instrument -> instrument.availableDuring(window)));
+        public boolean unavailableIn(BookableResources resources) {
+            return isUnavailable(resources.instruments().instrument(instrumentId).map(instrument -> instrument.availableDuring(window)));
         }
 
         @Override
         public boolean conflicts(TemporalBooking other) {
-            return other instanceof InstrumentBooking instrument
-                    && instrumentId.equals(instrument.instrumentId)
-                    && window.overlaps(instrument.window);
+            return other.conflictsWith(instrumentId, window);
+        }
+
+        @Override
+        public boolean conflictsWith(InstrumentId otherInstrument, TimePeriod otherWindow) {
+            return instrumentId.equals(otherInstrument) && window.overlaps(otherWindow);
         }
     }
 

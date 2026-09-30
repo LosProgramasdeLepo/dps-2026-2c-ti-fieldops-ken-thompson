@@ -5,15 +5,14 @@ import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
-import edu.itba.fieldops.domain.catalog.ResourceCatalog;
-import edu.itba.fieldops.domain.expedition.ApproveExpedition;
+import edu.itba.fieldops.details.ResourceCatalog;
+import edu.itba.fieldops.domain.expedition.Approvals;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.ExpeditionLifecycle;
+import edu.itba.fieldops.domain.expedition.ExpeditionEditing;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
-import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.identity.ActivityId;
@@ -31,7 +30,6 @@ import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
-import edu.itba.fieldops.domain.validation.ExpeditionValidator;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -45,8 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class OperationalReportTest {
-    private final ExpeditionLifecycle lifecycle = new ExpeditionLifecycle();
-    private final ApproveExpedition approve = new ApproveExpedition(ExpeditionValidator.withDefaultRules());
 
     private static final Instant START = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
@@ -57,8 +53,8 @@ class OperationalReportTest {
         ConsumableId vials = new ConsumableId(UUID.randomUUID());
         Prepared prepared = draftWithMeasurement(Map.of(vials, new Stock(3)));
         Activity activity = prepared.activity();
-        prepared.expedition().addAssignment(new ConsumableAssignment(activity.id(), vials, new Stock(5)));
-        prepared.expedition().addAssignment(new ConsumableAssignment(activity.id(), vials, new Stock(2)));
+        ExpeditionEditing.addAssignment(prepared.expedition(), new ConsumableAssignment(activity.id(), vials, new Stock(5)));
+        ExpeditionEditing.addAssignment(prepared.expedition(), new ConsumableAssignment(activity.id(), vials, new Stock(2)));
 
         OperationalReport report = OperationalReport.of(prepared.expedition());
 
@@ -78,10 +74,10 @@ class OperationalReportTest {
     @Test
     void includesFinishedActivityResults() {
         Prepared prepared = draftWithMeasurement(Map.of());
-        prepared.expedition().submitForReview();
-        approve.approve(prepared.expedition(), prepared.catalog(), OccupyingExpeditions.none());
-        ExpeditionExecution execution = lifecycle.start(prepared.expedition(), null);
-        lifecycle.startActivity(prepared.expedition(), execution, prepared.activity().id(), START);
+        ExpeditionEditing.submitForReview(prepared.expedition());
+        Approvals.approve(prepared.expedition(), prepared.catalog());
+        ExpeditionExecution execution = ExpeditionExecution.started(prepared.expedition().id());
+        execution.startActivity(prepared.activity().id(), START, prepared.expedition().activityOf(prepared.activity().id()).predecessors());
         execution.finishActivity(prepared.activity().id(), START.plus(Duration.ofHours(3)), "samples stored");
 
         OperationalReport report = OperationalReport.of(prepared.expedition(), execution);
@@ -98,9 +94,9 @@ class OperationalReportTest {
     @Test
     void includesIncidents() {
         Prepared prepared = draftWithMeasurement(Map.of());
-        prepared.expedition().submitForReview();
-        approve.approve(prepared.expedition(), prepared.catalog(), OccupyingExpeditions.none());
-        ExpeditionExecution execution = lifecycle.start(prepared.expedition(), null);
+        ExpeditionEditing.submitForReview(prepared.expedition());
+        Approvals.approve(prepared.expedition(), prepared.catalog());
+        ExpeditionExecution execution = ExpeditionExecution.started(prepared.expedition().id());
         Incident incident = Incident.of("ventisca en el frente", START);
         execution.addIncident(incident);
 
@@ -126,7 +122,7 @@ class OperationalReportTest {
                 estimated
         );
         Permit permit = new Permit(new PermitId(UUID.randomUUID()), DELTA, activity.window());
-        Expedition expedition = Expedition.draft(
+        Expedition expedition = ExpeditionEditing.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 List.of(new Objective("Measure water")),
                 new TimePeriod(START, START.plus(Duration.ofDays(2))),
@@ -134,10 +130,10 @@ class OperationalReportTest {
                 List.of(new PersonId(UUID.randomUUID())),
                 List.of(new Restriction("Daylight only"))
         );
-        expedition.addActivity(activity);
-        expedition.addAssignment(new PersonAssignment(activity.id(), personId));
-        expedition.addAssignment(new InstrumentAssignment(activity.id(), instrumentId));
-        expedition.addPermit(permit.id());
+        ExpeditionEditing.addActivity(expedition, activity);
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(activity.id(), personId));
+        ExpeditionEditing.addAssignment(expedition, new InstrumentAssignment(activity.id(), instrumentId));
+        ExpeditionEditing.addPermit(expedition, permit.id());
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.add(new Person(personId, "Ada", List.of(new Certification(certificationId, "Operator")), Availability.always()));
         catalog.add(new Instrument(instrumentId, PROBE, Availability.always()));

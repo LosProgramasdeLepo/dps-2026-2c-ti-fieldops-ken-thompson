@@ -2,7 +2,7 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
-import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.catalog.Instruments;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
@@ -19,22 +19,22 @@ public final class MissingResourceRule implements ValidationRule {
     @Override
     public List<ValidationIssue> check(ValidationContext context) {
         Expedition expedition = context.expedition();
-        Catalog catalog = context.catalog();
+        Instruments instruments = context.instruments();
         List<ValidationIssue> issues = new ArrayList<>();
         for (Assignment assignment : expedition.assignments().all()) {
-            unknown(catalog, assignment).ifPresent(issues::add);
+            unknown(context, assignment).ifPresent(issues::add);
         }
         for (Activity activity : expedition.itinerary()) {
-            issues.addAll(missingRequired(expedition, catalog, activity));
+            issues.addAll(missingRequired(expedition, instruments, activity));
         }
         return issues;
     }
 
-    private static Optional<ValidationIssue> unknown(Catalog catalog, Assignment assignment) {
-        return assignment.unknownIn(catalog).map(label -> critical("unknown " + label));
+    private static Optional<ValidationIssue> unknown(ValidationContext context, Assignment assignment) {
+        return assignment.unknownIn(context.catalogs()).map(label -> critical("unknown " + label));
     }
 
-    private static List<ValidationIssue> missingRequired(Expedition expedition, Catalog catalog, Activity activity) {
+    private static List<ValidationIssue> missingRequired(Expedition expedition, Instruments instruments, Activity activity) {
         List<ValidationIssue> issues = new ArrayList<>();
         if (activity.requirements().vehicle() == VehicleRequirement.REQUIRED
                 && expedition.assignments().vehiclesOf(activity.id()).isEmpty()) {
@@ -42,7 +42,7 @@ public final class MissingResourceRule implements ValidationRule {
         }
         activity.requirements().instrument().requiredKind().ifPresent(kind -> {
             List<InstrumentAssignment> assigned = expedition.assignments().instrumentsOf(activity.id());
-            if (assigned.isEmpty() || knownInstrumentMissesKind(catalog, assigned, kind)) {
+            if (assigned.isEmpty() || knownInstrumentMissesKind(instruments, assigned, kind)) {
                 issues.add(critical(
                         "activity " + activity.name() + " requires an instrument of kind " + kind.name() + " and has none assigned"
                 ));
@@ -55,10 +55,10 @@ public final class MissingResourceRule implements ValidationRule {
         return issues;
     }
 
-    private static boolean knownInstrumentMissesKind(Catalog catalog, List<InstrumentAssignment> assigned, InstrumentKind kind) {
+    private static boolean knownInstrumentMissesKind(Instruments instruments, List<InstrumentAssignment> assigned, InstrumentKind kind) {
         boolean known = false;
         for (InstrumentAssignment assignment : assigned) {
-            Optional<Instrument> instrument = catalog.instrument(assignment.instrumentId());
+            Optional<Instrument> instrument = instruments.instrument(assignment.instrumentId());
             if (instrument.isEmpty()) {
                 continue;
             }

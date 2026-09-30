@@ -2,7 +2,7 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
-import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.TemporalBooking;
 
@@ -12,11 +12,11 @@ import java.util.List;
 public final class TemporalOverlapRule implements ValidationRule {
     @Override
     public List<ValidationIssue> check(ValidationContext context) {
-        Catalog catalog = context.catalog();
+        BookableResources resources = context.bookable();
         List<TemporalBooking> own = TemporalBooking.of(context.expedition());
         List<ValidationIssue> issues = new ArrayList<>();
         for (TemporalBooking booking : own) {
-            if (booking.unavailableIn(catalog)) {
+            if (booking.unavailableIn(resources)) {
                 issues.add(critical(
                         "AVAILABILITY",
                         booking.label() + " is not available during "

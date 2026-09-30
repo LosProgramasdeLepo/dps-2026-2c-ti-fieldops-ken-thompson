@@ -2,7 +2,7 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
-import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.identity.ConsumableId;
@@ -17,7 +17,7 @@ import java.util.Optional;
 public final class StockRule implements ValidationRule {
     @Override
     public List<ValidationIssue> check(ValidationContext context) {
-        Catalog catalog = context.catalog();
+        Consumables consumables = context.consumables();
         Map<ConsumableId, Stock> needed = new HashMap<>();
         add(needed, context.expedition());
         for (Expedition peer : context.occupying().plans()) {
@@ -25,7 +25,7 @@ public final class StockRule implements ValidationRule {
         }
         List<ValidationIssue> issues = new ArrayList<>();
         for (Map.Entry<ConsumableId, Stock> entry : needed.entrySet()) {
-            Optional<Consumable> consumable = catalog.consumable(entry.getKey());
+            Optional<Consumable> consumable = consumables.consumable(entry.getKey());
             if (consumable.isPresent() && !consumable.get().hasAtLeast(entry.getValue())) {
                 issues.add(stockIssue(consumable.get(), entry.getValue()));
             }

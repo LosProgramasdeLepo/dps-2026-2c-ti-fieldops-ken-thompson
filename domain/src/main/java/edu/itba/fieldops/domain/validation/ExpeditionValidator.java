@@ -1,7 +1,7 @@
 package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.ValidationResult;
-import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 
@@ -26,15 +26,18 @@ public final class ExpeditionValidator {
         ));
     }
 
-    public ValidationResult validate(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
-        return validate(new ValidationContext(expedition, catalog, peers));
+    public ValidationResult validate(Expedition expedition, Catalogs catalogs, OccupyingExpeditions peers) {
+        return validate(new ValidationContext(expedition, catalogs, peers));
     }
 
     public ValidationResult validate(ValidationContext context) {
-        Objects.requireNonNull(context, "context");
-        return new ValidationResult(rules.stream()
-                .map(rule -> rule.check(context))
-                .flatMap(List::stream)
-                .toList());
+        return new ValidationResult(
+                context.expedition().id(),
+                context.expedition().version(),
+                rules.stream()
+                        .map(rule -> rule.check(context))
+                        .flatMap(List::stream)
+                        .toList()
+        );
     }
 }

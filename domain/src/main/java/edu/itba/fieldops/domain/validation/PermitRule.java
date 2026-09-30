@@ -2,7 +2,7 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
-import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.catalog.Permits;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.identity.PermitId;
@@ -16,12 +16,12 @@ public final class PermitRule implements ValidationRule {
     @Override
     public List<ValidationIssue> check(ValidationContext context) {
         Expedition expedition = context.expedition();
-        Catalog catalog = context.catalog();
+        Permits permits = context.permits();
         List<PermitId> attached = expedition.permits();
         List<Permit> known = new ArrayList<>();
         List<ValidationIssue> issues = new ArrayList<>();
         for (PermitId permitId : attached) {
-            Optional<Permit> permit = catalog.permit(permitId);
+            Optional<Permit> permit = permits.permit(permitId);
             if (permit.isEmpty()) {
                 issues.add(issue("RESOURCE", "unknown permit " + permitId));
             } else {

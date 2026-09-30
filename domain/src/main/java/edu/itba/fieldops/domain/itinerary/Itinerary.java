@@ -34,16 +34,6 @@ public final class Itinerary {
         activities.removeIf(activity -> activity.id().equals(activityId));
     }
 
-    public void reorder(List<ActivityId> orderedIds) {
-        Objects.requireNonNull(orderedIds, "activity order");
-        if (orderedIds.size() != activities.size() || Set.copyOf(orderedIds).size() != activities.size()) {
-            throw new InvalidItinerary("activity order must list each itinerary activity once");
-        }
-        List<Activity> reordered = orderedIds.stream().map(this::activityOf).toList();
-        activities.clear();
-        activities.addAll(reordered);
-    }
-
     public void addDependency(ActivityId activityId, ActivityId predecessorId) {
         Objects.requireNonNull(predecessorId, "predecessor id");
         Activity activity = activityOf(activityId);

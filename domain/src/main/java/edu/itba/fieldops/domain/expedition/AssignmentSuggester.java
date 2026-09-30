@@ -1,6 +1,6 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.catalog.Catalog;
+import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.itinerary.Activity;
@@ -10,14 +10,10 @@ import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 public class AssignmentSuggester {
-    public List<Assignment> suggest(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
-        Objects.requireNonNull(expedition, "expedition");
-        Objects.requireNonNull(catalog, "catalog");
-        Objects.requireNonNull(peers, "peers");
+    public List<Assignment> suggest(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
         List<TemporalBooking> taken = new ArrayList<>(TemporalBooking.of(expedition));
         for (Expedition peer : peers.plans()) {
             taken.addAll(TemporalBooking.of(peer));
@@ -25,21 +21,21 @@ public class AssignmentSuggester {
         Assignments current = expedition.assignments().copy();
         List<Assignment> suggestions = new ArrayList<>();
         for (Activity activity : expedition.itinerary()) {
-            fillGaps(activity, catalog, taken, suggestions, current);
+            fillGaps(activity, resources, taken, suggestions, current);
         }
         return List.copyOf(suggestions);
     }
 
     private static void fillGaps(
             Activity activity,
-            Catalog catalog,
+            BookableResources resources,
             List<TemporalBooking> taken,
             List<Assignment> suggestions,
             Assignments current
     ) {
         TimePeriod window = activity.window();
         if (activity.requirements().vehicle() == VehicleRequirement.REQUIRED && current.vehiclesOf(activity.id()).isEmpty()) {
-            catalog.vehicles().stream()
+            resources.vehicles().vehicles().stream()
                     .filter(vehicle -> vehicle.availableDuring(window))
                     .filter(vehicle -> free(taken, new TemporalBooking.VehicleBooking(vehicle.id(), activity.id(), window)))
                     .findFirst()
@@ -53,7 +49,7 @@ public class AssignmentSuggester {
         }
         Optional<InstrumentKind> requiredKind = activity.requirements().instrument().requiredKind();
         if (requiredKind.isPresent() && current.instrumentsOf(activity.id()).isEmpty()) {
-            catalog.instruments().stream()
+            resources.instruments().instruments().stream()
                     .filter(instrument -> instrument.kind().equals(requiredKind.get()))
                     .filter(instrument -> instrument.availableDuring(window))
                     .filter(instrument -> free(taken, new TemporalBooking.InstrumentBooking(instrument.id(), activity.id(), window)))
@@ -67,10 +63,10 @@ public class AssignmentSuggester {
                     ));
         }
         for (CertificationId certificationId : activity.requirements().certifications()) {
-            if (heldBy(current, activity, catalog, certificationId)) {
+            if (heldBy(current, activity, resources, certificationId)) {
                 continue;
             }
-            catalog.people().stream()
+            resources.people().people().stream()
                     .filter(person -> person.holds(certificationId))
                     .filter(person -> person.availableDuring(window))
                     .map(Person::id)
@@ -98,9 +94,9 @@ public class AssignmentSuggester {
         assignment.booking(window).ifPresent(taken::add);
     }
 
-    private static boolean heldBy(Assignments current, Activity activity, Catalog catalog, CertificationId certificationId) {
+    private static boolean heldBy(Assignments current, Activity activity, BookableResources resources, CertificationId certificationId) {
         for (PersonAssignment person : current.peopleOf(activity.id())) {
-            if (catalog.person(person.personId()).filter(found -> found.holds(certificationId)).isPresent()) {
+            if (resources.people().person(person.personId()).filter(found -> found.holds(certificationId)).isPresent()) {
                 return true;
             }
         }
