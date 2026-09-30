@@ -11,9 +11,11 @@ import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
+import edu.itba.fieldops.domain.expedition.ExecutionEditing;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionEditing;
+import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
@@ -38,7 +40,6 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -604,10 +605,10 @@ class ExpeditionValidatorTest {
     private static ExpeditionExecution finish(Expedition expedition, Activity activity) {
         ExpeditionEditing.submitForReview(expedition);
         ExpeditionEditing.markApproved(expedition);
-        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
-        execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
-        execution.finishActivity(activity.id(), DAY.plusSeconds(4 * 3600L), "samples stored");
-        execution.finish(Set.of(activity.id()));
+        ExpeditionExecution execution = ExecutionEditing.started(expedition.id());
+        ExecutionEditing.startActivity(execution, activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
+        ExecutionEditing.finishActivity(execution, activity.id(), DAY.plusSeconds(4 * 3600L), "samples stored");
+        ExecutionEditing.finish(execution, Set.of(activity.id()));
         return execution;
     }
 

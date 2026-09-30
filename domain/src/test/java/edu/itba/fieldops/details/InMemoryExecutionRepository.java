@@ -1,8 +1,8 @@
 package edu.itba.fieldops.details;
 
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.tracking.ExecutionRepository;
-import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

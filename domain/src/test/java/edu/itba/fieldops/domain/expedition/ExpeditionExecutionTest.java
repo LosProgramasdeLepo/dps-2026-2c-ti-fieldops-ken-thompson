@@ -1,8 +1,11 @@
-package edu.itba.fieldops.domain.tracking;
+package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
+import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
+import edu.itba.fieldops.domain.tracking.Observation;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

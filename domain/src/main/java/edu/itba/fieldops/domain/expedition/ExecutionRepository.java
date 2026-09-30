@@ -1,4 +1,4 @@
-package edu.itba.fieldops.domain.tracking;
+package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 
