@@ -1,5 +1,6 @@
-package edu.itba.fieldops.domain.expedition;
+package edu.itba.fieldops.domain.expedition.usecase;
 
+import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 

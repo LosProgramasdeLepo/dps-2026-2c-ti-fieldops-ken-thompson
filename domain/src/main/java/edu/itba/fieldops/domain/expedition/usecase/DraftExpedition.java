@@ -1,5 +1,7 @@
-package edu.itba.fieldops.domain.expedition;
+package edu.itba.fieldops.domain.expedition.usecase;
 
+import edu.itba.fieldops.domain.expedition.Objective;
+import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.TimePeriod;

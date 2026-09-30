@@ -1,4 +1,4 @@
-package edu.itba.fieldops.domain.expedition;
+package edu.itba.fieldops.domain.expedition.usecase;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;

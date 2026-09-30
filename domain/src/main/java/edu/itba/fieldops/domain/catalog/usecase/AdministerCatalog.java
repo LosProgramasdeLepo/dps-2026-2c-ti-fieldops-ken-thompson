@@ -1,5 +1,7 @@
-package edu.itba.fieldops.domain.catalog;
+package edu.itba.fieldops.domain.catalog.usecase;
 
+import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;

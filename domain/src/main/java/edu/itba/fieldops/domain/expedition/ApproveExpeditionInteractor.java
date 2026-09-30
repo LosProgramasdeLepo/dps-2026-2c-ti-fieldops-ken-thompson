@@ -3,6 +3,7 @@ package edu.itba.fieldops.domain.expedition;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.expedition.usecase.ApproveExpedition;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.InvalidValue;

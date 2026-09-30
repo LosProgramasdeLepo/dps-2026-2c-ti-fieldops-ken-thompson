@@ -2,6 +2,7 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.expedition.usecase.ReviewExpedition;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.tracking.ExecutionRepository;

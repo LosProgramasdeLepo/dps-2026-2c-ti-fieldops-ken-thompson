@@ -1,6 +1,7 @@
 package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.People;
+import edu.itba.fieldops.domain.expedition.usecase.DraftExpedition;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.InvalidValue;

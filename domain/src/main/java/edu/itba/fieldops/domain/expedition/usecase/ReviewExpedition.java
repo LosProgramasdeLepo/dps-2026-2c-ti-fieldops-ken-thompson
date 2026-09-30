@@ -1,6 +1,7 @@
-package edu.itba.fieldops.domain.expedition;
+package edu.itba.fieldops.domain.expedition.usecase;
 
 import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 
 public interface ReviewExpedition {

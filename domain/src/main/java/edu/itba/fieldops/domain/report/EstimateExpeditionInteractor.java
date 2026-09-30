@@ -3,6 +3,7 @@ package edu.itba.fieldops.domain.report;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.report.usecase.EstimateExpedition;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 
 import java.util.Objects;
