@@ -1,8 +1,11 @@
-package edu.itba.fieldops.domain.tracking;
+package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
+import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
+import edu.itba.fieldops.domain.tracking.Observation;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -29,28 +32,28 @@ public final class ExpeditionExecution {
         this.status = status;
     }
 
-    public static ExpeditionExecution started(ExpeditionId expeditionId) {
+    static ExpeditionExecution started(ExpeditionId expeditionId) {
         return new ExpeditionExecution(expeditionId, Status.IN_PROGRESS);
     }
 
-    public void suspend() {
+    void suspend() {
         requireStatus(Status.IN_PROGRESS, "suspend");
         status = Status.SUSPENDED;
     }
 
-    public void resume() {
+    void resume() {
         requireStatus(Status.SUSPENDED, "resume");
         status = Status.IN_PROGRESS;
     }
 
-    public void finish(Set<ActivityId> planned) {
+    void finish(Set<ActivityId> planned) {
         requireStatus(Status.IN_PROGRESS, "finish");
         requireStartedFinished();
         requireFinished(planned);
         status = Status.FINISHED;
     }
 
-    public void startActivity(ActivityId activityId, Instant at, Set<ActivityId> predecessors) {
+    void startActivity(ActivityId activityId, Instant at, Set<ActivityId> predecessors) {
         requireStatus(Status.IN_PROGRESS, "start activity");
         Objects.requireNonNull(at, "started at");
         if (executionOf(activityId).isPresent()) {
@@ -60,7 +63,7 @@ public final class ExpeditionExecution {
         activities.add(new ActivityExecution(activityId, at));
     }
 
-    public void finishActivity(ActivityId activityId, Instant at, String result) {
+    void finishActivity(ActivityId activityId, Instant at, String result) {
         requireStatus(Status.IN_PROGRESS, "finish activity");
         for (int index = 0; index < activities.size(); index++) {
             ActivityExecution execution = activities.get(index);
@@ -72,12 +75,12 @@ public final class ExpeditionExecution {
         throw new InvalidActivityExecution("activity not started: " + activityId);
     }
 
-    public void addIncident(Incident incident) {
+    void addIncident(Incident incident) {
         requireActive("record incident");
         incidents.add(Objects.requireNonNull(incident, "incident"));
     }
 
-    public void addObservation(Observation observation) {
+    void addObservation(Observation observation) {
         requireActive("record observation");
         observations.add(Objects.requireNonNull(observation, "observation"));
     }

@@ -1,7 +1,9 @@
 package edu.itba.fieldops.details;
 
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
+import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
+import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
@@ -11,10 +13,8 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.report.OperationalReport;
-import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
-import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
 import org.junit.jupiter.api.Test;

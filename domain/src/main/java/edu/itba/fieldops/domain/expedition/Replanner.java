@@ -2,9 +2,7 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.InvalidValue;
-import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 
 import java.time.Duration;

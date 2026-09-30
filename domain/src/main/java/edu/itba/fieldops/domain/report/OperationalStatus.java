@@ -1,7 +1,7 @@
 package edu.itba.fieldops.domain.report;
 
 import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
+import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 
 public enum OperationalStatus {
     DRAFT,

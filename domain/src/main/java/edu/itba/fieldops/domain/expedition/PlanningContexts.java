@@ -2,8 +2,6 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.tracking.ExecutionRepository;
-import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 
 import java.util.HashMap;
 import java.util.List;

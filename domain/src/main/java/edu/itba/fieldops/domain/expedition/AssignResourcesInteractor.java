@@ -5,7 +5,6 @@ import edu.itba.fieldops.domain.expedition.usecase.AssignResources;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.shared.InvalidValue;
-import edu.itba.fieldops.domain.tracking.ExecutionRepository;
 
 import java.util.List;
 import java.util.Objects;

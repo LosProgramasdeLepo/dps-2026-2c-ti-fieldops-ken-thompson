@@ -4,7 +4,6 @@ import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.expedition.usecase.ReplanExpedition;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.tracking.ExecutionRepository;
 
 import java.time.Duration;
 import java.util.Objects;

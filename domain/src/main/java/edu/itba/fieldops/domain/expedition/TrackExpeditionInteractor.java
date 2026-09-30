@@ -5,9 +5,6 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.shared.Clock;
-import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
-import edu.itba.fieldops.domain.tracking.ExecutionRepository;
-import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
 

@@ -1,9 +1,11 @@
 package edu.itba.fieldops.domain.report;
 
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
+import edu.itba.fieldops.domain.expedition.ExecutionEditing;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionEditing;
+import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.identity.ActivityId;
@@ -16,7 +18,6 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +45,7 @@ class OperationalReportTest {
                     List.of(new Restriction("Stay on the water"))
             )
     );
-    private final ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+    private final ExpeditionExecution execution = ExecutionEditing.started(expedition.id());
 
     @Test
     void aPlanWithoutARunReportsTheEstimateAndTheAssignedConsumption() {
@@ -88,10 +89,10 @@ class OperationalReportTest {
         Activity left = activity(0, 4, RiskLevel.LOW);
         Activity right = activity(0, 3, RiskLevel.LOW);
         ExpeditionEditing.addBlock(expedition, ActivityBlock.parallel(left, right));
-        execution.startActivity(left.id(), START, Set.of());
-        execution.startActivity(right.id(), START, Set.of());
-        execution.finishActivity(left.id(), START.plus(Duration.ofHours(5)), "left bank surveyed");
-        execution.finishActivity(right.id(), START.plus(Duration.ofHours(2)), "right bank surveyed");
+        ExecutionEditing.startActivity(execution, left.id(), START, Set.of());
+        ExecutionEditing.startActivity(execution, right.id(), START, Set.of());
+        ExecutionEditing.finishActivity(execution, left.id(), START.plus(Duration.ofHours(5)), "left bank surveyed");
+        ExecutionEditing.finishActivity(execution, right.id(), START.plus(Duration.ofHours(2)), "right bank surveyed");
 
         OperationalReport report = OperationalReport.of(expedition, execution);
 
@@ -102,8 +103,8 @@ class OperationalReportTest {
     void includesTheResultsOfFinishedActivities() {
         Activity measure = activity(0, 3, RiskLevel.LOW);
         ExpeditionEditing.addActivity(expedition, measure);
-        execution.startActivity(measure.id(), START, Set.of());
-        execution.finishActivity(measure.id(), START.plus(Duration.ofHours(3)), "samples stored");
+        ExecutionEditing.startActivity(execution, measure.id(), START, Set.of());
+        ExecutionEditing.finishActivity(execution, measure.id(), START.plus(Duration.ofHours(3)), "samples stored");
 
         OperationalReport report = OperationalReport.of(expedition, execution);
 
@@ -119,7 +120,7 @@ class OperationalReportTest {
     void includesIncidents() {
         ExpeditionEditing.addActivity(expedition, activity(0, 3, RiskLevel.LOW));
         Incident incident = Incident.of("ventisca en el frente", START);
-        execution.addIncident(incident);
+        ExecutionEditing.addIncident(execution, incident);
 
         OperationalReport report = OperationalReport.of(expedition, execution);
 
@@ -130,9 +131,9 @@ class OperationalReportTest {
     void reportsFinishedWhenTheRunIsFinished() {
         Activity measure = activity(0, 3, RiskLevel.LOW);
         ExpeditionEditing.addActivity(expedition, measure);
-        execution.startActivity(measure.id(), START, Set.of());
-        execution.finishActivity(measure.id(), START.plus(Duration.ofHours(3)), "samples stored");
-        execution.finish(Set.of(measure.id()));
+        ExecutionEditing.startActivity(execution, measure.id(), START, Set.of());
+        ExecutionEditing.finishActivity(execution, measure.id(), START.plus(Duration.ofHours(3)), "samples stored");
+        ExecutionEditing.finish(execution, Set.of(measure.id()));
 
         OperationalReport report = OperationalReport.of(expedition, execution);
 
