@@ -2,6 +2,7 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -16,44 +17,38 @@ public final class Replanner {
         this.suggester = Objects.requireNonNull(suggester, "assignment suggester");
     }
 
-    public Expedition cancel(Expedition expedition, ActivityId activityId, BookableResources resources, OccupyingExpeditions peers) {
-        Expedition plan = editablePlanFor(expedition);
-        plan.removeActivity(activityId);
-        refill(plan, resources, peers);
-        return plan;
+    public void cancel(Expedition expedition, ActivityId activityId, BookableResources resources, OccupyingExpeditions peers) {
+        requireDraft(expedition);
+        expedition.removeActivity(activityId);
+        refill(expedition, resources, peers);
     }
 
-    public Expedition delay(
+    public void delay(
             Expedition expedition,
             ActivityId activityId,
             Duration delay,
             BookableResources resources,
             OccupyingExpeditions peers
     ) {
-        Expedition plan = editablePlanFor(expedition);
-        plan.delay(activityId, delay);
-        dropInvalid(plan, resources, peers);
-        refill(plan, resources, peers);
-        return plan;
+        requireDraft(expedition);
+        expedition.delay(activityId, delay);
+        dropInvalid(expedition, resources, peers);
+        refill(expedition, resources, peers);
     }
 
-    public Expedition replaceUnavailable(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
-        Expedition plan = editablePlanFor(expedition);
-        dropInvalid(plan, resources, peers);
-        refill(plan, resources, peers);
-        return plan;
+    public void replaceUnavailable(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {
+        requireDraft(expedition);
+        dropInvalid(expedition, resources, peers);
+        refill(expedition, resources, peers);
     }
 
-    private static Expedition editablePlanFor(Expedition expedition) {
-        Expedition plan = revisionOrSelf(expedition);
-        if (plan.status() != ExpeditionStatus.DRAFT) {
-            plan.returnToDraft();
+    private static void requireDraft(Expedition expedition) {
+        if (expedition.status() == ExpeditionStatus.IN_REVIEW) {
+            expedition.returnToDraft();
         }
-        return plan;
-    }
-
-    private static Expedition revisionOrSelf(Expedition expedition) {
-        return expedition.status().hasBeenApproved() ? expedition.reviseAsDraft() : expedition;
+        if (expedition.status() != ExpeditionStatus.DRAFT) {
+            throw new InvalidExpeditionTransition(expedition.status(), "replan");
+        }
     }
 
     private void refill(Expedition expedition, BookableResources resources, OccupyingExpeditions peers) {

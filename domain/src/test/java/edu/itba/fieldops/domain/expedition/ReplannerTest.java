@@ -99,7 +99,8 @@ class ReplannerTest {
         ResourceCatalog catalog = catalogWith(ada, vehicle, samplePermit, ridePermit);
         Approvals.approve(approved, catalog);
 
-        Expedition revision = replanner.cancel(approved, ride.id(), catalog.bookable(), OccupyingExpeditions.none());
+        Expedition revision = approved.reviseAsDraft();
+        replanner.cancel(revision, ride.id(), catalog.bookable(), OccupyingExpeditions.none());
 
         assertNotEquals(approved.id(), revision.id());
         assertEquals(ExpeditionStatus.APPROVED, approved.status());
@@ -133,7 +134,8 @@ class ReplannerTest {
         execution.startActivity(sample.id(), DAY, approved.activityOf(sample.id()).predecessors());
         execution.addIncident(new Incident("ventisca en el frente", DAY, sample.id()));
 
-        Expedition revision = replanner.cancel(approved, ride.id(), catalog.bookable(), OccupyingExpeditions.none());
+        Expedition revision = approved.reviseAsDraft();
+        replanner.cancel(revision, ride.id(), catalog.bookable(), OccupyingExpeditions.none());
 
         assertEquals(1, execution.executions().size());
         assertEquals(1, execution.incidents().size());
@@ -163,11 +165,12 @@ class ReplannerTest {
         ResourceCatalog catalog = catalogWith(ada, vehicle, samplePermit, ridePermit);
         Approvals.approve(approved, catalog);
 
-        Expedition revision = replanner.cancel(
-                approved,
+        Expedition revision = approved.reviseAsDraft();
+        replanner.cancel(
+                revision,
                 ride.id(),
                 catalog.bookable(),
-                OccupyingExpeditions.of(approved, List.of(approved))
+                OccupyingExpeditions.of(revision, List.of(approved))
         );
 
         assertEquals(List.of(new PersonAssignment(sample.id(), ada.id())), revision.assignments().all());
@@ -190,7 +193,8 @@ class ReplannerTest {
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(sample.id(), DAY, expedition.activityOf(sample.id()).predecessors());
 
-        Expedition revision = replanner.delay(expedition, sample.id(), Duration.ofHours(2), catalog.bookable(), OccupyingExpeditions.none());
+        Expedition revision = expedition.reviseAsDraft();
+        replanner.delay(revision, sample.id(), Duration.ofHours(2), catalog.bookable(), OccupyingExpeditions.none());
 
         assertEquals(ExpeditionStatus.APPROVED, expedition.status());
         assertEquals(window(0, 4), expedition.activityOf(sample.id()).window());

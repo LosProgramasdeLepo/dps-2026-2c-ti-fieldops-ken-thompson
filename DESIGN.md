@@ -18,7 +18,7 @@
 
 **Assessment.** `ValidationResult` vive fuera de `validation` y de `expedition`. Otra regla es otra clase en la lista del validador. `CAPACITY` es `WARNING`; el resto de los códigos es `CRITICAL`.
 
-**Replan.** Antes de aprobar se edita en el lugar, y `IN_REVIEW` vuelve a `DRAFT` antes de tocar el plan. Desde `APPROVED`, `reviseAsDraft` copia solo el plan (id nuevo, versión + 1, `supersedes`) y no toca la corrida ni los warnings. El caso de uso marca el original `SUPERSEDED` y guarda los dos. No lo reenvía ni lo aprueba. `ActivityExecution.finish` devuelve otra instancia. Suspender solo sale de una corrida `IN_PROGRESS`. Volver a borrador solo sale de `IN_REVIEW` y no toca la corrida.
+**Replan.** `Replanner` siempre edita el plan que recibe. `IN_REVIEW` vuelve a `DRAFT` antes de tocarlo. Desde `APPROVED`, el caso de uso llama a `reviseAsDraft` (id nuevo, versión + 1, `supersedes`, sin corrida ni warnings) y le pasa esa copia. Después marca el original `SUPERSEDED` y guarda los dos. No lo reenvía ni lo aprueba. `ActivityExecution.finish` devuelve otra instancia. Suspender solo sale de una corrida `IN_PROGRESS`. Volver a borrador solo sale de `IN_REVIEW` y no toca la corrida.
 
 **Informe.** Sin corrida, duración y consumo son los del plan. Con actividades terminadas, la duración suma `finishedAt - startedAt` y el consumo suma lo asignado a esas actividades. Lo no terminado no cuenta como consumido. La estimación usa el consumo de los requisitos, no la cantidad asignada.
 

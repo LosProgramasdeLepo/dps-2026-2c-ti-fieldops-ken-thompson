@@ -30,28 +30,29 @@ public final class ReplanExpeditionInteractor implements ReplanExpedition {
     @Override
     public ExpeditionId cancel(ExpeditionId expeditionId, ActivityId activityId) {
         Expedition original = require(expeditionId);
-        Expedition working = replanner.cancel(original, activityId, resources, Peers.around(original, plans, executions));
+        Expedition working = draftOf(original);
+        replanner.cancel(working, activityId, resources, Peers.around(working, plans, executions));
         return persist(original, working);
     }
 
     @Override
     public ExpeditionId delay(ExpeditionId expeditionId, ActivityId activityId, Duration delay) {
         Expedition original = require(expeditionId);
-        Expedition working = replanner.delay(
-                original,
-                activityId,
-                delay,
-                resources,
-                Peers.around(original, plans, executions)
-        );
+        Expedition working = draftOf(original);
+        replanner.delay(working, activityId, delay, resources, Peers.around(working, plans, executions));
         return persist(original, working);
     }
 
     @Override
     public ExpeditionId replaceUnavailable(ExpeditionId expeditionId) {
         Expedition original = require(expeditionId);
-        Expedition working = replanner.replaceUnavailable(original, resources, Peers.around(original, plans, executions));
+        Expedition working = draftOf(original);
+        replanner.replaceUnavailable(working, resources, Peers.around(working, plans, executions));
         return persist(original, working);
+    }
+
+    private static Expedition draftOf(Expedition original) {
+        return original.status().hasBeenApproved() ? original.reviseAsDraft() : original;
     }
 
     private ExpeditionId persist(Expedition original, Expedition working) {
