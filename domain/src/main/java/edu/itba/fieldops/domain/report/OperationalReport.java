@@ -9,6 +9,7 @@ import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.Observation;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -28,6 +29,7 @@ public record OperationalReport(
         Map<ConsumableId, Stock> consumption,
         Map<ConsumableId, Stock> estimatedConsumption,
         List<Incident> incidents,
+        List<Observation> observations,
         List<ActivityResult> activityResults
 ) {
     public OperationalReport {
@@ -37,6 +39,7 @@ public record OperationalReport(
         consumption = Map.copyOf(consumption);
         estimatedConsumption = Map.copyOf(estimatedConsumption);
         incidents = List.copyOf(incidents);
+        observations = List.copyOf(observations);
         activityResults = List.copyOf(activityResults);
     }
 
@@ -51,6 +54,7 @@ public record OperationalReport(
                 estimate.risk(),
                 expedition.assignments().consumption(),
                 estimate.estimatedConsumption(),
+                List.of(),
                 List.of(),
                 List.of()
         );
@@ -70,6 +74,7 @@ public record OperationalReport(
                 consumed(expedition, finished),
                 estimate.estimatedConsumption(),
                 execution.incidents(),
+                execution.observations(),
                 activityResults(finished)
         );
     }

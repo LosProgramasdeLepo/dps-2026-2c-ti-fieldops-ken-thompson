@@ -1,9 +1,9 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Person;
-import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -88,7 +89,7 @@ class ReplannerIncidentTest {
     private Expedition respondTo(Prepared prepared, Incident incident) {
         Expedition revision = prepared.expedition.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
         replanner.respondTo(
-                new PlanningContext(revision, prepared.catalog.catalogs(), OccupyingExpeditions.none()),
+                new PlanningContext(revision, prepared.catalog.catalogs(), OccupyingExpeditions.of(revision, List.of(), Map.of())),
                 incident,
                 prepared.execution
         );

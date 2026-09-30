@@ -2,8 +2,8 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
-import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.identity.ConsumableId;

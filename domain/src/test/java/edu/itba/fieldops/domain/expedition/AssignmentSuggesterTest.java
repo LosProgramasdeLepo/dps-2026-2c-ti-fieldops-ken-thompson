@@ -1,10 +1,10 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Person;
-import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
@@ -173,7 +173,7 @@ class AssignmentSuggesterTest {
     }
 
     private static PlanningContext contextOf(Expedition plan, ResourceCatalog catalog) {
-        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.none());
+        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.of(plan, List.of(), Map.of()));
     }
 
     private static Certification certification() {

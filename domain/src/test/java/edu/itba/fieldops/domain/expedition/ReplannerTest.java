@@ -163,7 +163,7 @@ class ReplannerTest {
     }
 
     private PlanningContext unoccupied(Expedition plan) {
-        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.none());
+        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.of(plan, List.of(), Map.of()));
     }
 
     private PlanningContext occupiedBy(Expedition plan, Expedition other) {

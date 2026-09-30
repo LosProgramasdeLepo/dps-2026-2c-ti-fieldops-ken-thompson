@@ -17,10 +17,6 @@ public final class OccupyingExpeditions {
         this.plans = plans;
     }
 
-    public static OccupyingExpeditions none() {
-        return new OccupyingExpeditions(List.of());
-    }
-
     public static OccupyingExpeditions of(
             Expedition plan,
             List<Expedition> others,
