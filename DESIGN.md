@@ -8,7 +8,7 @@
 
 **Identidad y cantidades.** Cada id es un record distinto sobre un UUID, en `identity`, para que un `PersonId` no entre donde se espera un `VehicleId`. La reserva es `PersonBooking`, `VehicleBooking` o `InstrumentBooking`: el id no se aplana. `Stock` y `Passengers` no comparten supertipo. Cero es válido.
 
-**Actividad.** Duración, riesgo, requisitos y consumo estimado son datos. Las fábricas arman el requisito de vehículo (`NONE | REQUIRED`) e instrumento (`None | OfKind`). Una asignación nueva implementa `booking` y `unknownIn`; `None` no pide clase y `OfKind` expone `requiredKind`.
+**Actividad.** Duración, riesgo, requisitos y consumo estimado son datos. Las fábricas arman el requisito de vehículo (`NONE | REQUIRED`) e instrumento (`None | OfKind`). Una asignación nueva implementa `booking` y `unknownIn`; el `switch` de `Assignments` es el otro punto que el compilador obliga a actualizar. `None` no pide clase y `OfKind` expone `requiredKind`.
 
 **Catálogo y reserva.** `Catalog` es el puerto de consulta. `ResourceCatalog` guarda las altas. Ocupa un plan `IN_REVIEW` o `APPROVED` cuya ejecución no está `FINISHED`. `OccupyingExpeditions` excluye al propio plan, al que esta revisión supersede, y a una terminada solo si el llamador pasa su ejecución.
 

@@ -4,13 +4,14 @@ import edu.itba.fieldops.domain.catalog.Catalog;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.itinerary.InstrumentRequirement;
 import edu.itba.fieldops.domain.itinerary.VehicleRequirement;
+import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public class AssignmentSuggester {
     public List<Assignment> suggest(Expedition expedition, Catalog catalog, OccupyingExpeditions peers) {
@@ -21,23 +22,23 @@ public class AssignmentSuggester {
         for (Expedition peer : peers.plans()) {
             taken.addAll(TemporalBooking.of(peer));
         }
+        Assignments current = expedition.assignments().copy();
         List<Assignment> suggestions = new ArrayList<>();
         for (Activity activity : expedition.itinerary()) {
-            fillGaps(activity, expedition, catalog, taken, suggestions);
+            fillGaps(activity, catalog, taken, suggestions, current);
         }
         return List.copyOf(suggestions);
     }
 
     private static void fillGaps(
             Activity activity,
-            Expedition expedition,
             Catalog catalog,
             List<TemporalBooking> taken,
-            List<Assignment> suggestions
+            List<Assignment> suggestions,
+            Assignments current
     ) {
         TimePeriod window = activity.window();
-        List<Assignment> current = new ArrayList<>(expedition.assignments().of(activity.id()));
-        if (activity.requirements().vehicle() == VehicleRequirement.REQUIRED && none(current, VehicleAssignment.class)) {
+        if (activity.requirements().vehicle() == VehicleRequirement.REQUIRED && current.vehiclesOf(activity.id()).isEmpty()) {
             catalog.vehicles().stream()
                     .filter(vehicle -> vehicle.availableDuring(window))
                     .filter(vehicle -> free(taken, new TemporalBooking.VehicleBooking(vehicle.id(), activity.id(), window)))
@@ -50,9 +51,10 @@ public class AssignmentSuggester {
                             window
                     ));
         }
-        if (activity.requirements().instrument() instanceof InstrumentRequirement.OfKind required && none(current, InstrumentAssignment.class)) {
+        Optional<InstrumentKind> requiredKind = activity.requirements().instrument().requiredKind();
+        if (requiredKind.isPresent() && current.instrumentsOf(activity.id()).isEmpty()) {
             catalog.instruments().stream()
-                    .filter(instrument -> instrument.kind().equals(required.kind()))
+                    .filter(instrument -> instrument.kind().equals(requiredKind.get()))
                     .filter(instrument -> instrument.availableDuring(window))
                     .filter(instrument -> free(taken, new TemporalBooking.InstrumentBooking(instrument.id(), activity.id(), window)))
                     .findFirst()
@@ -65,7 +67,7 @@ public class AssignmentSuggester {
                     ));
         }
         for (CertificationId certificationId : activity.requirements().certifications()) {
-            if (heldBy(current, catalog, certificationId)) {
+            if (heldBy(current, activity, catalog, certificationId)) {
                 continue;
             }
             catalog.people().stream()
@@ -86,7 +88,7 @@ public class AssignmentSuggester {
 
     private static void take(
             List<Assignment> suggestions,
-            List<Assignment> current,
+            Assignments current,
             List<TemporalBooking> taken,
             Assignment assignment,
             TimePeriod window
@@ -96,27 +98,13 @@ public class AssignmentSuggester {
         assignment.booking(window).ifPresent(taken::add);
     }
 
-    private static boolean heldBy(List<Assignment> current, Catalog catalog, CertificationId certificationId) {
-        for (PersonAssignment person : people(current)) {
+    private static boolean heldBy(Assignments current, Activity activity, Catalog catalog, CertificationId certificationId) {
+        for (PersonAssignment person : current.peopleOf(activity.id())) {
             if (catalog.person(person.personId()).filter(found -> found.holds(certificationId)).isPresent()) {
                 return true;
             }
         }
         return false;
-    }
-
-    private static List<PersonAssignment> people(List<Assignment> current) {
-        List<PersonAssignment> people = new ArrayList<>();
-        for (Assignment assignment : current) {
-            if (assignment instanceof PersonAssignment person) {
-                people.add(person);
-            }
-        }
-        return people;
-    }
-
-    private static boolean none(List<Assignment> current, Class<? extends Assignment> type) {
-        return current.stream().noneMatch(type::isInstance);
     }
 
     private static boolean free(List<TemporalBooking> taken, TemporalBooking candidate) {
