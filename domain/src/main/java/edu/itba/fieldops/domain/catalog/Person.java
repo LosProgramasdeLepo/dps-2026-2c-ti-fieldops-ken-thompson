@@ -1,7 +1,7 @@
 package edu.itba.fieldops.domain.catalog;
 
-import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Texts;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public final class Person {
+public final class Person implements Bookable {
     private final PersonId id;
     private final String name;
     private final List<Certification> certifications;
@@ -50,6 +50,7 @@ public final class Person {
         return certifications.stream().anyMatch(held -> held.id().equals(certificationId));
     }
 
+    @Override
     public boolean availableDuring(TimePeriod period) {
         return availability.covers(period);
     }

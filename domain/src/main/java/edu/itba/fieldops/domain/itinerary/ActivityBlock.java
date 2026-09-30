@@ -88,10 +88,6 @@ public final class ActivityBlock implements ItineraryItem {
         return new ActivityBlock(Arrangement.PARALLEL, parts(first, second, rest));
     }
 
-    public List<ItineraryItem> parts() {
-        return parts;
-    }
-
     public List<ItineraryItem> concurrentParts() {
         return arrangement.concurrent(parts);
     }

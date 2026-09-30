@@ -12,8 +12,8 @@ import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.PermitKind;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
@@ -105,13 +105,13 @@ class TrackingUseCasesTest extends UseCaseFixture {
     }
 
     @Test
-    void recordsAnObservationAtTheCurrentTime() {
+    void theReportShowsObservationsAtTheTimeTheyWereRecorded() {
         Sampling sampling = runningSampling();
         clock.set(at(1));
 
         tracking.addObservation(sampling.expeditionId(), "ice on the trail");
 
-        assertEquals(List.of(new Observation("ice on the trail", at(1))), run(sampling.expeditionId()).observations());
+        assertEquals(List.of(new Observation("ice on the trail", at(1))), reports.of(sampling.expeditionId()).observations());
     }
 
     @Test

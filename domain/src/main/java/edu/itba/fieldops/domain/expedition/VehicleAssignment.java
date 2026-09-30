@@ -1,9 +1,10 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.catalog.BookableResources;
+import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.BookableId;
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -15,13 +16,13 @@ public record VehicleAssignment(ActivityId activityId, VehicleId vehicleId) impl
     }
 
     @Override
-    public TemporalBooking booking(TimePeriod window) {
-        return new TemporalBooking.VehicleBooking(vehicleId, activityId, window);
+    public BookableId resourceId() {
+        return vehicleId;
     }
 
     @Override
-    public Optional<String> unknownIn(Catalogs catalogs) {
-        return catalogs.vehicles().vehicle(vehicleId).isEmpty() ? Optional.of("vehicle " + vehicleId) : Optional.empty();
+    public Optional<Vehicle> resourceIn(BookableResources resources) {
+        return resources.vehicles().vehicle(vehicleId);
     }
 
     @Override

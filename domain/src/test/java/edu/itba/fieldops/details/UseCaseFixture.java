@@ -42,11 +42,11 @@ import edu.itba.fieldops.domain.report.ReportExpeditionInteractor;
 import edu.itba.fieldops.domain.report.usecase.EstimateExpedition;
 import edu.itba.fieldops.domain.report.usecase.ReportExpedition;
 import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.validation.RuleBasedValidator;
 
 import java.time.Duration;

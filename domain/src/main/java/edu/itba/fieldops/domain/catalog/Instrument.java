@@ -6,7 +6,7 @@ import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.Objects;
 
-public final class Instrument {
+public final class Instrument implements Bookable {
     private final InstrumentId id;
     private final InstrumentKind kind;
     private final Availability availability;
@@ -29,6 +29,7 @@ public final class Instrument {
         return new Instrument(id, kind, availability);
     }
 
+    @Override
     public boolean availableDuring(TimePeriod period) {
         return availability.covers(period);
     }

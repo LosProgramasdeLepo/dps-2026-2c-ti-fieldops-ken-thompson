@@ -9,10 +9,10 @@ import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Instruments;
+import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Permits;
 import edu.itba.fieldops.domain.catalog.Person;
-import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.Vehicles;
 import edu.itba.fieldops.domain.expedition.Expedition;
@@ -40,6 +40,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -63,7 +64,7 @@ class ValidationExtensionTest {
                 .toList();
 
         ValidationResult result = new RuleBasedValidator(List.of(everyActivityNeedsABriefing))
-                .validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.none()));
+                .validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.of(expedition, List.of(), Map.of())));
 
         assertEquals(1, result.issues().size());
         assertEquals("BRIEFING", result.issues().getFirst().code());
@@ -78,7 +79,7 @@ class ValidationExtensionTest {
         );
 
         ValidationResult result = new RuleBasedValidator(List.of(new MissingResourceRule(), alwaysCritical))
-                .validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.none()));
+                .validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.of(expedition, List.of(), Map.of())));
 
         assertTrue(result.hasCritical());
         assertTrue(hasCode(result, "RESOURCE"), () -> "expected RESOURCE in " + result.issues());
@@ -95,7 +96,7 @@ class ValidationExtensionTest {
         RuleBasedValidator validator = new RuleBasedValidator(mutable);
         mutable.add(noise);
 
-        ValidationResult result = validator.validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.none()));
+        ValidationResult result = validator.validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.of(expedition, List.of(), Map.of())));
 
         assertFalse(hasCode(result, "NOISE"), () -> "validator kept a live view of the rule list: " + result.issues());
     }

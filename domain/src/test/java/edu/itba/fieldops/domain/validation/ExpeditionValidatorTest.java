@@ -1,5 +1,6 @@
 package edu.itba.fieldops.domain.validation;
 
+import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Availability;
@@ -8,7 +9,6 @@ import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
-import edu.itba.fieldops.details.ResourceCatalog;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
@@ -33,11 +33,11 @@ import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.tracking.ExpeditionExecution;
 import org.junit.jupiter.api.Test;
 
@@ -598,7 +598,7 @@ class ExpeditionValidatorTest {
     }
 
     private static PlanningContext contextOf(Expedition plan, ResourceCatalog catalog) {
-        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.none());
+        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.of(plan, List.of(), Map.of()));
     }
 
     private static ExpeditionExecution finish(Expedition expedition, Activity activity) {

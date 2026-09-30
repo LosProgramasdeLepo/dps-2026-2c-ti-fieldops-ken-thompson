@@ -24,7 +24,7 @@
 
 **Itinerario.** Composite: `ItineraryItem` es `Activity` o `ActivityBlock`. Es `sealed` porque hoja y compuesto es un conjunto cerrado; cada variante resuelve `blocks`, `precedence`, `replacing` y `without`, y no hay `switch` sobre el tipo. `Arrangement` decide qué agrega el orden (`order`) y qué partes corren a la vez (`concurrent`). `duration(Function)` suma en la secuencia y toma el máximo en paralelo. La raíz suma sin ordenar. En un bloque secuencial cada parte depende de todas las hojas de la anterior; esas dependencias se suman a las explícitas para validar ventanas y ciclos, para `delay` y para el seguimiento.
 
-**Asignaciones.** `Assignments` guarda una lista por tipo y cada asignación se archiva sola (double dispatch), sin `instanceof`. `BookableAssignment` (persona, vehículo, instrumento) produce su `TemporalBooking`. El consumible solo declara una cantidad positiva. `Expedition.assignments()` devuelve una copia.
+**Asignaciones.** `Assignments` guarda una lista por tipo y cada asignación se archiva sola (double dispatch), sin `instanceof`. `BookableAssignment` (persona, vehículo, instrumento) da el id del recurso (`BookableId`) y lo busca en el catálogo (`Bookable`); con eso `TemporalBooking` es un solo record que compara ids y ventanas y pregunta la disponibilidad, sin métodos por tipo. El consumible solo declara una cantidad positiva. `Expedition.assignments()` devuelve una copia.
 
 **Catálogo.** `AdministerCatalog` da de alta certificaciones y recursos, cambia la disponibilidad de personas, vehículos e instrumentos, certifica personas con certificaciones registradas y cambia stock. Entidades inmutables (`withAvailability`, `certified`, `withStock`). El permiso tiene un `PermitKind` (`ZONE`, `NIGHT`) y cubre zona y vigencia; un tipo de permiso nuevo es otra constante.
 
@@ -38,7 +38,7 @@
 
 **Seguimiento.** Una actividad arranca dentro de su ventana y con sus predecesores, explícitos y de secuencia, terminados. Se cierra después de su inicio aunque pase la ventana. La expedición termina cuando está terminado lo iniciado y lo del plan vigente. Incidentes y observaciones se registran con la corrida en curso o suspendida. `Clock` sella los instantes.
 
-**Estimación e informe.** `Estimate`: duración del árbol, riesgo máximo (`LOW` sin actividades) y consumo estimado de las actividades. `OperationalReport` sin corrida informa la duración estimada y el consumo asignado; con corrida, la duración medida combinada en el árbol y el consumo asignado a lo terminado.
+**Estimación e informe.** `Estimate`: duración del árbol, riesgo máximo (`LOW` sin actividades) y consumo estimado de las actividades. `OperationalReport` sin corrida informa la duración estimada y el consumo asignado; con corrida, la duración medida combinada en el árbol, el consumo asignado a lo terminado, los incidentes, las observaciones y los resultados.
 
 **Invariantes.** El charter exige objetivos, zonas y responsables, y los responsables tienen que existir en el catálogo. La ventana alcanza la duración estimada. Los predecesores existen, no forman ciclos y terminan antes. La zona es de la expedición y la ventana está dentro del período. `TimePeriod`, `Stock`, `Passengers`, `WorkZone` y `ExpeditionCharter` se validan al construirse.
 
@@ -50,7 +50,7 @@
 
 **Política por tipo o herencia de `Activity`.** Los tipos difieren en datos. Un tipo nuevo es una fábrica.
 
-**Supertipo de ids, recursos o cantidades.** Mezclaría stock con pasajeros o una persona con un vehículo. El costo son métodos paralelos por tipo en `TemporalBooking` y `Assignments`.
+**Supertipo de todos los ids o de las cantidades.** Mezclaría stock con pasajeros. Solo los ids reservables comparten `BookableId`, que no confunde una persona con un vehículo porque la igualdad es por tipo. El costo son métodos paralelos por tipo en `Assignments`.
 
 **State por estado.** `ExpeditionStatus` solo responde `occupiesResources` y las transiciones preguntan la constante. Un estado nuevo toca las transiciones del agregado.
 

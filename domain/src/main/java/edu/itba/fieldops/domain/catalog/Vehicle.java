@@ -6,7 +6,7 @@ import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.Objects;
 
-public final class Vehicle {
+public final class Vehicle implements Bookable {
     private final VehicleId id;
     private final Passengers capacity;
     private final Availability availability;
@@ -29,6 +29,7 @@ public final class Vehicle {
         return new Vehicle(id, capacity, availability);
     }
 
+    @Override
     public boolean availableDuring(TimePeriod period) {
         return availability.covers(period);
     }
