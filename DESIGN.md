@@ -18,9 +18,9 @@
 
 **Catálogo y reserva.** Ocupa `IN_REVIEW` o `APPROVED` cuya ejecución no está `FINISHED`. Un `SUPERSEDED` ocupa a las demás si su corrida sigue. `OccupyingExpeditions` excluye al propio plan, al que esta revisión supersede, y a una terminada si el llamador pasa su ejecución. El sucesor no compite con el original: copia itinerario y asignaciones. El stock del catálogo es el depósito: lo asignado en el plan y en las que ocupan se compara con ese depósito.
 
-**Assessment.** `ValidationResult`, `ValidationIssue` e `IssueSeverity` viven fuera de `validation` y de `expedition` para no ciclar paquetes. `ValidationContext` lleva expedición, catálogos y las que ocupan. `ExpeditionValidator` recorre las reglas del constructor; `withDefaultRules` arma las seis. Otra regla es otra clase.
+**Assessment.** `ValidationResult`, `ValidationIssue` e `IssueSeverity` viven fuera de `validation` y de `expedition` para no ciclar paquetes. `ValidationContext` lleva expedición, catálogos y las que ocupan. `ExpeditionValidator` recorre las reglas del constructor; `withDefaultRules` arma las siete. Otra regla es otra clase.
 
-**Códigos.** `RESOURCE`: id ausente (asignación o permiso) o actividad que pide persona certificada, vehículo o instrumento y no lo tiene. `CERTIFICATION`: personas conocidas asignadas y ninguna con la certificación pedida a alguien, o alguna sin la que el requisito pide a todos. `PERMIT`: actividad no cubierta por los permisos conocidos, o sin permiso nocturno si lo pide. Adjuntos vacíos = todas descubiertas. Adjuntos todos desconocidos = solo `RESOURCE`. Un id ya en `RESOURCE` omite disponibilidad, stock, certificación y capacidad. `OVERLAP` y `AVAILABILITY` salen de `TemporalOverlapRule`. `STOCK` compara lo asignado (propio y ocupantes) con el depósito. `CAPACITY` es `WARNING`; el resto, `CRITICAL`. Capacidad = vehículos de esa actividad. Pasajeros = personas de la misma.
+**Códigos.** `RESOURCE`: id ausente (asignación o permiso) o actividad que pide persona certificada, vehículo o instrumento y no lo tiene. `CERTIFICATION`: personas conocidas asignadas y ninguna con la certificación pedida a alguien, o alguna sin la que el requisito pide a todos. `PERMIT`: actividad no cubierta por los permisos conocidos, o sin permiso nocturno si lo pide. Adjuntos vacíos = todas descubiertas. Adjuntos todos desconocidos = solo `RESOURCE`. Un id ya en `RESOURCE` omite disponibilidad, stock, certificación y capacidad. `OVERLAP` y `AVAILABILITY` salen de `TemporalOverlapRule`. `PARALLEL`: persona, vehículo o instrumento en dos ramas de un bloque paralelo; las ventanas disjuntas no alcanzan. El consumible no entra. `STOCK` compara lo asignado (propio y ocupantes) con el depósito. `CAPACITY` es `WARNING`; el resto, `CRITICAL`. Capacidad = vehículos de esa actividad. Pasajeros = personas de la misma.
 
 **AssignmentSuggester.** Huecos de certificación, vehículo e instrumento. Primer recurso del catálogo disponible y libre frente a asignaciones propias y ocupantes. No toca el plan; `addAssignment` aplica.
 
@@ -65,3 +65,13 @@ Clases agregadas: `NightPermit`. Modificadas: `Activity`, `ResourceRequirements`
 Descartado: un subtipo de `Activity` y reabrir `ActivityPolicy`. El feedback ya sacó la duración y el riesgo de la policy.
 
 Deuda: `AssignmentSuggester` no completa una dotación para `heldByEveryone`. La validación lo exige; la sugerencia sigue cubriendo el hueco de “alguien”.
+
+### Bloques
+
+El itinerario es un árbol. La raíz es una secuencia. Un nodo es una actividad o un `ActivityBlock` secuencial o paralelo. Solo la duración usa el árbol: secuencial suma, paralelo toma el máximo. Riesgo y consumo salen de las hojas. `Estimate` le pide esos tres al itinerario. El informe cuenta hojas: un bloque no se inicia ni se termina. `delay` y `copy` recorren el árbol. `PlanItinerary.addBlock` da de alta el bloque; cancelar una hoja lo saca y, si queda una sola parte, el bloque se aplana a esa parte. El grafo de predecesores sigue siendo el de las actividades.
+
+`ParallelAssignmentRule` recorre cada bloque paralelo. Persona, vehículo o instrumento en dos ramas: `PARALLEL`. Un bloque no tiene predecesores propios.
+
+Clases agregadas: `ItineraryItem`, `ActivityBlock`, `ParallelAssignmentRule`. Modificadas: `Activity`, `Itinerary`, `Expedition`, `Estimate`, `PlanItinerary`, `PlanItineraryInteractor`, `ExpeditionValidator`.
+
+Descartado: aplanar el árbol para estimar. La suma de hojas trata un paralelo como secuencia.

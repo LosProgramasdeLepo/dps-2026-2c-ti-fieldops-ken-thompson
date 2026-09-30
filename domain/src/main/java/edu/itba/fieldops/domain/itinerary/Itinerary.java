@@ -1,37 +1,56 @@
 package edu.itba.fieldops.domain.itinerary;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.RiskLevel;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 public final class Itinerary {
-    private final List<Activity> activities = new ArrayList<>();
+    private final List<ItineraryItem> items = new ArrayList<>();
 
-    public void add(Activity activity) {
-        Objects.requireNonNull(activity, "activity");
-        requireUnknown(activity.id());
-        requireKnownPredecessors(activity);
-        requireAcyclic(activity);
-        requirePredecessorsFinishBefore(activity);
-        activities.add(activity);
+    public void add(ItineraryItem item) {
+        Objects.requireNonNull(item, "itinerary item");
+        List<Activity> incoming = item.activities();
+        List<Activity> current = activities();
+        List<Activity> universe = new ArrayList<>(current);
+        universe.addAll(incoming);
+        for (Activity activity : incoming) {
+            if (current.stream().anyMatch(existing -> existing.id().equals(activity.id()))) {
+                throw new InvalidItinerary("duplicate activity: " + activity.id());
+            }
+            requireKnownPredecessors(activity, universe);
+            requireAcyclic(activity, universe);
+            requirePredecessorsFinishBefore(activity, universe);
+        }
+        items.add(item);
     }
 
     public void remove(ActivityId activityId) {
         activityOf(activityId);
-        for (int index = 0; index < activities.size(); index++) {
-            Activity activity = activities.get(index);
+        for (Activity activity : activities()) {
             if (activity.predecessors().contains(activityId)) {
-                activities.set(index, activity.withoutPredecessor(activityId));
+                replace(activity.withoutPredecessor(activityId));
             }
         }
-        activities.removeIf(activity -> activity.id().equals(activityId));
+        List<ItineraryItem> next = new ArrayList<>();
+        for (ItineraryItem item : items) {
+            without(item, activityId).ifPresent(next::add);
+        }
+        items.clear();
+        items.addAll(next);
     }
 
     public void addDependency(ActivityId activityId, ActivityId predecessorId) {
@@ -42,20 +61,21 @@ public final class Itinerary {
             throw new InvalidItinerary("duplicate predecessor: " + predecessorId);
         }
         Activity updated = activity.withPredecessor(predecessor.id());
-        requireAcyclic(updated);
-        requirePredecessorsFinishBefore(updated);
+        List<Activity> universe = withActivity(activities(), updated);
+        requireAcyclic(updated, universe);
+        requirePredecessorsFinishBefore(updated, universe);
         replace(updated);
     }
 
     public void delay(ActivityId activityId, Duration delay) {
-        List<Activity> next = delayed(activityId, delay);
-        activities.clear();
-        activities.addAll(next);
+        for (Activity activity : delayed(activityId, delay)) {
+            replace(activity);
+        }
     }
 
     public List<Activity> delayed(ActivityId activityId, Duration delay) {
         Objects.requireNonNull(delay, "delay");
-        List<Activity> next = new ArrayList<>(activities);
+        List<Activity> next = new ArrayList<>(activities());
         Activity target = in(next, activityId);
         next.set(indexIn(next, activityId), target.withWindow(target.window().shifted(delay)));
         boolean moved;
@@ -75,36 +95,64 @@ public final class Itinerary {
     }
 
     public Activity activityOf(ActivityId activityId) {
-        return activities.get(indexOf(activityId));
+        return in(activities(), activityId);
     }
 
     public List<Activity> activities() {
-        return List.copyOf(activities);
+        List<Activity> leaves = new ArrayList<>();
+        for (ItineraryItem item : items) {
+            leaves.addAll(item.activities());
+        }
+        return List.copyOf(leaves);
+    }
+
+    public List<ItineraryItem> items() {
+        return List.copyOf(items);
+    }
+
+    public Duration estimatedDuration() {
+        return items.stream()
+                .map(ItineraryItem::estimatedDuration)
+                .reduce(Duration.ZERO, Duration::plus);
+    }
+
+    public RiskLevel risk() {
+        return activities().stream()
+                .map(Activity::risk)
+                .max(Comparator.naturalOrder())
+                .orElse(RiskLevel.LOW);
+    }
+
+    public Map<ConsumableId, Stock> estimatedConsumption() {
+        Map<ConsumableId, Stock> estimated = new HashMap<>();
+        for (Activity activity : activities()) {
+            activity.requirements().estimatedConsumption()
+                    .forEach((id, quantity) -> estimated.merge(id, quantity, Stock::plus));
+        }
+        return Map.copyOf(estimated);
     }
 
     public Itinerary copy() {
         Itinerary copy = new Itinerary();
-        copy.activities.addAll(activities);
+        for (ItineraryItem item : items) {
+            copy.items.add(copyOf(item));
+        }
         return copy;
     }
 
-    private void requireUnknown(ActivityId activityId) {
-        if (activities.stream().anyMatch(activity -> activity.id().equals(activityId))) {
-            throw new InvalidItinerary("duplicate activity: " + activityId);
+    private static void requireKnownPredecessors(Activity activity, List<Activity> universe) {
+        for (ActivityId predecessorId : activity.predecessors()) {
+            in(universe, predecessorId);
         }
     }
 
-    private void requireKnownPredecessors(Activity activity) {
-        activity.predecessors().forEach(this::activityOf);
-    }
-
-    private void requireAcyclic(Activity activity) {
-        if (reaches(activity.id(), activity.predecessors(), new HashSet<>())) {
+    private static void requireAcyclic(Activity activity, List<Activity> universe) {
+        if (reaches(activity.id(), activity.predecessors(), new HashSet<>(), universe)) {
             throw new InvalidItinerary("activity dependencies form a cycle");
         }
     }
 
-    private boolean reaches(ActivityId target, Set<ActivityId> from, Set<ActivityId> seen) {
+    private static boolean reaches(ActivityId target, Set<ActivityId> from, Set<ActivityId> seen, List<Activity> universe) {
         for (ActivityId predecessorId : from) {
             if (predecessorId.equals(target)) {
                 return true;
@@ -112,16 +160,16 @@ public final class Itinerary {
             if (!seen.add(predecessorId)) {
                 continue;
             }
-            if (reaches(target, activityOf(predecessorId).predecessors(), seen)) {
+            if (reaches(target, in(universe, predecessorId).predecessors(), seen, universe)) {
                 return true;
             }
         }
         return false;
     }
 
-    private void requirePredecessorsFinishBefore(Activity activity) {
+    private static void requirePredecessorsFinishBefore(Activity activity, List<Activity> universe) {
         for (ActivityId predecessorId : activity.predecessors()) {
-            Activity predecessor = activityOf(predecessorId);
+            Activity predecessor = in(universe, predecessorId);
             if (!predecessor.window().finishesBeforeStartOf(activity.window())) {
                 throw new InvalidItinerary("predecessor must finish before activity starts: " + predecessorId);
             }
@@ -144,11 +192,60 @@ public final class Itinerary {
     }
 
     private void replace(Activity updated) {
-        activities.set(indexOf(updated.id()), updated);
+        for (int index = 0; index < items.size(); index++) {
+            items.set(index, replaceIn(items.get(index), updated));
+        }
     }
 
-    private int indexOf(ActivityId activityId) {
-        return indexIn(activities, activityId);
+    private static ItineraryItem replaceIn(ItineraryItem item, Activity updated) {
+        return switch (item) {
+            case Activity activity -> activity.id().equals(updated.id()) ? updated : activity;
+            case ActivityBlock block -> {
+                List<ItineraryItem> next = new ArrayList<>();
+                for (ItineraryItem part : block.parts()) {
+                    next.add(replaceIn(part, updated));
+                }
+                yield block.withParts(next);
+            }
+        };
+    }
+
+    private static Optional<ItineraryItem> without(ItineraryItem item, ActivityId activityId) {
+        return switch (item) {
+            case Activity activity -> activity.id().equals(activityId) ? Optional.empty() : Optional.of(activity);
+            case ActivityBlock block -> {
+                List<ItineraryItem> kept = new ArrayList<>();
+                for (ItineraryItem part : block.parts()) {
+                    without(part, activityId).ifPresent(kept::add);
+                }
+                if (kept.isEmpty()) {
+                    yield Optional.empty();
+                }
+                if (kept.size() == 1) {
+                    yield Optional.of(kept.getFirst());
+                }
+                yield Optional.of(block.withParts(kept));
+            }
+        };
+    }
+
+    private static ItineraryItem copyOf(ItineraryItem item) {
+        return switch (item) {
+            case Activity activity -> activity;
+            case ActivityBlock block -> {
+                List<ItineraryItem> copies = new ArrayList<>();
+                for (ItineraryItem part : block.parts()) {
+                    copies.add(copyOf(part));
+                }
+                yield block.withParts(copies);
+            }
+        };
+    }
+
+    private static List<Activity> withActivity(List<Activity> source, Activity updated) {
+        List<Activity> next = new ArrayList<>(source);
+        next.set(indexIn(next, updated.id()), updated);
+        return next;
     }
 
     private static int indexIn(List<Activity> source, ActivityId activityId) {

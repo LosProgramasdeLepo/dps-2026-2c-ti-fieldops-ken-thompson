@@ -13,6 +13,7 @@ import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.InvalidValue;
@@ -409,6 +410,22 @@ class ExpeditionTest {
         assertAll(
                 () -> assertEquals(List.of(second.id()), activityIds(expedition)),
                 () -> assertTrue(expedition.activityOf(second.id()).predecessors().isEmpty())
+        );
+    }
+
+    @Test
+    void aParallelBlockInsideASequenceKeepsLeavesAndTreeDuration() {
+        Expedition expedition = wetlandDraft();
+        Activity approach = transit("Approach", 0, 2, DELTA);
+        Activity left = sampling();
+        Activity right = measurement();
+        Activity back = transit("Return", 4, 6, DELTA);
+        expedition.addBlock(ActivityBlock.sequential(approach, ActivityBlock.parallel(left, right), back));
+
+        assertAll(
+                () -> assertEquals(List.of(approach.id(), left.id(), right.id(), back.id()), activityIds(expedition)),
+                () -> assertEquals(Duration.ofHours(8), expedition.estimatedDuration()),
+                () -> assertEquals(RiskLevel.HIGH, expedition.estimatedRisk())
         );
     }
 

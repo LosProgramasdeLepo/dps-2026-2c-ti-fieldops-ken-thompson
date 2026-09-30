@@ -41,6 +41,7 @@ import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.report.Estimate;
 import edu.itba.fieldops.domain.report.EstimateExpeditionInteractor;
@@ -167,6 +168,57 @@ class UseCasesTest {
         assertEquals(Duration.ofHours(3), estimate.duration());
         assertEquals(RiskLevel.HIGH, report.risk());
         assertEquals(1, report.plannedActivities());
+    }
+
+    @Test
+    void plansAParallelBlockInsideASequenceAndEstimatesTheMax() {
+        CertificationId certificationId = new CertificationId(UUID.randomUUID());
+        PersonId ada = registry.registerPerson("Ada", List.of(new Certification(certificationId, "Sampling")), Availability.always());
+        ExpeditionId expeditionId = drafts.draft(
+                List.of(new Objective("Survey the delta")),
+                PERIOD,
+                List.of(DELTA),
+                List.of(ada),
+                List.of(new Restriction("Stay on the water"))
+        );
+        Activity approach = Activity.transit(
+                new ActivityId(UUID.randomUUID()),
+                "Approach",
+                Duration.ofHours(2),
+                RiskLevel.LOW,
+                new TimePeriod(DAY, DAY.plus(Duration.ofHours(2))),
+                Set.of(),
+                DELTA
+        );
+        Activity left = Activity.sampling(
+                new ActivityId(UUID.randomUUID()),
+                "Left bank",
+                Duration.ofHours(4),
+                RiskLevel.MEDIUM,
+                new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))),
+                Set.of(),
+                DELTA,
+                certificationId
+        );
+        Activity right = Activity.sampling(
+                new ActivityId(UUID.randomUUID()),
+                "Right bank",
+                Duration.ofHours(3),
+                RiskLevel.HIGH,
+                new TimePeriod(DAY, DAY.plus(Duration.ofHours(3))),
+                Set.of(),
+                DELTA,
+                certificationId
+        );
+        itinerary.addBlock(expeditionId, ActivityBlock.sequential(approach, ActivityBlock.parallel(left, right)));
+
+        Estimate estimate = estimates.of(expeditionId);
+        OperationalReport report = reports.of(expeditionId);
+
+        assertEquals(Duration.ofHours(6), estimate.duration());
+        assertEquals(RiskLevel.HIGH, estimate.risk());
+        assertEquals(3, report.plannedActivities());
+        assertEquals(Duration.ofHours(6), report.duration());
     }
 
     @Test

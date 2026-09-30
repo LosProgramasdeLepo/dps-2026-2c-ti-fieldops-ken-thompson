@@ -2,20 +2,26 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.itinerary.Itinerary;
+import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.shared.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.RiskLevel;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,11 +98,15 @@ public final class Expedition {
     void addActivity(Activity activity) {
         requireStatus(ExpeditionStatus.DRAFT, "add activity");
         Objects.requireNonNull(activity, "activity");
-        if (!zones.contains(activity.zone())) {
-            throw new InvalidItinerary("activity zone is not part of the expedition");
-        }
-        requireWindowInsidePeriod(activity);
+        requirePlanned(activity);
         itinerary.add(activity);
+    }
+
+    void addBlock(ActivityBlock block) {
+        requireStatus(ExpeditionStatus.DRAFT, "add block");
+        Objects.requireNonNull(block, "block");
+        block.activities().forEach(this::requirePlanned);
+        itinerary.add(block);
     }
 
     void removeActivity(ActivityId activityId) {
@@ -218,6 +228,22 @@ public final class Expedition {
         return itinerary.activities();
     }
 
+    public List<ItineraryItem> items() {
+        return itinerary.items();
+    }
+
+    public Duration estimatedDuration() {
+        return itinerary.estimatedDuration();
+    }
+
+    public RiskLevel estimatedRisk() {
+        return itinerary.risk();
+    }
+
+    public Map<ConsumableId, Stock> estimatedConsumption() {
+        return itinerary.estimatedConsumption();
+    }
+
     public Assignments assignments() {
         return assignments;
     }
@@ -232,6 +258,13 @@ public final class Expedition {
 
     public Activity activityOf(ActivityId activityId) {
         return itinerary.activityOf(activityId);
+    }
+
+    private void requirePlanned(Activity activity) {
+        if (!zones.contains(activity.zone())) {
+            throw new InvalidItinerary("activity zone is not part of the expedition");
+        }
+        requireWindowInsidePeriod(activity);
     }
 
     private void requireWindowInsidePeriod(Activity activity) {

@@ -22,7 +22,8 @@ public final class ExpeditionValidator {
                 new StockRule(),
                 new CertificationRule(),
                 new CapacityRule(),
-                new PermitRule()
+                new PermitRule(),
+                new ParallelAssignmentRule()
         ));
     }
 

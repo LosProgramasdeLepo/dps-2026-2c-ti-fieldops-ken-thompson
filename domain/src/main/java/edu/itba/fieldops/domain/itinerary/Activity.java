@@ -12,11 +12,12 @@ import edu.itba.fieldops.domain.shared.WorkZone;
 
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-public final class Activity {
+public final class Activity implements ItineraryItem {
     private final ActivityId id;
     private final String name;
     private final Duration estimatedDuration;
@@ -242,6 +243,7 @@ public final class Activity {
         return name;
     }
 
+    @Override
     public Duration estimatedDuration() {
         return estimatedDuration;
     }
@@ -252,6 +254,11 @@ public final class Activity {
 
     public ResourceRequirements requirements() {
         return requirements;
+    }
+
+    @Override
+    public List<Activity> activities() {
+        return List.of(this);
     }
 
     public TimePeriod window() {

@@ -32,6 +32,7 @@ import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -350,6 +351,120 @@ class ExpeditionValidatorTest {
         ValidationResult result = validator.validate(expedition, catalog.catalogs(), OccupyingExpeditions.none());
 
         assertTrue(result.issues().isEmpty());
+    }
+
+    @Test
+    void parallelBranchesSharingAPersonAreCriticalEvenWithDisjointWindows() {
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Activity left = sampling(certification.id(), 0, 4);
+        Activity right = sampling(certification.id(), 4, 8);
+        Permit leftPermit = permitFor(left);
+        Permit rightPermit = permitFor(right);
+        Expedition expedition = draft();
+        ExpeditionEditing.addBlock(expedition, ActivityBlock.parallel(left, right));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(left.id(), ada.id()));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(right.id(), ada.id()));
+        ExpeditionEditing.addPermit(expedition, leftPermit.id());
+        ExpeditionEditing.addPermit(expedition, rightPermit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(ada);
+        catalog.add(leftPermit);
+        catalog.add(rightPermit);
+
+        ValidationResult result = validator.validate(expedition, catalog.catalogs(), OccupyingExpeditions.none());
+
+        assertIssue(result, IssueSeverity.CRITICAL, "PARALLEL");
+        assertNo(result, "OVERLAP");
+    }
+
+    @Test
+    void sequentialBlockMayReuseAPerson() {
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Activity left = sampling(certification.id(), 0, 4);
+        Activity right = sampling(certification.id(), 4, 8);
+        Permit leftPermit = permitFor(left);
+        Permit rightPermit = permitFor(right);
+        Expedition expedition = draft();
+        ExpeditionEditing.addBlock(expedition, ActivityBlock.sequential(left, right));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(left.id(), ada.id()));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(right.id(), ada.id()));
+        ExpeditionEditing.addPermit(expedition, leftPermit.id());
+        ExpeditionEditing.addPermit(expedition, rightPermit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(ada);
+        catalog.add(leftPermit);
+        catalog.add(rightPermit);
+
+        ValidationResult result = validator.validate(expedition, catalog.catalogs(), OccupyingExpeditions.none());
+
+        assertNo(result, "PARALLEL");
+        assertNo(result, "OVERLAP");
+    }
+
+    @Test
+    void consumablesOnParallelBranchesAreNotAParallelConflict() {
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Person bob = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(certification), Availability.always());
+        Activity first = sampling(certification.id(), 0, 4);
+        Activity second = sampling(certification.id(), 0, 4);
+        Permit firstPermit = permitFor(first);
+        Permit secondPermit = permitFor(second);
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(20));
+        Expedition expedition = draft();
+        ExpeditionEditing.addBlock(expedition, ActivityBlock.parallel(first, second));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(first.id(), ada.id()));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(second.id(), bob.id()));
+        ExpeditionEditing.addAssignment(expedition, new ConsumableAssignment(first.id(), vials.id(), new Stock(3)));
+        ExpeditionEditing.addAssignment(expedition, new ConsumableAssignment(second.id(), vials.id(), new Stock(3)));
+        ExpeditionEditing.addPermit(expedition, firstPermit.id());
+        ExpeditionEditing.addPermit(expedition, secondPermit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(ada);
+        catalog.add(bob);
+        catalog.add(vials);
+        catalog.add(firstPermit);
+        catalog.add(secondPermit);
+
+        ValidationResult result = validator.validate(expedition, catalog.catalogs(), OccupyingExpeditions.none());
+
+        assertNo(result, "PARALLEL");
+    }
+
+    @Test
+    void nightActivityInsideABlockStillRequiresANightPermit() {
+        Certification nightOperation = new Certification(new CertificationId(UUID.randomUUID()), "Night operation");
+        Certification samplingCert = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person ada = new Person(
+                new PersonId(UUID.randomUUID()),
+                "Ada",
+                List.of(nightOperation, samplingCert),
+                Availability.always()
+        );
+        Activity nightSurvey = night(nightOperation.id(), 0, 4);
+        Activity sample = sampling(samplingCert.id(), 4, 8);
+        Instrument lamp = new Instrument(new InstrumentId(UUID.randomUUID()), new InstrumentKind("lighting"), Availability.always());
+        Permit zonePermit = permitFor(nightSurvey);
+        Permit samplePermit = permitFor(sample);
+        Expedition expedition = draft();
+        ExpeditionEditing.addBlock(expedition, ActivityBlock.sequential(nightSurvey, sample));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(nightSurvey.id(), ada.id()));
+        ExpeditionEditing.addAssignment(expedition, new InstrumentAssignment(nightSurvey.id(), lamp.id()));
+        ExpeditionEditing.addAssignment(expedition, new PersonAssignment(sample.id(), ada.id()));
+        ExpeditionEditing.addPermit(expedition, zonePermit.id());
+        ExpeditionEditing.addPermit(expedition, samplePermit.id());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.add(ada);
+        catalog.add(lamp);
+        catalog.add(zonePermit);
+        catalog.add(samplePermit);
+
+        ValidationResult result = validator.validate(expedition, catalog.catalogs(), OccupyingExpeditions.none());
+
+        assertIssue(result, IssueSeverity.CRITICAL, "PERMIT");
+        assertNo(result, "PARALLEL");
     }
 
     @Test

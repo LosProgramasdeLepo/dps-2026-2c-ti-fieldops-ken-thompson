@@ -4,6 +4,7 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 
@@ -26,6 +27,10 @@ public final class ExpeditionEditing {
 
     public static void addActivity(Expedition expedition, Activity activity) {
         expedition.addActivity(activity);
+    }
+
+    public static void addBlock(Expedition expedition, ActivityBlock block) {
+        expedition.addBlock(block);
     }
 
     public static void addAssignment(Expedition expedition, Assignment assignment) {

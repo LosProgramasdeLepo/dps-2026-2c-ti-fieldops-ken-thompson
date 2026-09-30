@@ -22,6 +22,7 @@ import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
@@ -100,6 +101,56 @@ class OperationalReportTest {
                 () -> assertEquals(RiskLevel.MEDIUM, report.risk()),
                 () -> assertEquals(Duration.ofHours(2), report.duration()),
                 () -> assertEquals(1, report.plannedActivities())
+        );
+    }
+
+    @Test
+    void reportCountsLeavesAndUsesTheTreeDurationOfANestedBlock() {
+        Activity approach = Activity.transit(
+                new ActivityId(UUID.randomUUID()),
+                "approach",
+                Duration.ofHours(2),
+                RiskLevel.LOW,
+                new TimePeriod(START, START.plus(Duration.ofHours(2))),
+                Set.of(),
+                DELTA
+        );
+        Activity left = Activity.sampling(
+                new ActivityId(UUID.randomUUID()),
+                "left",
+                Duration.ofHours(4),
+                RiskLevel.MEDIUM,
+                new TimePeriod(START, START.plus(Duration.ofHours(4))),
+                Set.of(),
+                DELTA,
+                new CertificationId(UUID.randomUUID())
+        );
+        Activity right = Activity.sampling(
+                new ActivityId(UUID.randomUUID()),
+                "right",
+                Duration.ofHours(3),
+                RiskLevel.HIGH,
+                new TimePeriod(START, START.plus(Duration.ofHours(3))),
+                Set.of(),
+                DELTA,
+                new CertificationId(UUID.randomUUID())
+        );
+        Expedition expedition = ExpeditionEditing.draft(
+                new ExpeditionId(UUID.randomUUID()),
+                List.of(new Objective("Survey the delta")),
+                new TimePeriod(START, START.plus(Duration.ofDays(2))),
+                List.of(DELTA),
+                List.of(new PersonId(UUID.randomUUID())),
+                List.of(new Restriction("Stay on the water"))
+        );
+        ExpeditionEditing.addBlock(expedition, ActivityBlock.sequential(approach, ActivityBlock.parallel(left, right)));
+
+        OperationalReport report = OperationalReport.of(expedition);
+
+        assertAll(
+                () -> assertEquals(3, report.plannedActivities()),
+                () -> assertEquals(Duration.ofHours(6), report.duration()),
+                () -> assertEquals(RiskLevel.HIGH, report.risk())
         );
     }
 
