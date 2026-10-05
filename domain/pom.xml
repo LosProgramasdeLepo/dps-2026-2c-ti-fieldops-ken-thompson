@@ -10,8 +10,8 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>fieldops-entities</artifactId>
-    <name>FieldOps Entities</name>
+    <artifactId>fieldops-domain</artifactId>
+    <name>FieldOps Domain</name>
 
     <dependencies>
         <dependency>

@@ -11,8 +11,8 @@
     <name>FieldOps</name>
 
     <modules>
-        <module>entities</module>
-        <module>usecases</module>
+        <module>domain</module>
+        <module>application</module>
         <module>adapters</module>
         <module>frameworks</module>
     </modules>
