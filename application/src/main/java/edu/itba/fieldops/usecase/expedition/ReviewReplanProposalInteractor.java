@@ -9,6 +9,7 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.usecase.shared.Clock;
 import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.List;
 import java.util.Objects;
@@ -58,7 +59,7 @@ public final class ReviewReplanProposalInteractor implements ReviewReplanProposa
 
     private ReplanProposal require(ProposalId proposalId) {
         return proposals.find(Objects.requireNonNull(proposalId, "proposal id"))
-                .orElseThrow(() -> new InvalidValue("unknown proposal: " + proposalId));
+                .orElseThrow(() -> new UnknownResource("proposal", proposalId.value().toString()));
     }
 
     private static void requireResponsible(Expedition original, PersonId responsible) {

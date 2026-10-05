@@ -1,6 +1,5 @@
 package edu.itba.fieldops.frameworks;
 
-import edu.itba.fieldops.adapters.FixedClock;
 import edu.itba.fieldops.adapters.InMemoryExecutionRepository;
 import edu.itba.fieldops.adapters.InMemoryExpeditionRepository;
 import edu.itba.fieldops.adapters.InMemoryReplanProposalRepository;
@@ -38,8 +37,8 @@ import edu.itba.fieldops.usecase.report.EstimateExpedition;
 import edu.itba.fieldops.usecase.report.EstimateExpeditionInteractor;
 import edu.itba.fieldops.usecase.report.ReportExpedition;
 import edu.itba.fieldops.usecase.report.ReportExpeditionInteractor;
+import edu.itba.fieldops.usecase.shared.Clock;
 
-import java.time.Instant;
 import java.util.Objects;
 
 public final class InMemoryFieldOps {
@@ -47,7 +46,7 @@ public final class InMemoryFieldOps {
     private final InMemoryExpeditionRepository plans = new InMemoryExpeditionRepository();
     private final InMemoryExecutionRepository runs = new InMemoryExecutionRepository();
     private final InMemoryReplanProposalRepository proposals = new InMemoryReplanProposalRepository();
-    private final FixedClock clock;
+    private final Clock clock;
 
     private final AdministerPersonnel personnel;
     private final AdministerEquipment equipment;
@@ -65,8 +64,8 @@ public final class InMemoryFieldOps {
     private final ReplanExpedition replan;
     private final ReportExpedition reports;
 
-    public InMemoryFieldOps(Instant now) {
-        this.clock = new FixedClock(Objects.requireNonNull(now, "now"));
+    public InMemoryFieldOps(Clock clock) {
+        this.clock = Objects.requireNonNull(clock, "clock");
         RuleBasedValidator validator = RuleBasedValidator.withDefaultRules();
         Replanner replanner = new Replanner(new AssignmentSuggester());
         personnel = new AdministerPersonnelInteractor(catalog, catalog);
@@ -100,10 +99,6 @@ public final class InMemoryFieldOps {
 
     public InMemoryReplanProposalRepository proposals() {
         return proposals;
-    }
-
-    public FixedClock clock() {
-        return clock;
     }
 
     public AdministerPersonnel personnel() {

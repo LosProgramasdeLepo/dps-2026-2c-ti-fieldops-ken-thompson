@@ -9,6 +9,7 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
@@ -81,13 +82,13 @@ class CatalogUseCasesTest extends UseCaseFixture {
     void rejectsAnUnknownCertification() {
         CertificationId unknown = new CertificationId(UUID.randomUUID());
 
-        assertThrows(InvalidValue.class, () -> personnel.registerPerson("Ada", List.of(unknown), Availability.always()));
+        assertThrows(UnknownResource.class, () -> personnel.registerPerson("Ada", List.of(unknown), Availability.always()));
     }
 
     @Test
     void rejectsChangingAnUnknownResource() {
         VehicleId unknown = new VehicleId(UUID.randomUUID());
 
-        assertThrows(InvalidValue.class, () -> equipment.changeAvailability(unknown, Availability.always()));
+        assertThrows(UnknownResource.class, () -> equipment.changeAvailability(unknown, Availability.always()));
     }
 }
