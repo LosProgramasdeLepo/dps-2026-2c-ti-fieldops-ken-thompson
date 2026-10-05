@@ -16,7 +16,7 @@
     <dependencies>
         <dependency>
             <groupId>dps-itba</groupId>
-            <artifactId>fieldops-usecases</artifactId>
+            <artifactId>fieldops-application</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

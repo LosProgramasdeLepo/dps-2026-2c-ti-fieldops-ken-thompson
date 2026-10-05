@@ -10,13 +10,13 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>fieldops-usecases</artifactId>
-    <name>FieldOps Use Cases</name>
+    <artifactId>fieldops-application</artifactId>
+    <name>FieldOps Application</name>
 
     <dependencies>
         <dependency>
             <groupId>dps-itba</groupId>
-            <artifactId>fieldops-entities</artifactId>
+            <artifactId>fieldops-domain</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
