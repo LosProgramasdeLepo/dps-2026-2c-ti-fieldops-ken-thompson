@@ -20,7 +20,7 @@ import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.report.Estimate;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class PlanningUseCasesTest extends UseCaseFixture {
                 List.of(new Restriction("Daylight only"))
         );
 
-        assertThrows(InvalidValue.class, () -> drafts.draft(charter));
+        assertThrows(UnknownResource.class, () -> drafts.draft(charter));
     }
 
     @Test

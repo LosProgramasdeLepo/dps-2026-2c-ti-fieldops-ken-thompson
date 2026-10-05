@@ -7,7 +7,7 @@ import edu.itba.fieldops.domain.expedition.InvalidAssignment;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
-import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.List;
 import java.util.Objects;
@@ -44,7 +44,7 @@ public final class AssignResourcesInteractor implements AssignResources {
     @Override
     public void addPermit(ExpeditionId expeditionId, PermitId permitId) {
         if (catalogs.permits().permit(Objects.requireNonNull(permitId, "permit id")).isEmpty()) {
-            throw new InvalidValue("unknown permit: " + permitId);
+            throw new UnknownResource("permit", permitId.value().toString());
         }
         Expedition expedition = plans.require(expeditionId);
         expedition.addPermit(permitId);

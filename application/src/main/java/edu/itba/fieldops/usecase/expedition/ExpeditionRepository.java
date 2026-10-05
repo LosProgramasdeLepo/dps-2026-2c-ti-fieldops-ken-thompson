@@ -3,7 +3,7 @@ package edu.itba.fieldops.usecase.expedition;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,6 +22,6 @@ public interface ExpeditionRepository {
 
     default Expedition require(ExpeditionId id) {
         return find(Objects.requireNonNull(id, "expedition id"))
-                .orElseThrow(() -> new InvalidValue("unknown expedition: " + id));
+                .orElseThrow(() -> new UnknownResource("expedition", id.value().toString()));
     }
 }

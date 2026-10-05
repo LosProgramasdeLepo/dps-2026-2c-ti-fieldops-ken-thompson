@@ -5,7 +5,7 @@ import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.List;
 import java.util.Objects;
@@ -45,11 +45,11 @@ public final class AdministerPersonnelInteractor implements AdministerPersonnel 
 
     private Certification requireCertification(CertificationId certificationId) {
         return certifications.certification(certificationId)
-                .orElseThrow(() -> new InvalidValue("unknown certification: " + certificationId));
+                .orElseThrow(() -> new UnknownResource("certification", certificationId.value().toString()));
     }
 
     private Person requirePerson(PersonId personId) {
         return people.person(personId)
-                .orElseThrow(() -> new InvalidValue("unknown person: " + personId));
+                .orElseThrow(() -> new UnknownResource("person", personId.value().toString()));
     }
 }
