@@ -50,13 +50,13 @@ abstract class UseCaseFixture {
     static final WorkZone DELTA = new WorkZone("Delta");
     static final TimePeriod PERIOD = new TimePeriod(DAY, DAY.plus(Duration.ofDays(5)));
 
-    private final InMemoryFieldOps app = new InMemoryFieldOps(DAY);
+    final FixedClock clock = new FixedClock(DAY);
+    private final InMemoryFieldOps app = new InMemoryFieldOps(clock);
 
     final ResourceCatalog catalog = app.catalog();
     final InMemoryExpeditionRepository plans = app.plans();
     final InMemoryExecutionRepository runs = app.runs();
     final InMemoryReplanProposalRepository proposals = app.proposals();
-    final FixedClock clock = app.clock();
     final AdministerPersonnel personnel = app.personnel();
     final AdministerEquipment equipment = app.equipment();
     final AdministerPermits permitting = app.permitting();

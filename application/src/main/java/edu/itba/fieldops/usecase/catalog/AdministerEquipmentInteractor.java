@@ -8,7 +8,7 @@ import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.Stock;
 
@@ -49,21 +49,21 @@ public final class AdministerEquipmentInteractor implements AdministerEquipment 
     @Override
     public void changeAvailability(VehicleId vehicleId, Availability availability) {
         Vehicle vehicle = vehicles.vehicle(vehicleId)
-                .orElseThrow(() -> new InvalidValue("unknown vehicle: " + vehicleId));
+                .orElseThrow(() -> new UnknownResource("vehicle", vehicleId.value().toString()));
         vehicles.save(vehicle.withAvailability(availability));
     }
 
     @Override
     public void changeAvailability(InstrumentId instrumentId, Availability availability) {
         Instrument instrument = instruments.instrument(instrumentId)
-                .orElseThrow(() -> new InvalidValue("unknown instrument: " + instrumentId));
+                .orElseThrow(() -> new UnknownResource("instrument", instrumentId.value().toString()));
         instruments.save(instrument.withAvailability(availability));
     }
 
     @Override
     public void changeStock(ConsumableId consumableId, Stock stock) {
         Consumable consumable = consumables.consumable(consumableId)
-                .orElseThrow(() -> new InvalidValue("unknown consumable: " + consumableId));
+                .orElseThrow(() -> new UnknownResource("consumable", consumableId.value().toString()));
         consumables.save(consumable.withStock(stock));
     }
 }
