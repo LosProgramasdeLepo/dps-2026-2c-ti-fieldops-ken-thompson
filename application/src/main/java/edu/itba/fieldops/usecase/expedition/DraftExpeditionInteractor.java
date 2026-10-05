@@ -5,7 +5,7 @@ import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.Objects;
 
@@ -23,7 +23,7 @@ public final class DraftExpeditionInteractor implements DraftExpedition {
         Objects.requireNonNull(charter, "charter");
         for (PersonId responsible : charter.responsibles()) {
             if (people.person(responsible).isEmpty()) {
-                throw new InvalidValue("unknown responsible: " + responsible);
+                throw new UnknownResource("responsible", responsible.value().toString());
             }
         }
         Expedition expedition = Expedition.draft(plans.nextId(), charter);
