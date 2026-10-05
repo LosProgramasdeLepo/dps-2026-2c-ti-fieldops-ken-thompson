@@ -92,6 +92,14 @@ public final class ActivityBlock implements ItineraryItem {
         return arrangement.concurrent(parts);
     }
 
+    public Arrangement arrangement() {
+        return arrangement;
+    }
+
+    public List<ItineraryItem> parts() {
+        return parts;
+    }
+
     @Override
     public Duration duration(Function<Activity, Duration> leafDuration) {
         return arrangement.combine(parts.stream().map(part -> part.duration(leafDuration)));
