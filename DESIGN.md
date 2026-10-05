@@ -2,7 +2,7 @@
 
 ## Aplicadas
 
-**Arquitectura.** Clean Architecture en cuatro módulos Maven, con dependencias solo hacia adentro: `frameworks → adapters → application → domain`. `domain` guarda el modelo, los servicios de dominio (`Replanner`, `AssignmentSuggester`, `RuleBasedValidator`) y los puertos de lectura (`People`, `Vehicles`, `Instruments`, `Consumables`, `Permits`, `Certifications`, `Catalogs`). `application` guarda las interfaces de caso de uso, los interactors, los snapshots, `PlanningContexts`, los repositorios, `Clock` y los `*Registry` de escritura, que extienden el puerto de lectura. `adapters` implementa esos puertos (`ResourceCatalog`, repositorios en memoria, `FixedClock`) y no nombra interactors. `frameworks` es la raíz de composición (`InMemoryFieldOps`) y los tests que manejan el sistema. Dentro de `domain` los paquetes siguen el componente: `validation → expedition → {tracking, itinerary, catalog, assessment}`, `report → {expedition, tracking}`, `tracking → {identity, shared}`. Las transiciones del agregado, y las operaciones de `Replanner` y `ReplanProposal` que los casos de uso invocan, son públicas y conservan su precondición. La política de aprobación (revalidar, rechazar críticos y advertencias sin aceptar) queda en `ApproveExpeditionInteractor`. `ExpeditionExecution` sigue en `expedition` porque es el agregado de la corrida. Los ids salen de los repositorios. El tiempo sale de `Clock`.
+**Arquitectura.** Clean Architecture en cinco módulos Maven, con dependencias solo hacia adentro: `frameworks → api → application → domain` y `frameworks → adapters → application → domain`. `api` no depende de `adapters`. `domain` guarda el modelo, los servicios de dominio (`Replanner`, `AssignmentSuggester`, `RuleBasedValidator`) y los puertos de lectura (`People`, `Vehicles`, `Instruments`, `Consumables`, `Permits`, `Certifications`, `Catalogs`). `application` guarda las interfaces de caso de uso, los interactors, los snapshots, `PlanningContexts`, los repositorios, `Clock` y los `*Registry` de escritura, que extienden el puerto de lectura. `adapters` implementa esos puertos (`ResourceCatalog`, repositorios en memoria, `FixedClock`) y no nombra interactors. `frameworks` es la raíz de composición (`InMemoryFieldOps`, `FieldOpsApplication`) y los tests que manejan el sistema. Dentro de `domain` los paquetes siguen el componente: `validation → expedition → {tracking, itinerary, catalog, assessment}`, `report → {expedition, tracking}`, `tracking → {identity, shared}`. Las transiciones del agregado, y las operaciones de `Replanner` y `ReplanProposal` que los casos de uso invocan, son públicas y conservan su precondición. La política de aprobación (revalidar, rechazar críticos y advertencias sin aceptar) queda en `ApproveExpeditionInteractor`. `ExpeditionExecution` sigue en `expedition` porque es el agregado de la corrida. Los ids salen de los repositorios. El tiempo sale de `Clock`.
 
 **Validador como puerto.** `ExpeditionValidator` es una interfaz de `expedition` y `RuleBasedValidator`, en `validation`, la implementa. Tiene una sola implementación porque existe para cortar el ciclo entre esos paquetes (DIP).
 
@@ -42,9 +42,9 @@
 
 **Invariantes.** El charter exige objetivos, zonas y responsables, y los responsables tienen que existir en el catálogo. La ventana alcanza la duración estimada. Los predecesores existen, no forman ciclos y terminan antes. La zona es de la expedición y la ventana está dentro del período. `TimePeriod`, `Stock`, `Passengers`, `WorkZone` y `ExpeditionCharter` se validan al construirse.
 
-**Errores.** Todo extiende `DomainException`. `InvalidValue`: dato inválido, id desconocido, no responsable, advertencia inexistente, duplicado o propuesta ya decidida. `InvalidItinerary`: grafo, ventanas y bloques. `InvalidAssignment`: asignación repetida, desconocida o sin cantidad. `InvalidActivityExecution`: seguimiento ilegal. `InvalidExpeditionTransition`: transición de estado ilegal del plan o de la corrida. `ExpeditionNotApprovable`: críticos o advertencias sin justificar. Un nulo en un constructor o un paso faltante del builder lanza `NullPointerException`.
+**Errores.** Todo extiende `DomainException`. `UnknownResource`: id desconocido de un recurso nombrado (expedición, persona, certificación, vehículo, instrumento, consumible, permiso, responsable, propuesta). `InvalidValue`: dato inválido, no responsable, advertencia inexistente, duplicado o propuesta ya decidida. `InvalidItinerary`: grafo, ventanas y bloques. `InvalidAssignment`: asignación repetida, desconocida o sin cantidad. `InvalidActivityExecution`: seguimiento ilegal. `InvalidExpeditionTransition`: transición de estado ilegal del plan o de la corrida. `ExpeditionNotApprovable`: críticos o advertencias sin justificar. Un nulo en un constructor o un paso faltante del builder lanza `NullPointerException`.
 
-**Tests.** Unitarios por componente, cada uno con lo mínimo que la regla necesita: el seguimiento se prueba sin armar un plan y el informe sin aprobarlo. Los tests de entidades llaman las operaciones del agregado y arman el catálogo con un doble propio, sin depender de `adapters`. Las reglas del contenido se prueban en `PlanContentTest` y las del estado y las revisiones en `ExpeditionTest`. Los casos de uso se prueban por grupo (`CatalogUseCasesTest`, `PlanningUseCasesTest`, `ReviewUseCasesTest`, `TrackingUseCasesTest`, `ReplanningUseCasesTest`) sobre `UseCaseFixture`, que toma el sistema cableado por `InMemoryFieldOps`. La aprobación se prueba solo con los casos de uso, porque la ejecuta el interactor.
+**Tests.** Unitarios por componente, cada uno con lo mínimo que la regla necesita: el seguimiento se prueba sin armar un plan y el informe sin aprobarlo. Los tests de entidades llaman las operaciones del agregado y arman el catálogo con un doble propio, sin depender de `adapters`. Las reglas del contenido se prueban en `PlanContentTest` y las del estado y las revisiones en `ExpeditionTest`. Los casos de uso se prueban por grupo (`CatalogUseCasesTest`, `PlanningUseCasesTest`, `ReviewUseCasesTest`, `TrackingUseCasesTest`, `ReplanningUseCasesTest`) sobre `UseCaseFixture`, que toma el sistema cableado por `InMemoryFieldOps`. La aprobación se prueba solo con los casos de uso, porque la ejecuta el interactor. La API se prueba con un `@WebMvcTest` por controlador y un `@SpringBootTest` del flujo sobre los adaptadores en memoria. `ArchitectureTest` fija que `domain` no depende de `usecase`, `adapters`, `api` ni `frameworks`, que `application` (`usecase`) no depende de `adapters`, `api` ni `frameworks`, y que `api` no depende de `adapters`.
 
 ## Descartadas
 
@@ -65,6 +65,27 @@
 **Un interactor por operación y request models.** Se agrupa por actor y no sale ninguna entidad mutable; las entradas usan objetos de dominio inmutables. Los argumentos inmutables cruzan el borde del caso de uso; un DTO paralelo se reconstruiría en el mismo objeto.
 
 **Códigos de issue como enum.** Cada regla nueva tocaría el enum; se escriben como `String`.
+
+## API REST
+
+`api` es el adaptador de entrada HTTP. Depende solo de `application`: no ve repositorios ni el reloj. `domain` y `application` no tienen anotaciones de Spring. `frameworks` arranca Spring Boot 4.1.1 (`FieldOpsApplication`) y una `@Configuration` arma `InMemoryFieldOps(new SystemClock())` y publica cada interfaz de caso de uso como bean. Los interactors siguen sin anotaciones. `SystemClock` implementa `Clock` con `Instant.now()`; `FixedClock` queda para los tests.
+
+Un método HTTP por operación de caso de uso, bajo `/v1`. Ningún controlador habla con un repositorio. No hay `GET /v1/expeditions`: no existe un caso de uso que liste planes. El cliente no elige ids de actividad: el controlador pide `nextActivityId()` y lo devuelve. Aprobar es `POST /v1/expeditions/{id}/approval` y responde 204, no un parche de `status`, porque el caso de uso revalida y puede rechazar el plan.
+
+El JSON son records de `api`. Los snapshots no se serializan: `PlanSnapshot` expone `Optional`, `ItineraryItem` y `Assignment`, y publicarlo ataría el contrato al modelo. `Activity` entra como unión discriminada por `kind` (`SAMPLING`, `MEASUREMENT`, `TRANSIT`, `NIGHT`, `DIVE`, `CAMP`); el mapper elige la fábrica, así que un tipo nuevo es otra variante y no un `switch` en el dominio. La respuesta muestra `ResourceRequirements`, no un tipo reconstruido. `ActivityBlock` viaja como árbol (`node` `ACTIVITY` o `BLOCK`, con `arrangement` y `parts`). `Assignment` es otra unión (`PERSON`, `VEHICLE`, `INSTRUMENT`, `CONSUMABLE`). `TimePeriod` es `{start, end}` en ISO-8601 y `Duration` también. Jackson rechaza propiedades desconocidas, y strings y listas tienen tope con `@Size`.
+
+Los errores salen como `application/problem+json` (RFC 9457) desde un `@RestControllerAdvice`. Los controladores no atrapan excepciones.
+
+- JSON mal formado, UUID inválido o body que falla `@Valid`: 400
+- `UnknownResource` cuyo id coincide con una variable del path: 404
+- `UnknownResource` de una referencia del body, `InvalidValue`, `InvalidItinerary`, `InvalidAssignment`: 422
+- `InvalidExpeditionTransition`, `ExpeditionNotApprovable`, `InvalidActivityExecution`: 409
+- otro `DomainException`: 422
+- cualquier otra: 500, con detalle genérico y sin mensaje interno ni stack trace
+
+Así `GET /v1/expeditions/{desconocido}` es 404 y `POST /v1/expeditions` con un responsable inexistente es 422.
+
+Deuda: no hay autenticación ni autorización. `ReviewExpedition.acceptWarning` y la decisión de `ReviewReplanProposal` reciben el `PersonId` del actor en el body, así que cualquiera puede declararse responsable. El actor tiene que salir de un principal autenticado, no del payload, antes de exponer la API fuera de la cursada.
 
 ## Entrega 2
 
