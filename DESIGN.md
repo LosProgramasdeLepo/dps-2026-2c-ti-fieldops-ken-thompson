@@ -2,13 +2,13 @@
 
 ## Aplicadas
 
-**Arquitectura.** Clean Architecture empaquetada por componente. `catalog`, `expedition`, `itinerary`, `validation` y `report` tienen entidades, servicios, puertos e interactors; `tracking` tiene los valores del seguimiento (`ActivityExecution`, `Incident`, `Observation`); `identity`, `shared` y `assessment` son la base estable. La interfaz de cada caso de uso está en `<componente>.usecase` y el interactor junto a sus entidades, para usar las transiciones package-private (`markApproved`, `reviseAsDraft`, `submitForReview` y los mutadores de `ExpeditionExecution`): solo el caso de uso aprueba, revisa o registra la corrida. Por eso `ExpeditionExecution` y `ExecutionRepository` viven en `expedition`, junto a `TrackExpeditionInteractor` y `RecordIncidentInteractor`, aunque son un agregado aparte del plan. Dependencias sin ciclos: `validation → expedition → {tracking, itinerary, catalog, assessment}`, `report → {expedition, tracking}`, `tracking → {identity, shared}`. Los ids de planes, actividades, propuestas, certificaciones y recursos salen de los repositorios. El tiempo sale de `Clock`.
+**Arquitectura.** Clean Architecture en cuatro módulos Maven, con dependencias solo hacia adentro: `frameworks → adapters → usecases → entities`. `entities` guarda el modelo, los servicios de dominio (`Replanner`, `AssignmentSuggester`, `RuleBasedValidator`) y los puertos de lectura (`People`, `Vehicles`, `Instruments`, `Consumables`, `Permits`, `Certifications`, `Catalogs`). `usecases` guarda las interfaces de caso de uso, los interactors, los snapshots, `PlanningContexts`, los repositorios, `Clock` y los `*Registry` de escritura, que extienden el puerto de lectura. `adapters` implementa esos puertos (`ResourceCatalog`, repositorios en memoria, `FixedClock`) y no nombra interactors. `frameworks` es la raíz de composición (`InMemoryFieldOps`) y los tests que manejan el sistema. Dentro de `entities` los paquetes siguen el componente: `validation → expedition → {tracking, itinerary, catalog, assessment}`, `report → {expedition, tracking}`, `tracking → {identity, shared}`. Las transiciones del agregado, y las operaciones de `Replanner` y `ReplanProposal` que los casos de uso invocan, son públicas y conservan su precondición. La política de aprobación (revalidar, rechazar críticos y advertencias sin aceptar) queda en `ApproveExpeditionInteractor`. `ExpeditionExecution` sigue en `expedition` porque es el agregado de la corrida. Los ids salen de los repositorios. El tiempo sale de `Clock`.
 
 **Validador como puerto.** `ExpeditionValidator` es una interfaz de `expedition` y `RuleBasedValidator`, en `validation`, la implementa. Tiene una sola implementación porque existe para cortar el ciclo entre esos paquetes (DIP).
 
 **Casos de uso.** `AdministerPersonnel`, `AdministerEquipment`, `AdministerPermits`, `DraftExpedition`, `PlanItinerary`, `AssignResources`, `ReviewExpedition`, `ApproveExpedition`, `TrackExpedition`, `RecordIncident`, `ReplanExpedition`, `ReviewReplanProposal`, `ConsultExpedition`, `EstimateExpedition`, `ReportExpedition`. Cada uno agrupa las operaciones de un actor; seguimiento e incidentes están separados porque cambian por motivos distintos. Los que modifican cargan por id, aplican y guardan; los de lectura no guardan. Ninguna entidad mutable sale: las consultas devuelven `PlanSnapshot`, `ProposalSnapshot`, `Estimate`, `OperationalReport` y `ValidationResult`, armados por el interactor. Entran ids y objetos inmutables.
 
-**Puertos.** Lectura por recurso (`People`, `Vehicles`, `Instruments`, `Consumables`, `Permits`, `Certifications`), los reservables y de validación agrupados en `BookableResources` y `Catalogs`. La escritura también es por recurso: cada `*Registry` extiende su puerto de lectura con el próximo id y `save` (upsert), así la validación no depende de métodos de escritura. `ExpeditionRepository` (con `require` y los ids de actividad), `ExecutionRepository`, `ReplanProposalRepository`, `Clock`. Adaptadores en memoria y reloj fijo en `domain/src/test/java/edu/itba/fieldops/details`.
+**Puertos.** Lectura por recurso (`People`, `Vehicles`, `Instruments`, `Consumables`, `Permits`, `Certifications`), los reservables y de validación agrupados en `BookableResources` y `Catalogs`, en `entities`, porque las reglas y el sugeridor los usan. La escritura también es por recurso y vive en `usecases`: cada `*Registry` extiende su puerto de lectura con el próximo id y `save` (upsert), así la validación no depende de métodos de escritura. `ExpeditionRepository` (con `require` y los ids de actividad), `ExecutionRepository`, `ReplanProposalRepository` y `Clock` también están en `usecases`. Los adaptadores en memoria y el reloj fijo están en `adapters`.
 
 **Clean Code.** Hasta tres argumentos. Excepciones: records (`OperationalReport`, `PlanSnapshot`, `ExpeditionCharter`, `ResourceRequirements`, `Permit`), constructores de interactors (hasta seis colaboradores en `RecordIncidentInteractor`) y `Person`. `ExpeditionCharter` y `PlanningContext` agrupan argumentos que viajan juntos; `Activity` se arma con un builder por tipo. Sin banderas booleanas: `ActivityBlock.Arrangement` en vez de `boolean parallel`, `overlapsWithin` y `overlapsBetween` en vez de un `conflicts` con flag. Sin `null` en parámetros ni retornos: `Incident` guarda la actividad como `Optional` y `OperationalReport.of` tiene una versión con corrida y otra sin. CQS: `Assignments.withdraw` no devuelve nada; en `ReplanExpedition` solo `revise` crea y devuelve un id, y los cambios sobre el borrador no devuelven nada. Un término por concepto (`occupying`, `inForce`, `lineage`). Sin comentarios.
 
@@ -22,7 +22,7 @@
 
 **Actividad.** Duración, riesgo y consumo estimado son datos. El tipo fija los requisitos (`ResourceRequirements`): certificaciones que alguien debe tener, las que debe tener cada asignado (`heldByEveryone`), tipos de instrumento, tipos de permiso especial (`PermitKind`) y cantidad de vehículos. Son conjuntos y cantidades, no banderas: las reglas y el sugeridor recorren lo pedido sin preguntar si hace falta. Seis tipos: muestreo, medición, traslado, nocturna, buceo, campamento. Un tipo nuevo es otra fábrica; reglas, estimación e informes no preguntan el tipo.
 
-**Itinerario.** Composite: `ItineraryItem` es `Activity` o `ActivityBlock`. Es `sealed` porque hoja y compuesto es un conjunto cerrado; cada variante resuelve `blocks`, `precedence`, `replacing` y `without`, y no hay `switch` sobre el tipo. `Arrangement` decide qué agrega el orden (`order`) y qué partes corren a la vez (`concurrent`). `duration(Function)` suma en la secuencia y toma el máximo en paralelo. La raíz suma sin ordenar. En un bloque secuencial cada parte depende de todas las hojas de la anterior; esas dependencias se suman a las explícitas para validar ventanas y ciclos, para `delay` y para el seguimiento.
+**Itinerario.** Composite: in`ItineraryItem` es `Activity` o `ActivityBlock`. Es `sealed` porque hoja y compuesto es un conjunto cerrado; cada variante resuelve `blocks`, `precedence`, `replacing` y `without`, y no hay `switch` sobre el tipo. `Arrangement` decide qué agrega el orden (`order`) y qué partes corren a la vez (`concurrent`). `duration(Function)` suma en la secuencia y toma el máximo en paralelo. La raíz suma sin ordenar. En un bloque secuencial cada parte depende de todas las hojas de la anterior; esas dependencias se suman a las explícitas para validar ventanas y ciclos, para `delay` y para el seguimiento.
 
 **Asignaciones.** `Assignments` guarda una lista por tipo y cada asignación se archiva sola (double dispatch), sin `instanceof`. `BookableAssignment` (persona, vehículo, instrumento) da el id del recurso (`BookableId`) y lo busca en el catálogo (`Bookable`); con eso `TemporalBooking` es un solo record que compara ids y ventanas y pregunta la disponibilidad, sin métodos por tipo. El consumible solo declara una cantidad positiva. `Expedition.assignments()` devuelve una copia.
 
@@ -44,31 +44,31 @@
 
 **Errores.** Todo extiende `DomainException`. `InvalidValue`: dato inválido, id desconocido, no responsable, advertencia inexistente, duplicado o propuesta ya decidida. `InvalidItinerary`: grafo, ventanas y bloques. `InvalidAssignment`: asignación repetida, desconocida o sin cantidad. `InvalidActivityExecution`: seguimiento ilegal. `InvalidExpeditionTransition`: transición de estado ilegal del plan o de la corrida. `ExpeditionNotApprovable`: críticos o advertencias sin justificar. Un nulo en un constructor o un paso faltante del builder lanza `NullPointerException`.
 
-**Tests.** Unitarios por componente, cada uno con lo mínimo que la regla necesita: el seguimiento se prueba sin armar un plan y el informe sin aprobarlo. `ExpeditionEditing` y `ExecutionEditing` exponen las operaciones package-private a los tests de otros paquetes. Las reglas del contenido se prueban en `PlanContentTest` y las del estado y las revisiones en `ExpeditionTest`. Los casos de uso se prueban por grupo (`CatalogUseCasesTest`, `PlanningUseCasesTest`, `ReviewUseCasesTest`, `TrackingUseCasesTest`, `ReplanningUseCasesTest`) sobre `UseCaseFixture`, que arma los interactors con los adaptadores en memoria y los escenarios comunes. La aprobación se prueba solo con los casos de uso, porque la ejecuta el interactor.
+**Tests.** Unitarios por componente, cada uno con lo mínimo que la regla necesita: el seguimiento se prueba sin armar un plan y el informe sin aprobarlo. Los tests de entidades llaman las operaciones del agregado y arman el catálogo con un doble propio, sin depender de `adapters`. Las reglas del contenido se prueban en `PlanContentTest` y las del estado y las revisiones en `ExpeditionTest`. Los casos de uso se prueban por grupo (`CatalogUseCasesTest`, `PlanningUseCasesTest`, `ReviewUseCasesTest`, `TrackingUseCasesTest`, `ReplanningUseCasesTest`) sobre `UseCaseFixture`, que toma el sistema cableado por `InMemoryFieldOps`. La aprobación se prueba solo con los casos de uso, porque la ejecuta el interactor.
 
 ## Descartadas
 
-**Política por tipo o herencia de `Activity`.** Los tipos difieren en datos. Un tipo nuevo es una fábrica.
+**Política por tipo o herencia de** `Activity`**.** Los tipos difieren en datos. Un tipo nuevo es una fábrica.
 
 **Supertipo de todos los ids o de las cantidades.** Mezclaría stock con pasajeros. Solo los ids reservables comparten `BookableId`, que no confunde una persona con un vehículo porque la igualdad es por tipo. El costo son métodos paralelos por tipo en `Assignments`.
 
 **State por estado.** `ExpeditionStatus` solo responde `occupiesResources` y las transiciones preguntan la constante. Un estado nuevo toca las transiciones del agregado.
 
-**Aprobar un `ValidationResult` ya calculado.** Puede no describir el plan actual.
+**Aprobar un** `ValidationResult` **ya calculado.** Puede no describir el plan actual.
 
 **Versionar el borrador.** `DRAFT` e `IN_REVIEW` se editan en el lugar.
 
 **Reordenar una lista.** El orden sale de dependencias, ventanas y bloques secuenciales.
 
-**`switch` sobre un `Assignment` sealed.** Lo reemplaza el double dispatch.
+`switch` **sobre un** `Assignment` **sealed.** Lo reemplaza el double dispatch.
 
-**Un interactor por operación y request models.** Se agrupa por actor y no sale ninguna entidad mutable; las entradas usan objetos de dominio inmutables.
-
-**Módulo Maven de detalles.** No hay otro runtime; los adaptadores viven en test.
+**Un interactor por operación y request models.** Se agrupa por actor y no sale ninguna entidad mutable; las entradas usan objetos de dominio inmutables. Los argumentos inmutables cruzan el borde del caso de uso; un DTO paralelo se reconstruiría en el mismo objeto.
 
 **Códigos de issue como enum.** Cada regla nueva tocaría el enum; se escriben como `String`.
 
 ## Entrega 2
+
+
 
 ### Actividades nocturnas
 

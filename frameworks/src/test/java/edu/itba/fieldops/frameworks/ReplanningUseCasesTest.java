@@ -1,0 +1,156 @@
+package edu.itba.fieldops.frameworks;
+
+import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
+import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
+import edu.itba.fieldops.domain.expedition.ReplanProposal;
+import edu.itba.fieldops.domain.expedition.VehicleAssignment;
+import edu.itba.fieldops.usecase.expedition.PlanSnapshot;
+import edu.itba.fieldops.usecase.expedition.ProposalSnapshot;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.PersonId;
+import edu.itba.fieldops.domain.identity.VehicleId;
+import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.tracking.Incident;
+import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class ReplanningUseCasesTest extends UseCaseFixture {
+    @Test
+    void anIncidentOnAnActivityProposesAReplanWithoutChangingThePlan() {
+        Sampling sampling = runningSampling();
+        clock.set(at(2));
+
+        incidents.record(sampling.expeditionId(), "storm on site", sampling.activityId());
+
+        ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
+        assertAll(
+                () -> assertEquals(Incident.affecting(sampling.activityId(), "storm on site", at(2)), proposal.incident()),
+                () -> assertEquals(ReplanProposal.Decision.PENDING, proposal.decision()),
+                () -> assertEquals(hours(2, 6), proposal.suggested().itinerary().getFirst().activities().getFirst().window()),
+                () -> assertEquals(ExpeditionStatus.APPROVED, consult.of(sampling.expeditionId()).status())
+        );
+    }
+
+    @Test
+    void anIncidentWithoutAnActivityIsRecordedWithoutAProposal() {
+        Sampling sampling = runningSampling();
+
+        incidents.record(sampling.expeditionId(), "storm on site");
+
+        assertTrue(proposalReview.of(sampling.expeditionId()).isEmpty());
+        assertEquals(List.of(Incident.of("storm on site", DAY)), runs.find(sampling.expeditionId()).orElseThrow().incidents());
+    }
+
+    @Test
+    void acceptingAProposalKeepsItsPlanAsADraftRevision() {
+        Sampling sampling = runningSampling();
+        incidents.record(sampling.expeditionId(), "storm on site", sampling.activityId());
+        ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
+
+        proposalReview.accept(proposal.id(), sampling.responsible());
+
+        ProposalSnapshot decided = onlyProposalOf(sampling.expeditionId());
+        assertAll(
+                () -> assertEquals(ReplanProposal.Decision.ACCEPTED, decided.decision()),
+                () -> assertEquals(Optional.of(sampling.responsible()), decided.decidedBy()),
+                () -> assertEquals(ExpeditionStatus.DRAFT, consult.of(proposal.suggested().id()).status())
+        );
+    }
+
+    @Test
+    void rejectingAProposalDiscardsItsPlan() {
+        Sampling sampling = runningSampling();
+        incidents.record(sampling.expeditionId(), "equipment failure", sampling.activityId());
+        ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
+
+        proposalReview.reject(proposal.id(), sampling.responsible());
+
+        assertAll(
+                () -> assertEquals(ReplanProposal.Decision.REJECTED, onlyProposalOf(sampling.expeditionId()).decision()),
+                () -> assertTrue(plans.find(proposal.suggested().id()).isEmpty()),
+                () -> assertEquals(ExpeditionStatus.APPROVED, consult.of(sampling.expeditionId()).status())
+        );
+    }
+
+    @Test
+    void onlyAResponsibleCanDecideAProposal() {
+        Sampling sampling = runningSampling();
+        incidents.record(sampling.expeditionId(), "storm on site", sampling.activityId());
+        ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
+        PersonId stranger = new PersonId(UUID.randomUUID());
+
+        assertThrows(InvalidValue.class, () -> proposalReview.accept(proposal.id(), stranger));
+
+        assertEquals(ReplanProposal.Decision.PENDING, onlyProposalOf(sampling.expeditionId()).decision());
+    }
+
+    @Test
+    void replanningRequiresADraft() {
+        Sampling sampling = samplingPlan();
+        review.submit(sampling.expeditionId());
+
+        assertThrows(
+                InvalidExpeditionTransition.class,
+                () -> replan.delay(sampling.expeditionId(), sampling.activityId(), Duration.ofHours(1))
+        );
+    }
+
+    @Test
+    void delayingADraftShiftsItInPlace() {
+        Sampling sampling = samplingPlan();
+
+        replan.delay(sampling.expeditionId(), sampling.activityId(), Duration.ofHours(1));
+
+        PlanSnapshot plan = consult.of(sampling.expeditionId());
+        assertAll(
+                () -> assertEquals(ExpeditionStatus.DRAFT, plan.status()),
+                () -> assertEquals(hours(1, 5), plan.itinerary().getFirst().activities().getFirst().window())
+        );
+    }
+
+    @Test
+    void revisingAnApprovedPlanCreatesTheNextDraftVersion() {
+        Sampling sampling = approvedSampling();
+
+        ExpeditionId revision = replan.revise(sampling.expeditionId());
+
+        assertAll(
+                () -> assertEquals(ExpeditionStatus.APPROVED, consult.of(sampling.expeditionId()).status()),
+                () -> assertEquals(ExpeditionStatus.DRAFT, consult.of(revision).status()),
+                () -> assertEquals(2, consult.of(revision).version())
+        );
+    }
+
+    @Test
+    void anUnavailableVehicleIsReplacedInTheRevision() {
+        PersonId ada = personnel.registerPerson("Ada", List.of(), Availability.always());
+        VehicleId boat = equipment.registerVehicle(new Passengers(4), Availability.always());
+        VehicleId spare = equipment.registerVehicle(new Passengers(4), Availability.always());
+        Crossing crossing = crossing(ada, boat);
+        review.submit(crossing.expeditionId());
+        approval.approve(crossing.expeditionId());
+        equipment.changeAvailability(boat, new Availability(List.of()));
+        ExpeditionId revision = replan.revise(crossing.expeditionId());
+
+        replan.replaceUnavailable(revision);
+
+        assertEquals(List.of(new VehicleAssignment(crossing.activityId(), spare)), consult.of(revision).assignments());
+    }
+
+    private ProposalSnapshot onlyProposalOf(ExpeditionId expeditionId) {
+        List<ProposalSnapshot> found = proposalReview.of(expeditionId);
+        assertEquals(1, found.size());
+        return found.getFirst();
+    }
+}
