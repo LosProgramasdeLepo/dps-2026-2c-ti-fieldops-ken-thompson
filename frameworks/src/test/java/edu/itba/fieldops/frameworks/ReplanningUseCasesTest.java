@@ -151,6 +151,27 @@ class ReplanningUseCasesTest extends UseCaseFixture {
     }
 
     @Test
+    void anIncidentAfterAnApprovedReplanProposesOnTheRevisionInForce() {
+        Sampling sampling = runningSampling();
+        clock.set(at(1));
+        incidents.record(sampling.expeditionId(), "storm on site", sampling.activityId());
+        ExpeditionId revision = onlyProposalOf(sampling.expeditionId()).suggested().id();
+        proposalReview.accept(onlyProposalOf(sampling.expeditionId()).id(), sampling.responsible());
+        review.submit(revision);
+        approval.approve(revision);
+        clock.set(at(2));
+
+        incidents.record(sampling.expeditionId(), "trail flooded", sampling.activityId());
+
+        ProposalSnapshot proposal = onlyProposalOf(revision);
+        assertAll(
+                () -> assertEquals(Incident.affecting(sampling.activityId(), "trail flooded", at(2)), proposal.incident()),
+                () -> assertEquals(ReplanProposal.Decision.PENDING, proposal.decision()),
+                () -> assertEquals(ExpeditionStatus.APPROVED, consult.of(revision).status())
+        );
+    }
+
+    @Test
     void consultsAProposalByItsId() {
         Sampling sampling = runningSampling();
         incidents.record(sampling.expeditionId(), "storm on site", sampling.activityId());
