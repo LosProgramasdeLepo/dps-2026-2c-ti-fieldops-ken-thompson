@@ -23,6 +23,8 @@ import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.usecase.shared.Page;
+import edu.itba.fieldops.usecase.shared.PageRequest;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -126,5 +128,35 @@ class PlanningUseCasesTest extends UseCaseFixture {
                 () -> assertEquals(1, snapshot.assignments().size()),
                 () -> assertEquals(1, snapshot.permits().size())
         );
+    }
+
+    @Test
+    void pagesThroughPlansAndTheirRevisions() {
+        Sampling sampling = approvedSampling();
+        ExpeditionId revision = replan.revise(sampling.expeditionId());
+
+        Page<PlanSnapshot> page = consult.all(new PageRequest(0, 1));
+
+        assertAll(
+                () -> assertEquals(List.of(sampling.expeditionId()), page.items().stream().map(PlanSnapshot::id).toList()),
+                () -> assertEquals(2, page.totalItems()),
+                () -> assertEquals(revision, consult.all(new PageRequest(1, 1)).items().getFirst().id())
+        );
+    }
+
+    @Test
+    void consultsAnActivityOfThePlan() {
+        Sampling sampling = samplingPlan();
+
+        Activity activity = consult.activity(sampling.expeditionId(), sampling.activityId());
+
+        assertEquals("Soil sampling", activity.name());
+    }
+
+    @Test
+    void rejectsConsultingAnActivityOutsideThePlan() {
+        Sampling sampling = samplingPlan();
+
+        assertThrows(UnknownResource.class, () -> consult.activity(sampling.expeditionId(), new ActivityId(UUID.randomUUID())));
     }
 }

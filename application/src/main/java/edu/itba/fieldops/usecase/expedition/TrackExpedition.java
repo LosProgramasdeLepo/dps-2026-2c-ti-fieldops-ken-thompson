@@ -17,4 +17,6 @@ public interface TrackExpedition {
     void finishActivity(ExpeditionId expeditionId, ActivityId activityId, String result);
 
     void addObservation(ExpeditionId expeditionId, String text);
+
+    RunSnapshot run(ExpeditionId expeditionId);
 }

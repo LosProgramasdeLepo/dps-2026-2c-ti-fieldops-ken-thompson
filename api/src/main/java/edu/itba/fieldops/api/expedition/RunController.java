@@ -3,6 +3,7 @@ package edu.itba.fieldops.api.expedition;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.FinishActivityRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.ObservationRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.StartActivityRequest;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.RunResponse;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -10,6 +11,7 @@ import edu.itba.fieldops.usecase.expedition.TrackExpedition;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,6 +31,11 @@ public final class RunController {
     public ResponseEntity<Void> start(@PathVariable UUID id) {
         tracking.start(new ExpeditionId(id));
         return Responses.noContent();
+    }
+
+    @GetMapping("/v1/expeditions/{id}/run")
+    public RunResponse run(@PathVariable UUID id) {
+        return ExpeditionMapping.run(tracking.run(new ExpeditionId(id)));
     }
 
     @PostMapping("/v1/expeditions/{id}/run/suspension")

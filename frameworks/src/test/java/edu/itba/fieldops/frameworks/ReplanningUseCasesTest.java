@@ -9,9 +9,11 @@ import edu.itba.fieldops.usecase.expedition.PlanSnapshot;
 import edu.itba.fieldops.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
+import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.Incident;
 import org.junit.jupiter.api.Test;
 
@@ -48,7 +50,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
 
         incidents.record(sampling.expeditionId(), "storm on site");
 
-        assertTrue(proposalReview.of(sampling.expeditionId()).isEmpty());
+        assertTrue(proposalReview.of(sampling.expeditionId(), FIRST_PAGE).items().isEmpty());
         assertEquals(List.of(Incident.of("storm on site", DAY)), runs.find(sampling.expeditionId()).orElseThrow().incidents());
     }
 
@@ -148,8 +150,30 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         assertEquals(List.of(new VehicleAssignment(crossing.activityId(), spare)), consult.of(revision).assignments());
     }
 
+    @Test
+    void consultsAProposalByItsId() {
+        Sampling sampling = runningSampling();
+        incidents.record(sampling.expeditionId(), "storm on site", sampling.activityId());
+        ProposalSnapshot listed = onlyProposalOf(sampling.expeditionId());
+
+        ProposalSnapshot found = proposalReview.of(listed.id());
+
+        assertAll(
+                () -> assertEquals(listed.incident(), found.incident()),
+                () -> assertEquals(listed.suggested().id(), found.suggested().id())
+        );
+    }
+
+    @Test
+    void rejectsConsultingProposalsOfUnknownPlansOrIds() {
+        assertAll(
+                () -> assertThrows(UnknownResource.class, () -> proposalReview.of(new ExpeditionId(UUID.randomUUID()), FIRST_PAGE)),
+                () -> assertThrows(UnknownResource.class, () -> proposalReview.of(new ProposalId(UUID.randomUUID())))
+        );
+    }
+
     private ProposalSnapshot onlyProposalOf(ExpeditionId expeditionId) {
-        List<ProposalSnapshot> found = proposalReview.of(expeditionId);
+        List<ProposalSnapshot> found = proposalReview.of(expeditionId, FIRST_PAGE).items();
         assertEquals(1, found.size());
         return found.getFirst();
     }
