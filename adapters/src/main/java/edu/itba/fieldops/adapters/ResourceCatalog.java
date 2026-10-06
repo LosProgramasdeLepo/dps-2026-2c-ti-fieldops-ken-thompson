@@ -20,6 +20,8 @@ import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
+import edu.itba.fieldops.usecase.shared.Page;
+import edu.itba.fieldops.usecase.shared.PageRequest;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -139,6 +141,36 @@ public final class ResourceCatalog implements CertificationRegistry, PersonRegis
     @Override
     public List<Instrument> instruments() {
         return List.copyOf(instruments.values());
+    }
+
+    @Override
+    public Page<Certification> certifications(PageRequest request) {
+        return InMemoryPages.slice(certifications.values(), request);
+    }
+
+    @Override
+    public Page<Person> people(PageRequest request) {
+        return InMemoryPages.slice(people.values(), request);
+    }
+
+    @Override
+    public Page<Vehicle> vehicles(PageRequest request) {
+        return InMemoryPages.slice(vehicles.values(), request);
+    }
+
+    @Override
+    public Page<Instrument> instruments(PageRequest request) {
+        return InMemoryPages.slice(instruments.values(), request);
+    }
+
+    @Override
+    public Page<Consumable> consumables(PageRequest request) {
+        return InMemoryPages.slice(consumables.values(), request);
+    }
+
+    @Override
+    public Page<Permit> permits(PageRequest request) {
+        return InMemoryPages.slice(permits.values(), request);
     }
 
     public BookableResources bookable() {

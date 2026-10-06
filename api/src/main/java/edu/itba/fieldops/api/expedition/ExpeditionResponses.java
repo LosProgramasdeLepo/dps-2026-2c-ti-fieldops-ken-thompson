@@ -102,6 +102,16 @@ public final class ExpeditionResponses {
     ) {
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ExpeditionSummaryResponse(
+            UUID id,
+            int version,
+            UUID supersedes,
+            String status,
+            CharterResponse charter
+    ) {
+    }
+
     public record EstimateResponse(String duration, String risk, Map<String, Integer> consumption) {
     }
 
@@ -113,6 +123,20 @@ public final class ExpeditionResponses {
     }
 
     public record ActivityResultResponse(UUID activityId, String result) {
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ActivityExecutionResponse(UUID activityId, Instant startedAt, Instant finishedAt, String result) {
+    }
+
+    public record RunResponse(
+            UUID expeditionId,
+            UUID inForceId,
+            String status,
+            List<ActivityExecutionResponse> activities,
+            List<IncidentResponse> incidents,
+            List<ObservationResponse> observations
+    ) {
     }
 
     public record ReportResponse(

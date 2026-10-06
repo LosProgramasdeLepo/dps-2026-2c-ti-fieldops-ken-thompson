@@ -4,6 +4,8 @@ import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.usecase.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.usecase.shared.Page;
+import edu.itba.fieldops.usecase.shared.PageRequest;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,5 +42,10 @@ public final class InMemoryExpeditionRepository implements ExpeditionRepository 
     @Override
     public List<Expedition> all() {
         return List.copyOf(plans.values());
+    }
+
+    @Override
+    public Page<Expedition> all(PageRequest request) {
+        return InMemoryPages.slice(plans.values(), request);
     }
 }

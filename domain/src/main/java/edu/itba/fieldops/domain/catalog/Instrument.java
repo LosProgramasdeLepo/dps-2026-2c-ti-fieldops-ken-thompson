@@ -25,6 +25,10 @@ public final class Instrument implements Bookable {
         return kind;
     }
 
+    public Availability availability() {
+        return availability;
+    }
+
     public Instrument withAvailability(Availability availability) {
         return new Instrument(id, kind, availability);
     }

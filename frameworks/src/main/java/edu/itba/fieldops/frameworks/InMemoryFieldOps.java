@@ -13,6 +13,12 @@ import edu.itba.fieldops.usecase.catalog.AdministerPermits;
 import edu.itba.fieldops.usecase.catalog.AdministerPermitsInteractor;
 import edu.itba.fieldops.usecase.catalog.AdministerPersonnel;
 import edu.itba.fieldops.usecase.catalog.AdministerPersonnelInteractor;
+import edu.itba.fieldops.usecase.catalog.ConsultEquipment;
+import edu.itba.fieldops.usecase.catalog.ConsultEquipmentInteractor;
+import edu.itba.fieldops.usecase.catalog.ConsultPermits;
+import edu.itba.fieldops.usecase.catalog.ConsultPermitsInteractor;
+import edu.itba.fieldops.usecase.catalog.ConsultPersonnel;
+import edu.itba.fieldops.usecase.catalog.ConsultPersonnelInteractor;
 import edu.itba.fieldops.usecase.expedition.ApproveExpedition;
 import edu.itba.fieldops.usecase.expedition.ApproveExpeditionInteractor;
 import edu.itba.fieldops.usecase.expedition.AssignResources;
@@ -51,6 +57,9 @@ public final class InMemoryFieldOps {
     private final AdministerPersonnel personnel;
     private final AdministerEquipment equipment;
     private final AdministerPermits permitting;
+    private final ConsultPersonnel consultPersonnel;
+    private final ConsultEquipment consultEquipment;
+    private final ConsultPermits consultPermits;
     private final DraftExpedition drafts;
     private final PlanItinerary itinerary;
     private final EstimateExpedition estimates;
@@ -71,6 +80,9 @@ public final class InMemoryFieldOps {
         personnel = new AdministerPersonnelInteractor(catalog, catalog);
         equipment = new AdministerEquipmentInteractor(catalog, catalog, catalog);
         permitting = new AdministerPermitsInteractor(catalog);
+        consultPersonnel = new ConsultPersonnelInteractor(catalog, catalog);
+        consultEquipment = new ConsultEquipmentInteractor(catalog, catalog, catalog);
+        consultPermits = new ConsultPermitsInteractor(catalog);
         drafts = new DraftExpeditionInteractor(plans, catalog);
         itinerary = new PlanItineraryInteractor(plans);
         estimates = new EstimateExpeditionInteractor(plans);
@@ -111,6 +123,18 @@ public final class InMemoryFieldOps {
 
     public AdministerPermits permitting() {
         return permitting;
+    }
+
+    public ConsultPersonnel consultPersonnel() {
+        return consultPersonnel;
+    }
+
+    public ConsultEquipment consultEquipment() {
+        return consultEquipment;
+    }
+
+    public ConsultPermits consultPermits() {
+        return consultPermits;
     }
 
     public DraftExpedition drafts() {

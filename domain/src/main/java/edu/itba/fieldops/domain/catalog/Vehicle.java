@@ -25,6 +25,10 @@ public final class Vehicle implements Bookable {
         return capacity;
     }
 
+    public Availability availability() {
+        return availability;
+    }
+
     public Vehicle withAvailability(Availability availability) {
         return new Vehicle(id, capacity, availability);
     }

@@ -3,6 +3,9 @@ package edu.itba.fieldops.api.expedition;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.DecisionRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.DelayRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ProposalResponse;
+import edu.itba.fieldops.api.json.PageQuery;
+import edu.itba.fieldops.api.json.PageResponse;
+import edu.itba.fieldops.api.json.Pages;
 import edu.itba.fieldops.api.json.ResourceIdResponse;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ActivityId;
@@ -20,7 +23,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -57,8 +59,13 @@ public final class ReplanController {
     }
 
     @GetMapping("/v1/expeditions/{id}/replan-proposals")
-    public List<ProposalResponse> proposals(@PathVariable UUID id) {
-        return proposals.of(new ExpeditionId(id)).stream().map(ExpeditionMapping::proposal).toList();
+    public ResponseEntity<PageResponse<ProposalResponse>> proposals(@PathVariable UUID id, @Valid PageQuery query) {
+        return Pages.toResponse(proposals.of(new ExpeditionId(id), Pages.toRequest(query)), ExpeditionMapping::proposal);
+    }
+
+    @GetMapping("/v1/replan-proposals/{proposalId}")
+    public ProposalResponse proposal(@PathVariable UUID proposalId) {
+        return ExpeditionMapping.proposal(proposals.of(new ProposalId(proposalId)));
     }
 
     @PostMapping("/v1/replan-proposals/{proposalId}/acceptance")

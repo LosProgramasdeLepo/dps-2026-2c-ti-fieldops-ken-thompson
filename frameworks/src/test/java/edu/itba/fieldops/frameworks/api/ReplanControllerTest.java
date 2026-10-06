@@ -17,6 +17,8 @@ import edu.itba.fieldops.usecase.expedition.PlanSnapshot;
 import edu.itba.fieldops.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.usecase.expedition.ReplanExpedition;
 import edu.itba.fieldops.usecase.expedition.ReviewReplanProposal;
+import edu.itba.fieldops.usecase.shared.Page;
+import edu.itba.fieldops.usecase.shared.PageRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -80,22 +82,20 @@ class ReplanControllerTest {
         UUID proposalId = UUID.randomUUID();
         UUID suggestedId = UUID.randomUUID();
         UUID responsible = UUID.randomUUID();
-        when(proposals.of(new ExpeditionId(expeditionId))).thenReturn(List.of(new ProposalSnapshot(
-                new ProposalId(proposalId),
-                new ExpeditionId(expeditionId),
-                Incident.affecting(new ActivityId(UUID.randomUUID()), "gear flooded", Instant.parse("2026-11-01T09:00:00Z")),
-                ReplanProposal.Decision.PENDING,
-                Optional.empty(),
-                Optional.empty(),
-                plan(suggestedId, responsible)
-        )));
+        PageRequest request = new PageRequest(0, 20);
+        when(proposals.of(new ExpeditionId(expeditionId), request)).thenReturn(new Page<>(
+                List.of(proposal(proposalId, expeditionId, plan(suggestedId, responsible))),
+                request,
+                1
+        ));
 
         mvc.perform(get("/v1/expeditions/{id}/replan-proposals", expeditionId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(proposalId.toString()))
-                .andExpect(jsonPath("$[0].decision").value("PENDING"))
-                .andExpect(jsonPath("$[0].suggested.id").value(suggestedId.toString()))
-                .andExpect(jsonPath("$[0].decidedBy").doesNotExist());
+                .andExpect(jsonPath("$.items[0].id").value(proposalId.toString()))
+                .andExpect(jsonPath("$.items[0].decision").value("PENDING"))
+                .andExpect(jsonPath("$.items[0].suggested.id").value(suggestedId.toString()))
+                .andExpect(jsonPath("$.items[0].decidedBy").doesNotExist())
+                .andExpect(jsonPath("$.totalItems").value(1));
 
         mvc.perform(post("/v1/replan-proposals/{proposalId}/acceptance", proposalId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -108,6 +108,19 @@ class ReplanControllerTest {
     }
 
     @Test
+    void readsAProposalWithItsIncident() throws Exception {
+        UUID proposalId = UUID.randomUUID();
+        UUID expeditionId = UUID.randomUUID();
+        when(proposals.of(new ProposalId(proposalId)))
+                .thenReturn(proposal(proposalId, expeditionId, plan(UUID.randomUUID(), UUID.randomUUID())));
+
+        mvc.perform(get("/v1/replan-proposals/{proposalId}", proposalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.originalId").value(expeditionId.toString()))
+                .andExpect(jsonPath("$.incident.description").value("gear flooded"));
+    }
+
+    @Test
     void aDecidedProposalIsUnprocessable() throws Exception {
         doThrow(new InvalidValue("proposal already decided")).when(proposals).accept(any(), any());
 
@@ -115,6 +128,18 @@ class ReplanControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responsible\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isUnprocessableEntity());
+    }
+
+    private static ProposalSnapshot proposal(UUID proposalId, UUID expeditionId, PlanSnapshot suggested) {
+        return new ProposalSnapshot(
+                new ProposalId(proposalId),
+                new ExpeditionId(expeditionId),
+                Incident.affecting(new ActivityId(UUID.randomUUID()), "gear flooded", Instant.parse("2026-11-01T09:00:00Z")),
+                ReplanProposal.Decision.PENDING,
+                Optional.empty(),
+                Optional.empty(),
+                suggested
+        );
     }
 
     private static PlanSnapshot plan(UUID id, UUID responsible) {

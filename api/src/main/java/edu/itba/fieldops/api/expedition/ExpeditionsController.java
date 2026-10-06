@@ -1,9 +1,15 @@
 package edu.itba.fieldops.api.expedition;
 
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.CharterRequest;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ExpeditionResponse;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.ExpeditionSummaryResponse;
+import edu.itba.fieldops.api.json.PageQuery;
+import edu.itba.fieldops.api.json.PageResponse;
+import edu.itba.fieldops.api.json.Pages;
 import edu.itba.fieldops.api.json.ResourceIdResponse;
 import edu.itba.fieldops.api.json.Responses;
+import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.usecase.expedition.ConsultExpedition;
 import edu.itba.fieldops.usecase.expedition.DraftExpedition;
@@ -32,8 +38,18 @@ public final class ExpeditionsController {
         return Responses.created("/v1/expeditions", drafts.draft(ExpeditionMapping.charter(request)).value());
     }
 
+    @GetMapping("/v1/expeditions")
+    public ResponseEntity<PageResponse<ExpeditionSummaryResponse>> all(@Valid PageQuery query) {
+        return Pages.toResponse(consult.all(Pages.toRequest(query)), ExpeditionMapping::summary);
+    }
+
     @GetMapping("/v1/expeditions/{id}")
     public ExpeditionResponse consult(@PathVariable UUID id) {
         return ExpeditionMapping.expedition(consult.of(new ExpeditionId(id)));
+    }
+
+    @GetMapping("/v1/expeditions/{id}/activities/{activityId}")
+    public ActivityResponse activity(@PathVariable UUID id, @PathVariable UUID activityId) {
+        return ExpeditionMapping.activity(consult.activity(new ExpeditionId(id), new ActivityId(activityId)));
     }
 }

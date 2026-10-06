@@ -13,10 +13,13 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.report.OperationalReport;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.usecase.expedition.RunSnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -102,6 +105,39 @@ class TrackingUseCasesTest extends UseCaseFixture {
         tracking.finish(sampling.expeditionId());
 
         assertEquals(ExpeditionExecution.Status.FINISHED, run(sampling.expeditionId()).status());
+    }
+
+    @Test
+    void consultsTheRunWithWhatHasStartedAndFinished() {
+        TwoSamplings plan = startedTwoSamplings();
+        clock.set(at(4));
+        tracking.finishActivity(plan.expeditionId(), plan.first(), "samples stored");
+        tracking.startActivity(plan.expeditionId(), plan.later());
+
+        RunSnapshot snapshot = tracking.run(plan.expeditionId());
+
+        assertEquals(ExpeditionExecution.Status.IN_PROGRESS, snapshot.status());
+        assertEquals(plan.expeditionId(), snapshot.inForce());
+        assertEquals(List.of(plan.first(), plan.later()), snapshot.activities().stream().map(ActivityExecution::activityId).toList());
+        assertTrue(snapshot.activities().getFirst().isFinished());
+        assertFalse(snapshot.activities().getLast().isFinished());
+    }
+
+    @Test
+    void theRunNamesTheApprovedRevisionAsThePlanInForce() {
+        TwoSamplings plan = startedTwoSamplings();
+        ExpeditionId revision = revisionWithout(plan.expeditionId(), plan.later());
+        review.submit(revision);
+        approval.approve(revision);
+
+        assertEquals(revision, tracking.run(plan.expeditionId()).inForce());
+    }
+
+    @Test
+    void anApprovedPlanHasNoRunUntilItStarts() {
+        Sampling sampling = approvedSampling();
+
+        assertThrows(UnknownResource.class, () -> tracking.run(sampling.expeditionId()));
     }
 
     @Test

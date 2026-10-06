@@ -18,6 +18,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionRequests.SamplingActivity;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.TransitActivity;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.VehicleAssignmentRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.AcceptedWarningResponse;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityExecutionResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityResultResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.AssignmentResponse;
@@ -26,6 +27,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionResponses.CharterResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ConsumableAssignmentResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.EstimateResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ExpeditionResponse;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.ExpeditionSummaryResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.IncidentResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.InstrumentAssignmentResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.IssueResponse;
@@ -35,6 +37,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionResponses.PersonAssignmentResp
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ProposalResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ReportResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.RequirementsResponse;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.RunResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ValidationResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.VehicleAssignmentResponse;
 import edu.itba.fieldops.api.json.Periods;
@@ -67,10 +70,12 @@ import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.Observation;
 import edu.itba.fieldops.usecase.expedition.PlanSnapshot;
 import edu.itba.fieldops.usecase.expedition.ProposalSnapshot;
+import edu.itba.fieldops.usecase.expedition.RunSnapshot;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -161,6 +166,16 @@ public final class ExpeditionMapping {
         );
     }
 
+    public static ExpeditionSummaryResponse summary(PlanSnapshot snapshot) {
+        return new ExpeditionSummaryResponse(
+                snapshot.id().value(),
+                snapshot.version(),
+                snapshot.supersedes().map(id -> id.value()).orElse(null),
+                snapshot.status().name(),
+                charter(snapshot.charter())
+        );
+    }
+
     public static BlockResponse block(ActivityBlock block) {
         return (BlockResponse) item(block);
     }
@@ -186,6 +201,17 @@ public final class ExpeditionMapping {
                 report.incidents().stream().map(ExpeditionMapping::incident).toList(),
                 report.observations().stream().map(ExpeditionMapping::observation).toList(),
                 report.activityResults().stream().map(ExpeditionMapping::result).toList()
+        );
+    }
+
+    public static RunResponse run(RunSnapshot snapshot) {
+        return new RunResponse(
+                snapshot.expeditionId().value(),
+                snapshot.inForce().value(),
+                snapshot.status().name(),
+                snapshot.activities().stream().map(ExpeditionMapping::execution).toList(),
+                snapshot.incidents().stream().map(ExpeditionMapping::incident).toList(),
+                snapshot.observations().stream().map(ExpeditionMapping::observation).toList()
         );
     }
 
@@ -226,7 +252,7 @@ public final class ExpeditionMapping {
         };
     }
 
-    private static ActivityResponse activity(Activity activity) {
+    public static ActivityResponse activity(Activity activity) {
         return new ActivityResponse(
                 activity.id().value(),
                 activity.name(),
@@ -294,6 +320,15 @@ public final class ExpeditionMapping {
 
     private static ObservationResponse observation(Observation observation) {
         return new ObservationResponse(observation.text(), observation.at());
+    }
+
+    private static ActivityExecutionResponse execution(ActivityExecution execution) {
+        return new ActivityExecutionResponse(
+                execution.activityId().value(),
+                execution.startedAt(),
+                execution.finishedAt().orElse(null),
+                execution.result().orElse(null)
+        );
     }
 
     private static ActivityResultResponse result(ActivityResult result) {
