@@ -93,6 +93,14 @@ Así `GET /v1/expeditions/{desconocido}` es 404 y `POST /v1/expeditions` con un 
 
 Deuda: no hay autenticación ni autorización. `ReviewExpedition.acceptWarning` y la decisión de `ReviewReplanProposal` reciben el `PersonId` del actor en el body, así que cualquiera puede declararse responsable. El actor tiene que salir de un principal autenticado, no del payload, antes de exponer la API fuera de la cursada.
 
+## Frontend
+
+`frontend/` es una SPA mínima (React, TypeScript y Vite) que solo habla con la API REST: no comparte código con el backend ni lo necesita para compilar. En desarrollo Vite redirige `/v1` al backend, así que el backend no habilita CORS. Cubre cada funcionalidad: el catálogo (altas, certificaciones, disponibilidad, stock y permisos), la planificación (charter, itinerario con bloques anidados y dependencias, asignaciones manuales y sugeridas, permisos), la revisión (validación, advertencias aceptadas con justificación, aprobación), el seguimiento (corrida, actividades, observaciones e incidentes), la replanificación (propuestas, revisiones, cancelar, retrasar y reasignar) y los informes.
+
+`src/api` tipa el contrato y traduce `problem+json` a `ApiError`; las pantallas no llaman a `fetch`. Las reglas quedan en el backend: la interfaz habilita acciones según el estado del plan y muestra el error que devuelve la API. Los instantes se cargan y se muestran en UTC, como los guarda el dominio.
+
+Deuda: no hay tests del frontend. Los selectores cargan el catálogo completo, de a páginas de 100. Una asignación cargada por error no se puede quitar de un borrador, porque la API no expone `Assignments.withdraw`.
+
 ## Entrega 2
 
 
