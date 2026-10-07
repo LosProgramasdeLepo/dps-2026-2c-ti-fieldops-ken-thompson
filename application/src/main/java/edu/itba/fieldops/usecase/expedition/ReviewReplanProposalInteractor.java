@@ -8,10 +8,11 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.usecase.shared.Clock;
+import edu.itba.fieldops.usecase.shared.Page;
+import edu.itba.fieldops.usecase.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 
-import java.util.List;
 import java.util.Objects;
 
 public final class ReviewReplanProposalInteractor implements ReviewReplanProposal {
@@ -51,10 +52,14 @@ public final class ReviewReplanProposalInteractor implements ReviewReplanProposa
     }
 
     @Override
-    public List<ProposalSnapshot> of(ExpeditionId expeditionId) {
-        return proposals.of(Objects.requireNonNull(expeditionId, "expedition id")).stream()
-                .map(ProposalSnapshot::of)
-                .toList();
+    public Page<ProposalSnapshot> of(ExpeditionId expeditionId, PageRequest request) {
+        plans.require(expeditionId);
+        return proposals.of(expeditionId, request).map(ProposalSnapshot::of);
+    }
+
+    @Override
+    public ProposalSnapshot of(ProposalId proposalId) {
+        return ProposalSnapshot.of(require(proposalId));
     }
 
     private ReplanProposal require(ProposalId proposalId) {

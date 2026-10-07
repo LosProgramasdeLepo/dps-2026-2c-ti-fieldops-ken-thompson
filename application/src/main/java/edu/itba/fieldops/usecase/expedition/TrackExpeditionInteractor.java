@@ -8,6 +8,7 @@ import edu.itba.fieldops.domain.expedition.Revisions;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.usecase.shared.Clock;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
@@ -84,6 +85,14 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
         ExpeditionExecution execution = requireRun(expeditionId, "record observation");
         execution.addObservation(new Observation(text, clock.now()));
         executions.save(execution);
+    }
+
+    @Override
+    public RunSnapshot run(ExpeditionId expeditionId) {
+        Expedition plan = plans.require(expeditionId);
+        return executions.find(expeditionId)
+                .map(execution -> RunSnapshot.of(execution, inForce(plan).id()))
+                .orElseThrow(() -> new UnknownResource("run", expeditionId.value().toString()));
     }
 
     private void requireNoRunInLineage(Expedition plan) {

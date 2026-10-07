@@ -5,7 +5,6 @@ import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,27 +28,17 @@ public final class AdministerPersonnelInteractor implements AdministerPersonnel 
     @Override
     public PersonId registerPerson(String name, List<CertificationId> certificationIds, Availability availability) {
         PersonId id = people.nextPersonId();
-        people.save(new Person(id, name, certificationIds.stream().map(this::requireCertification).toList(), availability));
+        people.save(new Person(id, name, certificationIds.stream().map(certifications::require).toList(), availability));
         return id;
     }
 
     @Override
     public void certify(PersonId personId, CertificationId certificationId) {
-        people.save(requirePerson(personId).certified(requireCertification(certificationId)));
+        people.save(people.require(personId).certified(certifications.require(certificationId)));
     }
 
     @Override
     public void changeAvailability(PersonId personId, Availability availability) {
-        people.save(requirePerson(personId).withAvailability(availability));
-    }
-
-    private Certification requireCertification(CertificationId certificationId) {
-        return certifications.certification(certificationId)
-                .orElseThrow(() -> new UnknownResource("certification", certificationId.value().toString()));
-    }
-
-    private Person requirePerson(PersonId personId) {
-        return people.person(personId)
-                .orElseThrow(() -> new UnknownResource("person", personId.value().toString()));
+        people.save(people.require(personId).withAvailability(availability));
     }
 }

@@ -4,6 +4,8 @@ import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.shared.UnknownResource;
+import edu.itba.fieldops.usecase.shared.Page;
+import edu.itba.fieldops.usecase.shared.PageRequest;
 
 import java.util.List;
 import java.util.Objects;
@@ -19,6 +21,8 @@ public interface ExpeditionRepository {
     Optional<Expedition> find(ExpeditionId id);
 
     List<Expedition> all();
+
+    Page<Expedition> all(PageRequest request);
 
     default Expedition require(ExpeditionId id) {
         return find(Objects.requireNonNull(id, "expedition id"))
