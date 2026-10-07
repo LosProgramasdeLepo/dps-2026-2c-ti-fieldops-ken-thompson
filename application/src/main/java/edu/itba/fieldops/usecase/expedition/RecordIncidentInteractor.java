@@ -55,8 +55,9 @@ public final class RecordIncidentInteractor implements RecordIncident {
         Incident incident = Incident.affecting(activityId, description, clock.now());
         execution.addIncident(incident);
         executions.save(execution);
-        if (plan.status() == ExpeditionStatus.APPROVED && hasActivity(plan, activityId)) {
-            propose(plan, incident, execution);
+        Expedition inForce = Revisions.inForce(plan, plans.all());
+        if (inForce.status() == ExpeditionStatus.APPROVED && hasActivity(inForce, activityId)) {
+            propose(inForce, incident, execution);
         }
     }
 

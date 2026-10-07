@@ -4,10 +4,10 @@ import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.usecase.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.ProposalId;
+import edu.itba.fieldops.usecase.shared.Page;
+import edu.itba.fieldops.usecase.shared.PageRequest;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -34,14 +34,11 @@ public final class InMemoryReplanProposalRepository implements ReplanProposalRep
     }
 
     @Override
-    public List<ReplanProposal> of(ExpeditionId originalId) {
+    public Page<ReplanProposal> of(ExpeditionId originalId, PageRequest request) {
         Objects.requireNonNull(originalId, "expedition id");
-        List<ReplanProposal> matching = new ArrayList<>();
-        for (ReplanProposal proposal : proposals.values()) {
-            if (proposal.originalId().equals(originalId)) {
-                matching.add(proposal);
-            }
-        }
-        return List.copyOf(matching);
+        return InMemoryPages.slice(
+                proposals.values().stream().filter(proposal -> proposal.originalId().equals(originalId)).toList(),
+                request
+        );
     }
 }

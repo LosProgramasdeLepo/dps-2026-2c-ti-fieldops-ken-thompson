@@ -27,6 +27,9 @@ import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.usecase.catalog.AdministerEquipment;
 import edu.itba.fieldops.usecase.catalog.AdministerPermits;
 import edu.itba.fieldops.usecase.catalog.AdministerPersonnel;
+import edu.itba.fieldops.usecase.catalog.ConsultEquipment;
+import edu.itba.fieldops.usecase.catalog.ConsultPermits;
+import edu.itba.fieldops.usecase.catalog.ConsultPersonnel;
 import edu.itba.fieldops.usecase.expedition.ApproveExpedition;
 import edu.itba.fieldops.usecase.expedition.AssignResources;
 import edu.itba.fieldops.usecase.expedition.ConsultExpedition;
@@ -39,6 +42,7 @@ import edu.itba.fieldops.usecase.expedition.ReviewReplanProposal;
 import edu.itba.fieldops.usecase.expedition.TrackExpedition;
 import edu.itba.fieldops.usecase.report.EstimateExpedition;
 import edu.itba.fieldops.usecase.report.ReportExpedition;
+import edu.itba.fieldops.usecase.shared.PageRequest;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -49,6 +53,7 @@ abstract class UseCaseFixture {
     static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     static final WorkZone DELTA = new WorkZone("Delta");
     static final TimePeriod PERIOD = new TimePeriod(DAY, DAY.plus(Duration.ofDays(5)));
+    static final PageRequest FIRST_PAGE = new PageRequest(0, 20);
 
     final FixedClock clock = new FixedClock(DAY);
     private final InMemoryFieldOps app = new InMemoryFieldOps(clock);
@@ -60,6 +65,9 @@ abstract class UseCaseFixture {
     final AdministerPersonnel personnel = app.personnel();
     final AdministerEquipment equipment = app.equipment();
     final AdministerPermits permitting = app.permitting();
+    final ConsultPersonnel consultPersonnel = app.consultPersonnel();
+    final ConsultEquipment consultEquipment = app.consultEquipment();
+    final ConsultPermits consultPermits = app.consultPermits();
     final DraftExpedition drafts = app.drafts();
     final PlanItinerary itinerary = app.itinerary();
     final EstimateExpedition estimates = app.estimates();

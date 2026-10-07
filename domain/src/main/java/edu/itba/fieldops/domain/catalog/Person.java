@@ -31,6 +31,14 @@ public final class Person implements Bookable {
         return name;
     }
 
+    public List<Certification> certifications() {
+        return certifications;
+    }
+
+    public Availability availability() {
+        return availability;
+    }
+
     public Person withAvailability(Availability availability) {
         return new Person(id, name, certifications, availability);
     }

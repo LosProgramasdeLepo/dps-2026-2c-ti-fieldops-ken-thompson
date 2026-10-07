@@ -18,4 +18,8 @@ public final class Periods {
     public static Availability toAvailability(AvailabilityRequest request) {
         return new Availability(request.periods().stream().map(Periods::toPeriod).toList());
     }
+
+    public static AvailabilityResponse toResponse(Availability availability) {
+        return new AvailabilityResponse(availability.periods().stream().map(Periods::toResponse).toList());
+    }
 }

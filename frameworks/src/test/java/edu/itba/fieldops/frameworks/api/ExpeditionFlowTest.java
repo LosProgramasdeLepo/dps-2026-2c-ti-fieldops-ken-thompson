@@ -9,11 +9,14 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -69,6 +72,52 @@ class ExpeditionFlowTest {
         mvc.perform(post("/v1/expeditions").contentType(MediaType.APPLICATION_JSON)
                         .content(ExpeditionsControllerTest.charter(UUID.randomUUID())))
                 .andExpect(status().isUnprocessableContent());
+    }
+
+    @Test
+    void everyCreatedResourceCanBeReadAtItsLocation() throws Exception {
+        MvcResult certification = create("/v1/certifications", "{\"name\":\"Sampling\"}");
+        MvcResult person = create("/v1/people", """
+                {"name":"Ada","certifications":["%s"],"availability":{"periods":[%s]}}
+                """.formatted(id(certification), PERIOD));
+        MvcResult expedition = create("/v1/expeditions", ExpeditionsControllerTest.charter(id(person)));
+        List<MvcResult> created = List.of(
+                certification,
+                person,
+                create("/v1/vehicles", "{\"capacity\":4,\"availability\":{\"periods\":[" + PERIOD + "]}}"),
+                create("/v1/instruments", "{\"kind\":\"probe\",\"availability\":{\"periods\":[" + PERIOD + "]}}"),
+                create("/v1/consumables", "{\"name\":\"Vials\",\"stock\":5}"),
+                create("/v1/permits", "{\"kind\":\"zone\",\"zone\":\"Delta\",\"validity\":" + PERIOD + "}"),
+                expedition,
+                create("/v1/expeditions/" + id(expedition) + "/activities", """
+                        {"kind":"TRANSIT","name":"Crossing","estimatedDuration":"PT2H","risk":"LOW","consumption":{},"zone":"Delta","window":{"start":"2026-11-01T08:00:00Z","end":"2026-11-01T10:00:00Z"},"predecessors":[]}
+                        """)
+        );
+
+        for (MvcResult result : created) {
+            mvc.perform(get(result.getResponse().getHeader("Location"))).andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void pagesThroughTheCatalogInRegistrationOrder() throws Exception {
+        for (String name : List.of("Sampling", "Diving", "Night operation")) {
+            create("/v1/certifications", "{\"name\":\"" + name + "\"}");
+        }
+
+        mvc.perform(get("/v1/certifications").param("page", "1").param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].name").value("Night operation"))
+                .andExpect(jsonPath("$.totalItems").value(3))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(header().string("Link", containsString("rel=\"prev\"")));
+    }
+
+    private MvcResult create(String uri, String body) throws Exception {
+        return mvc.perform(post(uri).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andReturn();
     }
 
     private static UUID id(MvcResult result) throws Exception {

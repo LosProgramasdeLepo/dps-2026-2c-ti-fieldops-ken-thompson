@@ -4,6 +4,9 @@ import edu.itba.fieldops.adapters.SystemClock;
 import edu.itba.fieldops.usecase.catalog.AdministerEquipment;
 import edu.itba.fieldops.usecase.catalog.AdministerPermits;
 import edu.itba.fieldops.usecase.catalog.AdministerPersonnel;
+import edu.itba.fieldops.usecase.catalog.ConsultEquipment;
+import edu.itba.fieldops.usecase.catalog.ConsultPermits;
+import edu.itba.fieldops.usecase.catalog.ConsultPersonnel;
 import edu.itba.fieldops.usecase.expedition.ApproveExpedition;
 import edu.itba.fieldops.usecase.expedition.AssignResources;
 import edu.itba.fieldops.usecase.expedition.ConsultExpedition;
@@ -40,6 +43,21 @@ class FieldOpsConfiguration {
     @Bean
     AdministerPermits permitting(InMemoryFieldOps fieldOps) {
         return fieldOps.permitting();
+    }
+
+    @Bean
+    ConsultPersonnel consultPersonnel(InMemoryFieldOps fieldOps) {
+        return fieldOps.consultPersonnel();
+    }
+
+    @Bean
+    ConsultEquipment consultEquipment(InMemoryFieldOps fieldOps) {
+        return fieldOps.consultEquipment();
+    }
+
+    @Bean
+    ConsultPermits consultPermits(InMemoryFieldOps fieldOps) {
+        return fieldOps.consultPermits();
     }
 
     @Bean
