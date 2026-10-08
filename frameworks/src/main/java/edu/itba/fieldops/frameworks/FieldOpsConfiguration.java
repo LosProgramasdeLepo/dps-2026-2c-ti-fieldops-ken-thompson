@@ -19,6 +19,7 @@ import edu.itba.fieldops.usecase.expedition.ReviewReplanProposal;
 import edu.itba.fieldops.usecase.expedition.TrackExpedition;
 import edu.itba.fieldops.usecase.report.EstimateExpedition;
 import edu.itba.fieldops.usecase.report.ReportExpedition;
+import edu.itba.fieldops.usecase.shared.Clock;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,97 +27,107 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 class FieldOpsConfiguration {
     @Bean
-    InMemoryFieldOps fieldOps() {
-        return new InMemoryFieldOps(new SystemClock());
+    Clock systemClock() {
+        return new SystemClock();
     }
 
     @Bean
-    AdministerPersonnel personnel(InMemoryFieldOps fieldOps) {
+    FieldOpsRepositories repositories(Clock clock) {
+        return new InMemoryFieldOps(clock).repositories();
+    }
+
+    @Bean
+    FieldOps fieldOps(FieldOpsRepositories repositories, Clock clock) {
+        return new FieldOps(repositories, clock);
+    }
+
+    @Bean
+    AdministerPersonnel personnel(FieldOps fieldOps) {
         return fieldOps.personnel();
     }
 
     @Bean
-    AdministerEquipment equipment(InMemoryFieldOps fieldOps) {
+    AdministerEquipment equipment(FieldOps fieldOps) {
         return fieldOps.equipment();
     }
 
     @Bean
-    AdministerPermits permitting(InMemoryFieldOps fieldOps) {
+    AdministerPermits permitting(FieldOps fieldOps) {
         return fieldOps.permitting();
     }
 
     @Bean
-    ConsultPersonnel consultPersonnel(InMemoryFieldOps fieldOps) {
+    ConsultPersonnel consultPersonnel(FieldOps fieldOps) {
         return fieldOps.consultPersonnel();
     }
 
     @Bean
-    ConsultEquipment consultEquipment(InMemoryFieldOps fieldOps) {
+    ConsultEquipment consultEquipment(FieldOps fieldOps) {
         return fieldOps.consultEquipment();
     }
 
     @Bean
-    ConsultPermits consultPermits(InMemoryFieldOps fieldOps) {
+    ConsultPermits consultPermits(FieldOps fieldOps) {
         return fieldOps.consultPermits();
     }
 
     @Bean
-    DraftExpedition drafts(InMemoryFieldOps fieldOps) {
+    DraftExpedition drafts(FieldOps fieldOps) {
         return fieldOps.drafts();
     }
 
     @Bean
-    PlanItinerary itinerary(InMemoryFieldOps fieldOps) {
+    PlanItinerary itinerary(FieldOps fieldOps) {
         return fieldOps.itinerary();
     }
 
     @Bean
-    EstimateExpedition estimates(InMemoryFieldOps fieldOps) {
+    EstimateExpedition estimates(FieldOps fieldOps) {
         return fieldOps.estimates();
     }
 
     @Bean
-    AssignResources assignments(InMemoryFieldOps fieldOps) {
+    AssignResources assignments(FieldOps fieldOps) {
         return fieldOps.assignments();
     }
 
     @Bean
-    ReviewExpedition review(InMemoryFieldOps fieldOps) {
+    ReviewExpedition review(FieldOps fieldOps) {
         return fieldOps.review();
     }
 
     @Bean
-    ApproveExpedition approval(InMemoryFieldOps fieldOps) {
+    ApproveExpedition approval(FieldOps fieldOps) {
         return fieldOps.approval();
     }
 
     @Bean
-    ConsultExpedition consult(InMemoryFieldOps fieldOps) {
+    ConsultExpedition consult(FieldOps fieldOps) {
         return fieldOps.consult();
     }
 
     @Bean
-    TrackExpedition tracking(InMemoryFieldOps fieldOps) {
+    TrackExpedition tracking(FieldOps fieldOps) {
         return fieldOps.tracking();
     }
 
     @Bean
-    RecordIncident incidents(InMemoryFieldOps fieldOps) {
+    RecordIncident incidents(FieldOps fieldOps) {
         return fieldOps.incidents();
     }
 
     @Bean
-    ReviewReplanProposal proposalReview(InMemoryFieldOps fieldOps) {
+    ReviewReplanProposal proposalReview(FieldOps fieldOps) {
         return fieldOps.proposalReview();
     }
 
     @Bean
-    ReplanExpedition replan(InMemoryFieldOps fieldOps) {
+    ReplanExpedition replan(FieldOps fieldOps) {
         return fieldOps.replan();
     }
 
     @Bean
-    ReportExpedition reports(InMemoryFieldOps fieldOps) {
+    ReportExpedition reports(FieldOps fieldOps) {
         return fieldOps.reports();
     }
 }
