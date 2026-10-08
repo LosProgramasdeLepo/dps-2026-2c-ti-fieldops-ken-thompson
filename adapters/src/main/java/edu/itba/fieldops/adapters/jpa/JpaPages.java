@@ -19,6 +19,11 @@ public final class JpaPages {
         return org.springframework.data.domain.PageRequest.of(request.number(), request.size(), IN_REGISTRATION_ORDER);
     }
 
+    public static Pageable unsorted(PageRequest request) {
+        Objects.requireNonNull(request, "page request");
+        return org.springframework.data.domain.PageRequest.of(request.number(), request.size());
+    }
+
     public static <E, T> Page<T> page(
             org.springframework.data.domain.Page<E> stored,
             PageRequest request,
