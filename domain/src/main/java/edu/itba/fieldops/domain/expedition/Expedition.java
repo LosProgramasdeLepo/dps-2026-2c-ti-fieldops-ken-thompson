@@ -33,6 +33,10 @@ public final class Expedition {
         return new Expedition(id, charter);
     }
 
+    public static Expedition restore(ExpeditionState state) {
+        return new Expedition(Objects.requireNonNull(state, "expedition state"));
+    }
+
     private Expedition(ExpeditionId id, ExpeditionCharter charter) {
         this.id = Objects.requireNonNull(id, "expedition id");
         this.version = 1;
@@ -45,6 +49,16 @@ public final class Expedition {
         this.version = source.version + 1;
         this.supersedes = source.id;
         this.content = source.content.copy();
+    }
+
+    private Expedition(ExpeditionState state) {
+        this.id = state.id();
+        this.version = state.version();
+        this.supersedes = state.supersedes().orElse(null);
+        this.content = PlanContent.restore(state);
+        this.status = state.status();
+        state.acceptedWarnings().forEach(this::register);
+        requireRestorable();
     }
 
     public Expedition reviseAsDraft(ExpeditionId revisionId) {
@@ -98,10 +112,7 @@ public final class Expedition {
 
     public void acceptWarning(AcceptedWarning warning) {
         requireStatus(ExpeditionStatus.IN_REVIEW, "accept warning");
-        if (!charter().isResponsible(Objects.requireNonNull(warning, "warning").acceptedBy())) {
-            throw new InvalidValue("warning must be accepted by a responsible");
-        }
-        acceptedWarnings.accept(warning);
+        register(warning);
     }
 
     public void submitForReview() {
@@ -126,6 +137,20 @@ public final class Expedition {
 
     public boolean hasAccepted(ValidationIssue warning) {
         return acceptedWarnings.covers(warning);
+    }
+
+    public ExpeditionState state() {
+        return new ExpeditionState(
+                id,
+                version,
+                supersedes(),
+                status,
+                charter(),
+                items(),
+                assignments().all(),
+                permits(),
+                acceptedWarnings()
+        );
     }
 
     public ExpeditionId id() {
@@ -194,6 +219,22 @@ public final class Expedition {
 
     public List<PermitId> permits() {
         return content.permits();
+    }
+
+    private void register(AcceptedWarning warning) {
+        if (!charter().isResponsible(Objects.requireNonNull(warning, "warning").acceptedBy())) {
+            throw new InvalidValue("warning must be accepted by a responsible");
+        }
+        acceptedWarnings.accept(warning);
+    }
+
+    private void requireRestorable() {
+        if (status == ExpeditionStatus.DRAFT && !acceptedWarnings.all().isEmpty()) {
+            throw new InvalidValue("a draft keeps no accepted warnings");
+        }
+        if (status != ExpeditionStatus.DRAFT && activities().isEmpty()) {
+            throw new InvalidItinerary("expedition has no activities");
+        }
     }
 
     private void transition(ExpeditionStatus from, ExpeditionStatus to, String action) {
