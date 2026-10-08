@@ -46,6 +46,29 @@ class ActivityTest {
         assertEquals(expected, planned(builder, RiskLevel.MEDIUM).risk());
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("requirementsOfEachKind")
+    void aRestoredActivityKeepsTheRequirementsAndTheRiskItWasStoredWith(
+            String kind,
+            Activity.Builder builder,
+            ResourceRequirements expected
+    ) {
+        Activity original = planned(builder, RiskLevel.LOW);
+
+        Activity restored = Activity.restoring(original.requirements())
+                .named(original.id(), original.name())
+                .estimated(original.estimatedDuration(), original.risk())
+                .in(original.zone(), original.window())
+                .build();
+
+        assertAll(
+                () -> assertEquals(expected, restored.requirements()),
+                () -> assertEquals(original.risk(), restored.risk()),
+                () -> assertEquals(original.id(), restored.id()),
+                () -> assertEquals(original.window(), restored.window())
+        );
+    }
+
     @Test
     void twoSamplingsCanEstimateDifferentDurationsAndConsumption() {
         ConsumableId vials = new ConsumableId(UUID.randomUUID());
