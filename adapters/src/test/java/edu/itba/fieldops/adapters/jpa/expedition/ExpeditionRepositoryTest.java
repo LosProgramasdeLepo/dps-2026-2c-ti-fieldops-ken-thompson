@@ -33,13 +33,10 @@ import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
-import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
-import edu.itba.fieldops.domain.itinerary.ItineraryItem;
-import edu.itba.fieldops.domain.itinerary.ResourceRequirements;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.PermitKind;
@@ -66,6 +63,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static edu.itba.fieldops.adapters.jpa.expedition.ItineraryDescriptions.describe;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -331,42 +329,5 @@ class ExpeditionRepositoryTest {
 
     private static List<ExpeditionId> ids(List<Expedition> expeditions) {
         return expeditions.stream().map(Expedition::id).toList();
-    }
-
-    private static List<Object> describe(List<ItineraryItem> items) {
-        return items.stream().map(ExpeditionRepositoryTest::describe).toList();
-    }
-
-    private static Object describe(ItineraryItem item) {
-        return switch (item) {
-            case Activity activity -> new ActivityView(
-                    activity.id(),
-                    activity.name(),
-                    activity.estimatedDuration(),
-                    activity.risk(),
-                    activity.estimatedConsumption(),
-                    activity.requirements(),
-                    activity.zone(),
-                    activity.window(),
-                    activity.predecessors()
-            );
-            case ActivityBlock block -> new BlockView(block.arrangement(), describe(block.parts()));
-        };
-    }
-
-    private record ActivityView(
-            ActivityId id,
-            String name,
-            Duration estimatedDuration,
-            RiskLevel risk,
-            Map<ConsumableId, Stock> estimatedConsumption,
-            ResourceRequirements requirements,
-            WorkZone zone,
-            TimePeriod window,
-            Set<ActivityId> predecessors
-    ) {
-    }
-
-    private record BlockView(ActivityBlock.Arrangement arrangement, List<Object> parts) {
     }
 }
