@@ -23,6 +23,7 @@ import edu.itba.fieldops.usecase.shared.Clock;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.support.TransactionOperations;
 
 @Configuration
 class FieldOpsConfiguration {
@@ -32,102 +33,97 @@ class FieldOpsConfiguration {
     }
 
     @Bean
-    FieldOpsRepositories repositories(Clock clock) {
-        return new InMemoryFieldOps(clock).repositories();
-    }
-
-    @Bean
     FieldOps fieldOps(FieldOpsRepositories repositories, Clock clock) {
         return new FieldOps(repositories, clock);
     }
 
     @Bean
-    AdministerPersonnel personnel(FieldOps fieldOps) {
-        return fieldOps.personnel();
+    AdministerPersonnel personnel(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(AdministerPersonnel.class, fieldOps.personnel(), transactions);
     }
 
     @Bean
-    AdministerEquipment equipment(FieldOps fieldOps) {
-        return fieldOps.equipment();
+    AdministerEquipment equipment(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(AdministerEquipment.class, fieldOps.equipment(), transactions);
     }
 
     @Bean
-    AdministerPermits permitting(FieldOps fieldOps) {
-        return fieldOps.permitting();
+    AdministerPermits permitting(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(AdministerPermits.class, fieldOps.permitting(), transactions);
     }
 
     @Bean
-    ConsultPersonnel consultPersonnel(FieldOps fieldOps) {
-        return fieldOps.consultPersonnel();
+    ConsultPersonnel consultPersonnel(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(ConsultPersonnel.class, fieldOps.consultPersonnel(), transactions);
     }
 
     @Bean
-    ConsultEquipment consultEquipment(FieldOps fieldOps) {
-        return fieldOps.consultEquipment();
+    ConsultEquipment consultEquipment(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(ConsultEquipment.class, fieldOps.consultEquipment(), transactions);
     }
 
     @Bean
-    ConsultPermits consultPermits(FieldOps fieldOps) {
-        return fieldOps.consultPermits();
+    ConsultPermits consultPermits(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(ConsultPermits.class, fieldOps.consultPermits(), transactions);
     }
 
     @Bean
-    DraftExpedition drafts(FieldOps fieldOps) {
-        return fieldOps.drafts();
+    DraftExpedition drafts(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(DraftExpedition.class, fieldOps.drafts(), transactions);
     }
 
     @Bean
-    PlanItinerary itinerary(FieldOps fieldOps) {
-        return fieldOps.itinerary();
+    PlanItinerary itinerary(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(PlanItinerary.class, fieldOps.itinerary(), transactions);
     }
 
     @Bean
-    EstimateExpedition estimates(FieldOps fieldOps) {
-        return fieldOps.estimates();
+    EstimateExpedition estimates(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(EstimateExpedition.class, fieldOps.estimates(), transactions);
     }
 
     @Bean
-    AssignResources assignments(FieldOps fieldOps) {
-        return fieldOps.assignments();
+    AssignResources assignments(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(AssignResources.class, fieldOps.assignments(), transactions);
     }
 
     @Bean
-    ReviewExpedition review(FieldOps fieldOps) {
-        return fieldOps.review();
+    ReviewExpedition review(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(ReviewExpedition.class, fieldOps.review(), transactions);
     }
 
     @Bean
-    ApproveExpedition approval(FieldOps fieldOps) {
-        return fieldOps.approval();
+    ApproveExpedition approval(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(ApproveExpedition.class, fieldOps.approval(), transactions);
     }
 
     @Bean
-    ConsultExpedition consult(FieldOps fieldOps) {
-        return fieldOps.consult();
+    ConsultExpedition consult(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(ConsultExpedition.class, fieldOps.consult(), transactions);
     }
 
     @Bean
-    TrackExpedition tracking(FieldOps fieldOps) {
-        return fieldOps.tracking();
+    TrackExpedition tracking(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(TrackExpedition.class, fieldOps.tracking(), transactions);
     }
 
     @Bean
-    RecordIncident incidents(FieldOps fieldOps) {
-        return fieldOps.incidents();
+    RecordIncident incidents(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(RecordIncident.class, fieldOps.incidents(), transactions);
     }
 
     @Bean
-    ReviewReplanProposal proposalReview(FieldOps fieldOps) {
-        return fieldOps.proposalReview();
+    ReviewReplanProposal proposalReview(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(ReviewReplanProposal.class, fieldOps.proposalReview(), transactions);
     }
 
     @Bean
-    ReplanExpedition replan(FieldOps fieldOps) {
-        return fieldOps.replan();
+    ReplanExpedition replan(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(ReplanExpedition.class, fieldOps.replan(), transactions);
     }
 
     @Bean
-    ReportExpedition reports(FieldOps fieldOps) {
-        return fieldOps.reports();
+    ReportExpedition reports(FieldOps fieldOps, TransactionOperations transactions) {
+        return TransactionalUseCase.around(ReportExpedition.class, fieldOps.reports(), transactions);
     }
 }
