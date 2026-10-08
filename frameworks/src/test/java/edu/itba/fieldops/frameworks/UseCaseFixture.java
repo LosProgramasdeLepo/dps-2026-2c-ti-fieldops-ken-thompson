@@ -56,12 +56,13 @@ abstract class UseCaseFixture {
     static final PageRequest FIRST_PAGE = new PageRequest(0, 20);
 
     final FixedClock clock = new FixedClock(DAY);
-    private final InMemoryFieldOps app = new InMemoryFieldOps(clock);
+    private final InMemoryFieldOps memory = new InMemoryFieldOps(clock);
+    private final FieldOps app = memory.useCases();
 
-    final ResourceCatalog catalog = app.catalog();
-    final InMemoryExpeditionRepository plans = app.plans();
-    final InMemoryExecutionRepository runs = app.runs();
-    final InMemoryReplanProposalRepository proposals = app.proposals();
+    final ResourceCatalog catalog = memory.catalog();
+    final InMemoryExpeditionRepository plans = memory.plans();
+    final InMemoryExecutionRepository runs = memory.runs();
+    final InMemoryReplanProposalRepository proposals = memory.proposals();
     final AdministerPersonnel personnel = app.personnel();
     final AdministerEquipment equipment = app.equipment();
     final AdministerPermits permitting = app.permitting();
