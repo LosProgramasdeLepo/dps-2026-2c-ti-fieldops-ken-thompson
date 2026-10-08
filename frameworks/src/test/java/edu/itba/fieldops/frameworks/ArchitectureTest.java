@@ -29,6 +29,15 @@ class ArchitectureTest {
             );
 
     @ArchTest
+    static final ArchRule persistenceStaysOutOfTheDomainAndTheUseCases = noClasses()
+            .that().resideInAnyPackage("edu.itba.fieldops.domain..", "edu.itba.fieldops.usecase..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "jakarta.persistence..",
+                    "org.hibernate..",
+                    "org.springframework.."
+            );
+
+    @ArchTest
     static final ArchRule apiDoesNotDependOnAdapters = noClasses()
             .that().resideInAPackage("edu.itba.fieldops.api..")
             .should().dependOnClassesThat().resideInAPackage("edu.itba.fieldops.adapters..");
