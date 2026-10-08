@@ -37,6 +37,19 @@ final class PlanContent {
         this.permits = permits;
     }
 
+    static PlanContent restore(ExpeditionState state) {
+        PlanContent content = new PlanContent(
+                state.charter(),
+                Itinerary.restoring(state.items()),
+                new Assignments(),
+                new ArrayList<>()
+        );
+        content.activities().forEach(content::requirePlanned);
+        state.assignments().forEach(content::addAssignment);
+        state.permits().forEach(content::addPermit);
+        return content;
+    }
+
     PlanContent copy() {
         return new PlanContent(charter, itinerary.copy(), assignments.copy(), new ArrayList<>(permits));
     }
