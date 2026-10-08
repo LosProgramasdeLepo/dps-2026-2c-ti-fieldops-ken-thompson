@@ -128,6 +128,52 @@ class ExpeditionExecutionTest {
         );
     }
 
+    @Test
+    void aRestoredRunHasTheStateItWasStoredWith() {
+        execution.startActivity(first, DAY, Set.of());
+        execution.finishActivity(first, hours(4), "site reached");
+        execution.startActivity(second, hours(4), Set.of(first));
+        execution.addIncident(Incident.affecting(second, "flooded trail", hours(5)));
+        execution.addObservation(new Observation("heron colony", hours(5)));
+        execution.suspend();
+
+        ExpeditionExecution restored = ExpeditionExecution.restore(execution.state());
+        restored.resume();
+
+        assertAll(
+                () -> assertEquals(execution.activities(), restored.activities()),
+                () -> assertEquals(execution.incidents(), restored.incidents()),
+                () -> assertEquals(execution.observations(), restored.observations()),
+                () -> assertEquals(ExpeditionExecution.Status.IN_PROGRESS, restored.status())
+        );
+    }
+
+    @Test
+    void rejectsRestoringAFinishedRunWithAnActivityStillRunning() {
+        ExecutionState running = new ExecutionState(
+                new ExpeditionId(UUID.randomUUID()),
+                ExpeditionExecution.Status.FINISHED,
+                List.of(new ActivityExecution(first, DAY)),
+                List.of(),
+                List.of()
+        );
+
+        assertThrows(InvalidActivityExecution.class, () -> ExpeditionExecution.restore(running));
+    }
+
+    @Test
+    void rejectsRestoringARunThatStartedAnActivityTwice() {
+        ExecutionState repeated = new ExecutionState(
+                new ExpeditionId(UUID.randomUUID()),
+                ExpeditionExecution.Status.IN_PROGRESS,
+                List.of(new ActivityExecution(first, DAY), new ActivityExecution(first, hours(1))),
+                List.of(),
+                List.of()
+        );
+
+        assertThrows(InvalidActivityExecution.class, () -> ExpeditionExecution.restore(repeated));
+    }
+
     private static Instant hours(int hours) {
         return DAY.plus(Duration.ofHours(hours));
     }
