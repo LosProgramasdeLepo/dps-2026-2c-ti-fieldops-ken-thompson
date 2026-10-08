@@ -22,6 +22,16 @@ import java.util.function.Function;
 public final class Itinerary {
     private final List<ItineraryItem> items = new ArrayList<>();
 
+    public static Itinerary restoring(List<ItineraryItem> stored) {
+        List<ItineraryItem> tree = List.copyOf(Objects.requireNonNull(stored, "stored items"));
+        List<Activity> leaves = leaves(tree);
+        requireDistinct(leaves);
+        requireConsistent(leaves, tree);
+        Itinerary itinerary = new Itinerary();
+        itinerary.items.addAll(tree);
+        return itinerary;
+    }
+
     public void add(ItineraryItem item) {
         Objects.requireNonNull(item, "itinerary item");
         List<Activity> current = activities();
@@ -132,6 +142,15 @@ public final class Itinerary {
         List<ItineraryItem> next = replaced(items, updated);
         items.clear();
         items.addAll(next);
+    }
+
+    private static void requireDistinct(List<Activity> leaves) {
+        Set<ActivityId> seen = new HashSet<>();
+        for (Activity activity : leaves) {
+            if (!seen.add(activity.id())) {
+                throw new InvalidItinerary("duplicate activity: " + activity.id());
+            }
+        }
     }
 
     private static void requireConsistent(List<Activity> changed, List<ItineraryItem> tree) {
