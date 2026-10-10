@@ -1,6 +1,7 @@
 package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.support.ResourceCatalog;
+import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Consumable;
@@ -139,10 +140,10 @@ class ReplannerTest {
         Expedition approved = draftWith(sample);
         approved.addAssignment(new PersonAssignment(sample.id(), ada.id()));
         approved.submitForReview();
-        approved.markApproved();
-        Expedition revision = approved.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        Expedition inForce = StoredPlans.approved(approved);
+        Expedition revision = inForce.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
 
-        replanner.replaceUnavailable(occupiedBy(revision, approved));
+        replanner.replaceUnavailable(occupiedBy(revision, inForce));
 
         assertEquals(List.of(new PersonAssignment(sample.id(), ada.id())), revision.assignments().all());
     }

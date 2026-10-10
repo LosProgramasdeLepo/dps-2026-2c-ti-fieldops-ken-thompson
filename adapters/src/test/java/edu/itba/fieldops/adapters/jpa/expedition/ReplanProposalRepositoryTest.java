@@ -8,6 +8,8 @@ import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
+import edu.itba.fieldops.domain.expedition.ExpeditionState;
+import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -87,7 +89,7 @@ class ReplanProposalRepositoryTest {
                 .build();
         approved.addActivity(soil);
         approved.submitForReview();
-        approved.markApproved();
+        approved = approved(approved);
         plans.save(approved);
         reload();
     }
@@ -177,6 +179,21 @@ class ReplanProposalRepositoryTest {
     @Test
     void anUnknownProposalIsNotFound() {
         assertEquals(Optional.empty(), proposals.find(new ProposalId(UUID.randomUUID())));
+    }
+
+    private static Expedition approved(Expedition inReview) {
+        ExpeditionState state = inReview.state();
+        return Expedition.restore(new ExpeditionState(
+                state.id(),
+                state.version(),
+                state.supersedes(),
+                ExpeditionStatus.APPROVED,
+                state.charter(),
+                state.items(),
+                state.assignments(),
+                state.permits(),
+                state.acceptedWarnings()
+        ));
     }
 
     private ReplanProposal proposal(String description) {
