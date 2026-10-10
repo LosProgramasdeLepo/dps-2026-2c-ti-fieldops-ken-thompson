@@ -602,7 +602,6 @@ class ExpeditionValidatorTest {
 
     private static ExpeditionExecution finish(Expedition expedition, Activity activity) {
         expedition.submitForReview();
-        expedition.markApproved();
         ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
         execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
         execution.finishActivity(activity.id(), DAY.plusSeconds(4 * 3600L), "samples stored");

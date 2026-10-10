@@ -1,5 +1,6 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
@@ -98,8 +99,7 @@ class ReplanProposalTest {
                 .in(new WorkZone("Delta"), new TimePeriod(DAY, DAY.plus(Duration.ofHours(2))))
                 .build());
         approved.submitForReview();
-        approved.markApproved();
-        return approved.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        return StoredPlans.approved(approved).reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
     }
 
     private static Expedition draft() {

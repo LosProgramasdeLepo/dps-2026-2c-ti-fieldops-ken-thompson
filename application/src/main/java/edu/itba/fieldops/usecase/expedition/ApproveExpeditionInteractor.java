@@ -1,12 +1,7 @@
 package edu.itba.fieldops.usecase.expedition;
 
 import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
-import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
-import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
-import edu.itba.fieldops.domain.assessment.ValidationIssue;
-import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 
@@ -32,25 +27,9 @@ public final class ApproveExpeditionInteractor implements ApproveExpedition {
     @Override
     public void approve(ExpeditionId expeditionId) {
         Expedition plan = plans.require(expeditionId);
-        if (plan.status() != ExpeditionStatus.IN_REVIEW) {
-            throw new InvalidExpeditionTransition(plan.status(), "approve");
-        }
-        requireApprovable(plan, validator.validate(contexts.around(plan)));
         Optional<Expedition> previous = plan.supersedes().map(plans::require);
-        previous.ifPresent(Expedition::markSuperseded);
-        plan.markApproved();
+        plan.approve(validator, contexts.around(plan), previous);
         previous.ifPresent(plans::save);
         plans.save(plan);
-    }
-
-    private static void requireApprovable(Expedition plan, ValidationResult result) {
-        if (result.hasCritical()) {
-            throw new ExpeditionNotApprovable("critical validation issues remain");
-        }
-        for (ValidationIssue warning : result.warnings()) {
-            if (!plan.hasAccepted(warning)) {
-                throw new ExpeditionNotApprovable("warning not justified: " + warning.code());
-            }
-        }
     }
 }
