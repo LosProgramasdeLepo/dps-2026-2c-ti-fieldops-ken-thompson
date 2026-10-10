@@ -1,6 +1,7 @@
 package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
+import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -127,8 +128,15 @@ public final class Expedition {
         acceptedWarnings.clear();
     }
 
-    public void markApproved() {
-        transition(ExpeditionStatus.IN_REVIEW, ExpeditionStatus.APPROVED, "approve");
+    public void approve(ExpeditionValidator validator, PlanningContext context, Optional<Expedition> predecessor) {
+        requireStatus(ExpeditionStatus.IN_REVIEW, "approve");
+        if (Objects.requireNonNull(context, "context").plan() != this) {
+            throw new InvalidValue("approval context is for another expedition");
+        }
+        Objects.requireNonNull(predecessor, "predecessor");
+        requireApprovable(Objects.requireNonNull(validator, "validator").validate(context));
+        predecessor.ifPresent(Expedition::markSuperseded);
+        status = ExpeditionStatus.APPROVED;
     }
 
     public void markSuperseded() {
@@ -219,6 +227,17 @@ public final class Expedition {
 
     public List<PermitId> permits() {
         return content.permits();
+    }
+
+    private void requireApprovable(ValidationResult result) {
+        if (result.hasCritical()) {
+            throw new ExpeditionNotApprovable("critical validation issues remain");
+        }
+        for (ValidationIssue warning : result.warnings()) {
+            if (!hasAccepted(warning)) {
+                throw new ExpeditionNotApprovable("warning not justified: " + warning.code());
+            }
+        }
     }
 
     private void register(AcceptedWarning warning) {

@@ -268,8 +268,22 @@ class ExpeditionRepositoryTest {
                 "a second truck follows",
                 ada.id()
         ));
-        expedition.markApproved();
-        return expedition;
+        return approved(expedition);
+    }
+
+    private static Expedition approved(Expedition inReview) {
+        ExpeditionState state = inReview.state();
+        return Expedition.restore(new ExpeditionState(
+                state.id(),
+                state.version(),
+                state.supersedes(),
+                ExpeditionStatus.APPROVED,
+                state.charter(),
+                state.items(),
+                state.assignments(),
+                state.permits(),
+                state.acceptedWarnings()
+        ));
     }
 
     private Expedition draft() {

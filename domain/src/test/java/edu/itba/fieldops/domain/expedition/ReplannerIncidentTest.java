@@ -1,6 +1,7 @@
 package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.support.ResourceCatalog;
+import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Person;
@@ -116,7 +117,7 @@ class ReplannerIncidentTest {
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), person.id()));
         expedition.submitForReview();
-        expedition.markApproved();
+        expedition = StoredPlans.approved(expedition);
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.save(person);
         return new Prepared(expedition, activity, person, ExpeditionExecution.started(expedition.id()), catalog);

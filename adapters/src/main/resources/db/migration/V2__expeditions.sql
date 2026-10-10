@@ -181,6 +181,7 @@ CREATE TABLE consumable_assignments (
     consumable_id uuid    NOT NULL REFERENCES consumables (id),
     quantity      integer NOT NULL CHECK (quantity > 0),
     PRIMARY KEY (expedition_id, position),
+    UNIQUE (expedition_id, activity_id, consumable_id) DEFERRABLE INITIALLY DEFERRED,
     FOREIGN KEY (expedition_id, activity_id) REFERENCES activities (expedition_id, activity_id)
         DEFERRABLE INITIALLY DEFERRED
 );
