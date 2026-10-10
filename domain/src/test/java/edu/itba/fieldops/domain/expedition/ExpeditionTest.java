@@ -2,6 +2,9 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
+import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.support.ResourceCatalog;
+import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -21,6 +24,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -99,6 +103,105 @@ class ExpeditionTest {
     }
 
     @Test
+    void approveMovesAnInReviewPlanToApprovedWhenValidationIsClean() {
+        Expedition expedition = inReview();
+
+        expedition.approve(result(), context(expedition), Optional.empty());
+
+        assertEquals(ExpeditionStatus.APPROVED, expedition.status());
+    }
+
+    @Test
+    void approveRejectsCriticalIssuesAndLeavesThePlanInReview() {
+        Expedition expedition = inReview();
+
+        assertThrows(ExpeditionNotApprovable.class, () -> expedition.approve(result(critical()), context(expedition), Optional.empty()));
+
+        assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
+    }
+
+    @Test
+    void approveRejectsAWarningThatWasNotAccepted() {
+        Expedition expedition = inReview();
+        AcceptedWarning warning = acceptedCapacityWarning(expedition);
+
+        assertThrows(ExpeditionNotApprovable.class, () -> expedition.approve(result(warning.issue()), context(expedition), Optional.empty()));
+
+        assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
+    }
+
+    @Test
+    void approveAcceptsAJustifiedWarning() {
+        Expedition expedition = inReview();
+        AcceptedWarning warning = acceptedCapacityWarning(expedition);
+        expedition.acceptWarning(warning);
+
+        expedition.approve(result(warning.issue()), context(expedition), Optional.empty());
+
+        assertEquals(ExpeditionStatus.APPROVED, expedition.status());
+    }
+
+    @Test
+    void approveRejectsAContextForAnotherExpedition() {
+        Expedition expedition = inReview();
+        Expedition other = inReview();
+
+        assertThrows(InvalidValue.class, () -> expedition.approve(result(), context(other), Optional.empty()));
+
+        assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
+    }
+
+    @Test
+    void approveSupersedesThePredecessor() {
+        Expedition original = approvedWithSampling();
+        Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        revision.submitForReview();
+
+        revision.approve(result(), context(revision), Optional.of(original));
+
+        assertEquals(ExpeditionStatus.SUPERSEDED, original.status());
+        assertEquals(ExpeditionStatus.APPROVED, revision.status());
+    }
+
+    @Test
+    void aCriticalIssueDoesNotSupersedeThePredecessor() {
+        Expedition original = approvedWithSampling();
+        Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        revision.submitForReview();
+
+        assertThrows(
+                ExpeditionNotApprovable.class,
+                () -> revision.approve(result(critical()), context(revision), Optional.of(original))
+        );
+
+        assertEquals(ExpeditionStatus.APPROVED, original.status());
+        assertEquals(ExpeditionStatus.IN_REVIEW, revision.status());
+    }
+
+    @Test
+    void approveLeavesTheRevisionInReviewWhenThePredecessorCannotBeSuperseded() {
+        Expedition original = approvedWithSampling();
+        original.markSuperseded();
+        Expedition revision = inReview();
+
+        assertThrows(
+                InvalidExpeditionTransition.class,
+                () -> revision.approve(result(), context(revision), Optional.of(original))
+        );
+
+        assertEquals(ExpeditionStatus.SUPERSEDED, original.status());
+        assertEquals(ExpeditionStatus.IN_REVIEW, revision.status());
+    }
+
+    @Test
+    void cannotApproveADraft() {
+        Expedition expedition = wetlandDraft();
+        expedition.addActivity(sampling());
+
+        assertThrows(InvalidExpeditionTransition.class, () -> expedition.approve(result(), context(expedition), Optional.empty()));
+    }
+
+    @Test
     void cannotReturnAnApprovedPlanToDraft() {
         Expedition expedition = approvedWithSampling();
 
@@ -144,12 +247,12 @@ class ExpeditionTest {
         expedition.addActivity(sampling());
         expedition.submitForReview();
         expedition.acceptWarning(acceptedCapacityWarning(expedition));
-        expedition.markApproved();
+        Expedition approved = StoredPlans.approved(expedition);
 
-        Expedition restored = Expedition.restore(expedition.state());
+        Expedition restored = Expedition.restore(approved.state());
 
         assertAll(
-                () -> assertEquals(expedition.state(), restored.state()),
+                () -> assertEquals(approved.state(), restored.state()),
                 () -> assertTrue(restored.hasAccepted(acceptedCapacityWarning(expedition).issue()))
         );
     }
@@ -256,8 +359,7 @@ class ExpeditionTest {
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), new PersonId(UUID.randomUUID())));
         expedition.submitForReview();
-        expedition.markApproved();
-        return expedition;
+        return StoredPlans.approved(expedition);
     }
 
     private static Expedition wetlandDraft() {
@@ -271,6 +373,25 @@ class ExpeditionTest {
                         List.of(new Restriction("No night work"))
                 )
         );
+    }
+
+    private static Expedition inReview() {
+        Expedition expedition = wetlandDraft();
+        expedition.addActivity(sampling());
+        expedition.submitForReview();
+        return expedition;
+    }
+
+    private static PlanningContext context(Expedition plan) {
+        return new PlanningContext(plan, new ResourceCatalog().catalogs(), OccupyingExpeditions.of(plan, List.of(), Map.of()));
+    }
+
+    private static ExpeditionValidator result(ValidationIssue... issues) {
+        return planning -> new ValidationResult(planning.plan().id(), planning.plan().version(), List.of(issues));
+    }
+
+    private static ValidationIssue critical() {
+        return new ValidationIssue(IssueSeverity.CRITICAL, "RESOURCE", "missing personnel");
     }
 
     private static AcceptedWarning acceptedCapacityWarning(Expedition expedition) {
