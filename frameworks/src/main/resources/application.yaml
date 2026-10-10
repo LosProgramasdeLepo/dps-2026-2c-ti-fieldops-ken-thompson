@@ -9,3 +9,33 @@ spring:
     deserialization:
       fail-on-unknown-properties: true
     default-property-inclusion: non_null
+  datasource:
+    url: ${FIELDOPS_DB_URL:jdbc:postgresql://localhost:5432/fieldops}
+    username: ${FIELDOPS_DB_USER:fieldops}
+    password: ${FIELDOPS_DB_PASSWORD:fieldops}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_batch_fetch_size: 64
+
+fieldops:
+  persistence: jpa
+
+---
+spring:
+  config:
+    activate:
+      on-profile: memory
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration
+      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+
+fieldops:
+  persistence: memory

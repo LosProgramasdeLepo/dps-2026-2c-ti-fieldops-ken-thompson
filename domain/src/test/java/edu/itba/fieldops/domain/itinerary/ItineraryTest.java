@@ -171,6 +171,69 @@ class ItineraryTest {
         assertEquals(Set.of(), itinerary.predecessorsOf(second.id()));
     }
 
+    @Test
+    void restoringKeepsTheStoredItemsInTheirOrder() {
+        ItineraryItem block = ActivityBlock.sequential(transit("approach", 0, 2), transit("return", 2, 4));
+        Activity survey = transit("survey", 0, 2);
+
+        Itinerary restored = Itinerary.restoring(List.of(block, survey));
+
+        assertAll(
+                () -> assertEquals(List.of(block, survey), restored.items()),
+                () -> assertEquals(3, restored.activities().size())
+        );
+    }
+
+    @Test
+    void restoringAcceptsADependencyOnAnItemStoredLater() {
+        ActivityId earlierId = new ActivityId(UUID.randomUUID());
+        Activity dependent = transitAfter(new ActivityId(UUID.randomUUID()), 3, 5, Set.of(earlierId));
+        Activity earlier = transitAfter(earlierId, 0, 2, Set.of());
+
+        Itinerary restored = Itinerary.restoring(List.of(dependent, earlier));
+
+        assertAll(
+                () -> assertThrows(InvalidItinerary.class, () -> new Itinerary().add(dependent)),
+                () -> assertEquals(Set.of(earlierId), restored.predecessorsOf(dependent.id()))
+        );
+    }
+
+    @Test
+    void restoringNothingGivesAnEmptyItinerary() {
+        assertEquals(List.of(), Itinerary.restoring(List.of()).items());
+    }
+
+    @Test
+    void restoringRequiresTheStoredItems() {
+        assertThrows(NullPointerException.class, () -> Itinerary.restoring(null));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("storedTreesThatBreakAnInvariant")
+    void restoringRejectsAStoredTreeThatBreaksAnInvariant(String broken, List<ItineraryItem> stored) {
+        assertThrows(InvalidItinerary.class, () -> Itinerary.restoring(stored));
+    }
+
+    private static Stream<Arguments> storedTreesThatBreakAnInvariant() {
+        ActivityId firstId = new ActivityId(UUID.randomUUID());
+        ActivityId secondId = new ActivityId(UUID.randomUUID());
+        Activity repeated = transit("ride", 0, 2);
+        return Stream.of(
+                arguments("the same activity in two items", List.of(repeated, repeated)),
+                arguments("an unknown predecessor", List.of(
+                        transitAfter(firstId, 2, 4, Set.of(new ActivityId(UUID.randomUUID())))
+                )),
+                arguments("a dependency cycle", List.of(
+                        transitAfter(firstId, 0, 2, Set.of(secondId)),
+                        transitAfter(secondId, 3, 5, Set.of(firstId))
+                )),
+                arguments("a predecessor that finishes after the activity starts", List.of(
+                        transitAfter(firstId, 0, 3, Set.of()),
+                        transitAfter(secondId, 2, 4, Set.of(firstId))
+                ))
+        );
+    }
+
     private static Stream<Arguments> blocksOfTwoParts() {
         return Stream.of(
                 arguments("sequential", ActivityBlock.sequential(transit("approach", 0, 4), transit("return", 4, 7)), Duration.ofHours(7)),
@@ -188,6 +251,15 @@ class ItineraryTest {
                 .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .consuming(consumption)
+                .build();
+    }
+
+    private static Activity transitAfter(ActivityId id, int fromHour, int toHour, Set<ActivityId> predecessors) {
+        return Activity.transit()
+                .named(id, "stored")
+                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .in(DELTA, window(fromHour, toHour))
+                .after(predecessors)
                 .build();
     }
 

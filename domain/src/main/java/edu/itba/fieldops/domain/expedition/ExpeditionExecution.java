@@ -36,6 +36,24 @@ public final class ExpeditionExecution {
         return new ExpeditionExecution(expeditionId, Status.IN_PROGRESS);
     }
 
+    public static ExpeditionExecution restore(ExecutionState state) {
+        ExpeditionExecution execution = new ExpeditionExecution(
+                Objects.requireNonNull(state, "execution state").expeditionId(),
+                state.status()
+        );
+        state.activities().forEach(execution::restoreActivity);
+        execution.incidents.addAll(state.incidents());
+        execution.observations.addAll(state.observations());
+        if (execution.isFinished()) {
+            execution.requireStartedFinished();
+        }
+        return execution;
+    }
+
+    public ExecutionState state() {
+        return new ExecutionState(expeditionId, status, activities(), incidents(), observations());
+    }
+
     public void suspend() {
         requireStatus(Status.IN_PROGRESS, "suspend");
         status = Status.SUSPENDED;
@@ -111,6 +129,13 @@ public final class ExpeditionExecution {
 
     public List<Observation> observations() {
         return List.copyOf(observations);
+    }
+
+    private void restoreActivity(ActivityExecution execution) {
+        if (executionOf(execution.activityId()).isPresent()) {
+            throw new InvalidActivityExecution("activity already started: " + execution.activityId());
+        }
+        activities.add(execution);
     }
 
     private void requireStartedFinished() {

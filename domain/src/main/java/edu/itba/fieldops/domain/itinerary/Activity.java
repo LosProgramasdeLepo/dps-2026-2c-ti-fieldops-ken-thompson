@@ -113,6 +113,10 @@ public final class Activity implements ItineraryItem {
         ));
     }
 
+    public static Builder restoring(ResourceRequirements requirements) {
+        return new Builder(Objects.requireNonNull(requirements, "restored requirements"));
+    }
+
     public ActivityId id() {
         return id;
     }
