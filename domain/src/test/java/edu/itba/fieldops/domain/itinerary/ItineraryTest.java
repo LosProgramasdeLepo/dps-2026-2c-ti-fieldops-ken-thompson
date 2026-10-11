@@ -66,16 +66,27 @@ class ItineraryTest {
     }
 
     @Test
-    void removingTheLastLeafDropsTheBlock() {
+    void removingOneLeafUnwrapsTheBlock() {
         Activity left = transit("left", 0, 2);
         Activity right = transit("right", 0, 2);
         Itinerary itinerary = new Itinerary();
         itinerary.add(ActivityBlock.parallel(left, right));
 
         itinerary.remove(left.id());
+
         assertEquals(List.of(right), itinerary.items());
+    }
+
+    @Test
+    void removingTheLastLeafDropsTheBlock() {
+        Activity left = transit("left", 0, 2);
+        Activity right = transit("right", 0, 2);
+        Itinerary itinerary = new Itinerary();
+        itinerary.add(ActivityBlock.parallel(left, right));
+        itinerary.remove(left.id());
 
         itinerary.remove(right.id());
+
         assertEquals(List.of(), itinerary.activities());
     }
 
@@ -185,6 +196,16 @@ class ItineraryTest {
     }
 
     @Test
+    void rejectsAnActivityWhosePredecessorIsNotInTheItinerary() {
+        Activity dependent = transitAfter(new ActivityId(UUID.randomUUID()), 3, 5, Set.of(new ActivityId(UUID.randomUUID())));
+        Itinerary itinerary = new Itinerary();
+
+        assertThrows(InvalidItinerary.class, () -> itinerary.add(dependent));
+
+        assertEquals(List.of(), itinerary.activities());
+    }
+
+    @Test
     void restoringAcceptsADependencyOnAnItemStoredLater() {
         ActivityId earlierId = new ActivityId(UUID.randomUUID());
         Activity dependent = transitAfter(new ActivityId(UUID.randomUUID()), 3, 5, Set.of(earlierId));
@@ -192,10 +213,7 @@ class ItineraryTest {
 
         Itinerary restored = Itinerary.restoring(List.of(dependent, earlier));
 
-        assertAll(
-                () -> assertThrows(InvalidItinerary.class, () -> new Itinerary().add(dependent)),
-                () -> assertEquals(Set.of(earlierId), restored.predecessorsOf(dependent.id()))
-        );
+        assertEquals(Set.of(earlierId), restored.predecessorsOf(dependent.id()));
     }
 
     @Test

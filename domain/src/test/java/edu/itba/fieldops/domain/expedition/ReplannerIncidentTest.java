@@ -67,14 +67,17 @@ class ReplannerIncidentTest {
 
     @Test
     void replacesResourcesWhenTheActivityHasNotStartedAndCannotBeDelayed() {
-        Prepared prepared = approvedSampling();
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), new Availability(List.of(window(4, 8))));
+        Person bob = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(certification), Availability.always());
+        Prepared prepared = approvedSampling(ada, certification, bob);
         Incident incident = Incident.affecting(prepared.activity.id(), "forecast change", DAY);
 
         Expedition revision = respondTo(prepared, incident);
 
         assertAll(
                 () -> assertEquals(window(0, 4), revision.activityOf(prepared.activity.id()).window()),
-                () -> assertEquals(List.of(new PersonAssignment(prepared.activity.id(), prepared.person.id())), revision.assignments().all())
+                () -> assertEquals(List.of(new PersonAssignment(prepared.activity.id(), bob.id())), revision.assignments().all())
         );
     }
 
@@ -98,7 +101,11 @@ class ReplannerIncidentTest {
 
     private static Prepared approvedSampling() {
         Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        return approvedSampling(ada, certification);
+    }
+
+    private static Prepared approvedSampling(Person assignee, Certification certification, Person... others) {
         Activity activity = Activity.sampling(certification.id())
                 .named(new ActivityId(UUID.randomUUID()), "Soil sampling")
                 .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
@@ -110,17 +117,20 @@ class ReplannerIncidentTest {
                         List.of(new Objective("Map wetland")),
                         week(),
                         List.of(DELTA),
-                        List.of(person.id()),
+                        List.of(assignee.id()),
                         List.of(new Restriction("Daylight only"))
                 )
         );
         expedition.addActivity(activity);
-        expedition.addAssignment(new PersonAssignment(activity.id(), person.id()));
+        expedition.addAssignment(new PersonAssignment(activity.id(), assignee.id()));
         expedition.submitForReview();
         expedition = StoredPlans.approved(expedition);
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.save(person);
-        return new Prepared(expedition, activity, person, ExpeditionExecution.started(expedition.id()), catalog);
+        catalog.save(assignee);
+        for (Person other : others) {
+            catalog.save(other);
+        }
+        return new Prepared(expedition, activity, assignee, ExpeditionExecution.started(expedition.id()), catalog);
     }
 
     private static TimePeriod window(int fromHour, int toHour) {
