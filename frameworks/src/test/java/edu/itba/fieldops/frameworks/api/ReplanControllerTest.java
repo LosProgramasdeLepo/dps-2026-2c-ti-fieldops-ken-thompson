@@ -69,11 +69,11 @@ class ReplanControllerTest {
         UUID id = UUID.randomUUID();
         UUID activityId = UUID.randomUUID();
         mvc.perform(delete("/v1/expeditions/{id}/activities/{activityId}", id, activityId)).andExpect(status().isNoContent());
-        mvc.perform(post("/v1/expeditions/{id}/activities/{activityId}/delay", id, activityId)
+        mvc.perform(post("/v1/expeditions/{id}/activities/{activityId}/delays", id, activityId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"delay\":\"PT1H\"}"))
                 .andExpect(status().isNoContent());
-        mvc.perform(post("/v1/expeditions/{id}/reassignments", id)).andExpect(status().isNoContent());
+        mvc.perform(post("/v1/expeditions/{id}/replacements", id)).andExpect(status().isNoContent());
     }
 
     @Test

@@ -15,6 +15,7 @@ import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
+import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -142,6 +144,43 @@ class PlanningUseCasesTest extends UseCaseFixture {
                 () -> assertEquals(2, page.totalItems()),
                 () -> assertEquals(revision, consult.all(new PageRequest(1, 1)).items().getFirst().id())
         );
+    }
+
+    @Test
+    void addingTheSequencePredecessorStoresItExplicitly() {
+        CertificationId certificationId = certification();
+        ExpeditionId expeditionId = draftResponsibleFor(certifiedPerson("Ada", certificationId));
+        Activity approach = Activity.transit()
+                .named(itinerary.nextActivityId(), "Approach")
+                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .in(DELTA, hours(0, 2))
+                .build();
+        Activity survey = sampling(certificationId, itinerary.nextActivityId(), hours(2, 4));
+        itinerary.addBlock(expeditionId, ActivityBlock.sequential(approach, survey));
+
+        itinerary.addDependency(expeditionId, survey.id(), approach.id());
+
+        assertEquals(Set.of(approach.id()), consult.activity(expeditionId, survey.id()).predecessors());
+    }
+
+    @Test
+    void attachingAPermitAgainLeavesItOnce() {
+        TwoSamplings plan = twoSamplings();
+        PermitId permitId = consult.of(plan.expeditionId()).permits().getFirst();
+
+        assignments.addPermit(plan.expeditionId(), permitId);
+
+        assertEquals(List.of(permitId), consult.of(plan.expeditionId()).permits());
+    }
+
+    @Test
+    void addingADependencyAgainLeavesItOnce() {
+        TwoSamplings plan = twoSamplings();
+        itinerary.addDependency(plan.expeditionId(), plan.later(), plan.first());
+
+        itinerary.addDependency(plan.expeditionId(), plan.later(), plan.first());
+
+        assertEquals(Set.of(plan.first()), consult.activity(plan.expeditionId(), plan.later()).predecessors());
     }
 
     @Test
