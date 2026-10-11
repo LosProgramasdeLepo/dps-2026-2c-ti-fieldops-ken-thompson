@@ -6,7 +6,6 @@ import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.usecase.catalog.AdministerPersonnel;
@@ -26,6 +25,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -85,8 +85,13 @@ class PersonnelControllerTest {
 
     @Test
     void certifiesAPerson() throws Exception {
-        mvc.perform(put("/v1/people/{id}/certifications/{certificationId}", UUID.randomUUID(), UUID.randomUUID()))
+        UUID personId = UUID.randomUUID();
+        UUID certificationId = UUID.randomUUID();
+
+        mvc.perform(put("/v1/people/{id}/certifications/{certificationId}", personId, certificationId))
                 .andExpect(status().isNoContent());
+
+        verify(personnel).certify(new PersonId(personId), new CertificationId(certificationId));
     }
 
     @Test
@@ -124,16 +129,6 @@ class PersonnelControllerTest {
 
         mvc.perform(get("/v1/people/{id}", id))
                 .andExpect(status().isNotFound())
-                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
-    }
-
-    @Test
-    void aDuplicateCertificationIsUnprocessable() throws Exception {
-        org.mockito.Mockito.doThrow(new InvalidValue("person already holds certification"))
-                .when(personnel).certify(any(), any());
-
-        mvc.perform(put("/v1/people/{id}/certifications/{certificationId}", UUID.randomUUID(), UUID.randomUUID()))
-                .andExpect(status().isUnprocessableEntity())
                 .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
     }
 }

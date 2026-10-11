@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -40,22 +41,60 @@ class RunControllerTest {
     private TrackExpedition tracking;
 
     @Test
-    void tracksTheRun() throws Exception {
+    void startsTheRun() throws Exception {
+        UUID id = UUID.randomUUID();
+        mvc.perform(post("/v1/expeditions/{id}/run", id)).andExpect(status().isNoContent());
+        verify(tracking).start(new ExpeditionId(id));
+    }
+
+    @Test
+    void suspendsTheRun() throws Exception {
+        UUID id = UUID.randomUUID();
+        mvc.perform(post("/v1/expeditions/{id}/run/suspension", id)).andExpect(status().isNoContent());
+        verify(tracking).suspend(new ExpeditionId(id));
+    }
+
+    @Test
+    void resumesTheRun() throws Exception {
+        UUID id = UUID.randomUUID();
+        mvc.perform(delete("/v1/expeditions/{id}/run/suspension", id)).andExpect(status().isNoContent());
+        verify(tracking).resume(new ExpeditionId(id));
+    }
+
+    @Test
+    void startsAnActivity() throws Exception {
         UUID id = UUID.randomUUID();
         UUID activityId = UUID.randomUUID();
-        mvc.perform(post("/v1/expeditions/{id}/run", id)).andExpect(status().isNoContent());
-        mvc.perform(post("/v1/expeditions/{id}/run/suspension", id)).andExpect(status().isNoContent());
-        mvc.perform(delete("/v1/expeditions/{id}/run/suspension", id)).andExpect(status().isNoContent());
         mvc.perform(post("/v1/expeditions/{id}/run/activities/{activityId}/initiation", id, activityId))
                 .andExpect(status().isNoContent());
+        verify(tracking).startActivity(new ExpeditionId(id), new ActivityId(activityId));
+    }
+
+    @Test
+    void finishesAnActivity() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
         mvc.perform(post("/v1/expeditions/{id}/run/activities/{activityId}/completion", id, activityId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"result\":\"sample stored\"}"))
                 .andExpect(status().isNoContent());
+        verify(tracking).finishActivity(new ExpeditionId(id), new ActivityId(activityId), "sample stored");
+    }
+
+    @Test
+    void recordsAnObservation() throws Exception {
+        UUID id = UUID.randomUUID();
         mvc.perform(post("/v1/expeditions/{id}/run/observations", id).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\":\"water level rose\"}"))
                 .andExpect(status().isNoContent());
+        verify(tracking).addObservation(new ExpeditionId(id), "water level rose");
+    }
+
+    @Test
+    void finishesTheRun() throws Exception {
+        UUID id = UUID.randomUUID();
         mvc.perform(post("/v1/expeditions/{id}/run/completion", id)).andExpect(status().isNoContent());
+        verify(tracking).finish(new ExpeditionId(id));
     }
 
     @Test

@@ -69,8 +69,12 @@ class ExpeditionFlowTest {
     }
 
     @Test
-    void anUnknownExpeditionIsNotFoundAndAnUnknownResponsibleIsUnprocessable() throws Exception {
+    void anUnknownExpeditionIsNotFound() throws Exception {
         mvc.perform(get("/v1/expeditions/{id}", UUID.randomUUID())).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void anUnknownResponsibleIsUnprocessable() throws Exception {
         mvc.perform(post("/v1/expeditions").contentType(MediaType.APPLICATION_JSON)
                         .content(ExpeditionsControllerTest.charter(UUID.randomUUID())))
                 .andExpect(status().isUnprocessableContent());

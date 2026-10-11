@@ -26,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -33,6 +34,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -65,19 +67,34 @@ class ReplanControllerTest {
     }
 
     @Test
-    void changesADraftRevision() throws Exception {
+    void cancelsAnActivity() throws Exception {
         UUID id = UUID.randomUUID();
         UUID activityId = UUID.randomUUID();
-        mvc.perform(delete("/v1/expeditions/{id}/activities/{activityId}", id, activityId)).andExpect(status().isNoContent());
+        mvc.perform(delete("/v1/expeditions/{id}/activities/{activityId}", id, activityId))
+                .andExpect(status().isNoContent());
+        verify(replan).cancel(new ExpeditionId(id), new ActivityId(activityId));
+    }
+
+    @Test
+    void delaysAnActivity() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
         mvc.perform(post("/v1/expeditions/{id}/activities/{activityId}/delays", id, activityId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"delay\":\"PT1H\"}"))
                 .andExpect(status().isNoContent());
-        mvc.perform(post("/v1/expeditions/{id}/replacements", id)).andExpect(status().isNoContent());
+        verify(replan).delay(new ExpeditionId(id), new ActivityId(activityId), Duration.ofHours(1));
     }
 
     @Test
-    void listsProposalsAndDecidesThem() throws Exception {
+    void replacesUnavailableResources() throws Exception {
+        UUID id = UUID.randomUUID();
+        mvc.perform(post("/v1/expeditions/{id}/replacements", id)).andExpect(status().isNoContent());
+        verify(replan).replaceUnavailable(new ExpeditionId(id));
+    }
+
+    @Test
+    void listsProposals() throws Exception {
         UUID expeditionId = UUID.randomUUID();
         UUID proposalId = UUID.randomUUID();
         UUID suggestedId = UUID.randomUUID();
@@ -96,15 +113,32 @@ class ReplanControllerTest {
                 .andExpect(jsonPath("$.items[0].suggested.id").value(suggestedId.toString()))
                 .andExpect(jsonPath("$.items[0].decidedBy").doesNotExist())
                 .andExpect(jsonPath("$.totalItems").value(1));
+    }
+
+    @Test
+    void acceptsAProposal() throws Exception {
+        UUID proposalId = UUID.randomUUID();
+        UUID responsible = UUID.randomUUID();
 
         mvc.perform(post("/v1/replan-proposals/{proposalId}/acceptance", proposalId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responsible\":\"" + responsible + "\"}"))
                 .andExpect(status().isNoContent());
+
+        verify(proposals).accept(new ProposalId(proposalId), new PersonId(responsible));
+    }
+
+    @Test
+    void rejectsAProposal() throws Exception {
+        UUID proposalId = UUID.randomUUID();
+        UUID responsible = UUID.randomUUID();
+
         mvc.perform(post("/v1/replan-proposals/{proposalId}/rejection", proposalId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responsible\":\"" + responsible + "\"}"))
                 .andExpect(status().isNoContent());
+
+        verify(proposals).reject(new ProposalId(proposalId), new PersonId(responsible));
     }
 
     @Test
