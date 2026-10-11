@@ -49,7 +49,7 @@ export const expeditionsApi = {
   suspend: (id: Uuid) => http.post(`${run(id)}/suspension`),
   resume: (id: Uuid) => http.delete(`${run(id)}/suspension`),
   finish: (id: Uuid) => http.post(`${run(id)}/completion`),
-  startActivity: (id: Uuid, activityId: Uuid) => http.post(`${run(id)}/activities`, { activityId }),
+  startActivity: (id: Uuid, activityId: Uuid) => http.post(`${run(id)}/activities/${activityId}/initiation`),
   finishActivity: (id: Uuid, activityId: Uuid, result: string) =>
     http.post(`${run(id)}/activities/${activityId}/completion`, { result }),
   observe: (id: Uuid, text: string) => http.post(`${run(id)}/observations`, { text }),
@@ -59,8 +59,8 @@ export const expeditionsApi = {
   revise: (id: Uuid) => http.post<Created>(`${expedition(id)}/revisions`),
   cancelActivity: (id: Uuid, activityId: Uuid) => http.delete(`${expedition(id)}/activities/${activityId}`),
   delayActivity: (id: Uuid, activityId: Uuid, delay: IsoDuration) =>
-    http.post(`${expedition(id)}/activities/${activityId}/delay`, { delay }),
-  replaceUnavailable: (id: Uuid) => http.post(`${expedition(id)}/reassignments`),
+    http.post(`${expedition(id)}/activities/${activityId}/delays`, { delay }),
+  replaceUnavailable: (id: Uuid) => http.post(`${expedition(id)}/replacements`),
 
   proposals: (id: Uuid, page: number) => pageOf<Proposal>(`${expedition(id)}/replan-proposals`, page),
   acceptProposal: (proposalId: Uuid, responsible: Uuid) =>

@@ -37,6 +37,9 @@ public final class PlanItineraryInteractor implements PlanItinerary {
     @Override
     public void addDependency(ExpeditionId expeditionId, ActivityId activityId, ActivityId predecessorId) {
         Expedition expedition = plans.require(expeditionId);
+        if (expedition.activityOf(activityId).predecessors().contains(predecessorId)) {
+            return;
+        }
         expedition.addDependency(activityId, predecessorId);
         plans.save(expedition);
     }

@@ -1,6 +1,8 @@
 package edu.itba.fieldops.frameworks.api;
 
 import edu.itba.fieldops.api.expedition.IncidentsController;
+import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.usecase.expedition.RecordIncident;
 import org.junit.jupiter.api.Test;
@@ -12,10 +14,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
-import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -28,17 +29,22 @@ class IncidentsControllerTest {
     private RecordIncident incidents;
 
     @Test
-    void recordsAnIncidentWithAndWithoutAnActivity() throws Exception {
+    void recordsAnIncident() throws Exception {
         UUID expeditionId = UUID.randomUUID();
-        UUID activityId = UUID.randomUUID();
         mvc.perform(post("/v1/expeditions/{id}/incidents", expeditionId).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"description\":\"radio failed\"}"))
                 .andExpect(status().isNoContent());
+        verify(incidents).record(new ExpeditionId(expeditionId), "radio failed");
+    }
+
+    @Test
+    void recordsAnIncidentAgainstAnActivity() throws Exception {
+        UUID expeditionId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
         mvc.perform(post("/v1/expeditions/{id}/incidents", expeditionId).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"description\":\"gear flooded\",\"activityId\":\"" + activityId + "\"}"))
                 .andExpect(status().isNoContent());
-        verify(incidents).record(any(), eq("radio failed"));
-        verify(incidents).record(any(), eq("gear flooded"), any());
+        verify(incidents).record(new ExpeditionId(expeditionId), "gear flooded", new ActivityId(activityId));
     }
 
     @Test

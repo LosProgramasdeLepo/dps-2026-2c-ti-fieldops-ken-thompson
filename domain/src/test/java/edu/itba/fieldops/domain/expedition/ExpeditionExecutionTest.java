@@ -98,11 +98,19 @@ class ExpeditionExecutionTest {
     }
 
     @Test
-    void onlyARunInProgressCanBeSuspended() {
+    void suspendsARunInProgress() {
         execution.suspend();
 
         assertEquals(ExpeditionExecution.Status.SUSPENDED, execution.status());
+    }
+
+    @Test
+    void aSuspendedRunCannotBeSuspendedAgain() {
+        execution.suspend();
+
         assertThrows(InvalidExpeditionTransition.class, execution::suspend);
+
+        assertEquals(ExpeditionExecution.Status.SUSPENDED, execution.status());
     }
 
     @Test
@@ -115,17 +123,21 @@ class ExpeditionExecutionTest {
     }
 
     @Test
-    void recordsIncidentsAndObservations() {
+    void recordsAnIncident() {
         Incident incident = Incident.of("rain delay", DAY);
-        Observation observation = new Observation("site wet", DAY);
 
         execution.addIncident(incident);
+
+        assertEquals(List.of(incident), execution.incidents());
+    }
+
+    @Test
+    void recordsAnObservation() {
+        Observation observation = new Observation("site wet", DAY);
+
         execution.addObservation(observation);
 
-        assertAll(
-                () -> assertEquals(List.of(incident), execution.incidents()),
-                () -> assertEquals(List.of(observation), execution.observations())
-        );
+        assertEquals(List.of(observation), execution.observations());
     }
 
     @Test

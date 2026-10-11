@@ -43,10 +43,14 @@ public final class AssignResourcesInteractor implements AssignResources {
 
     @Override
     public void addPermit(ExpeditionId expeditionId, PermitId permitId) {
-        if (catalogs.permits().permit(Objects.requireNonNull(permitId, "permit id")).isEmpty()) {
+        Objects.requireNonNull(permitId, "permit id");
+        Expedition expedition = plans.require(expeditionId);
+        if (expedition.permits().contains(permitId)) {
+            return;
+        }
+        if (catalogs.permits().permit(permitId).isEmpty()) {
             throw new UnknownResource("permit", permitId.value().toString());
         }
-        Expedition expedition = plans.require(expeditionId);
         expedition.addPermit(permitId);
         plans.save(expedition);
     }

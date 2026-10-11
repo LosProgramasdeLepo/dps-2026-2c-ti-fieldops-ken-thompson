@@ -2,6 +2,7 @@ package edu.itba.fieldops.frameworks.api;
 
 import edu.itba.fieldops.api.expedition.ApprovalController;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.usecase.expedition.ApproveExpedition;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,8 +30,10 @@ class ApprovalControllerTest {
 
     @Test
     void approvesWithNoBody() throws Exception {
-        mvc.perform(post("/v1/expeditions/{id}/approval", UUID.randomUUID()))
+        UUID id = UUID.randomUUID();
+        mvc.perform(post("/v1/expeditions/{id}/approval", id))
                 .andExpect(status().isNoContent());
+        verify(approval).approve(new ExpeditionId(id));
     }
 
     @Test
