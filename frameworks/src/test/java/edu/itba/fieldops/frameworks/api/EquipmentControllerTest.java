@@ -29,6 +29,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -122,9 +123,11 @@ class EquipmentControllerTest {
 
     @Test
     void changesStock() throws Exception {
-        mvc.perform(put("/v1/consumables/{id}/stock", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON)
+        UUID id = UUID.randomUUID();
+        mvc.perform(put("/v1/consumables/{id}/stock", id).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"stock\":3}"))
                 .andExpect(status().isNoContent());
+        verify(equipment).changeStock(new ConsumableId(id), new Stock(3));
     }
 
     private static <T> Page<T> page(T item, PageRequest request) {

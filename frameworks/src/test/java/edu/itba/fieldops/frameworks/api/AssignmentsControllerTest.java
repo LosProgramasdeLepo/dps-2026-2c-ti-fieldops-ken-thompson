@@ -5,6 +5,7 @@ import edu.itba.fieldops.domain.expedition.InvalidAssignment;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.usecase.expedition.AssignResources;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -35,14 +37,31 @@ class AssignmentsControllerTest {
     private AssignResources assignments;
 
     @Test
-    void assignsAPersonAndAPermit() throws Exception {
+    void assignsAPerson() throws Exception {
         UUID expeditionId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID personId = UUID.randomUUID();
+
         mvc.perform(post("/v1/expeditions/{id}/assignments", expeditionId).contentType(MediaType.APPLICATION_JSON).content("""
                 {"type":"PERSON","activityId":"%s","personId":"%s"}
-                """.formatted(UUID.randomUUID(), UUID.randomUUID())))
+                """.formatted(activityId, personId)))
                 .andExpect(status().isNoContent());
-        mvc.perform(put("/v1/expeditions/{id}/permits/{permitId}", expeditionId, UUID.randomUUID()))
+
+        verify(assignments).addAssignment(
+                new ExpeditionId(expeditionId),
+                new PersonAssignment(new ActivityId(activityId), new PersonId(personId))
+        );
+    }
+
+    @Test
+    void attachesAPermit() throws Exception {
+        UUID expeditionId = UUID.randomUUID();
+        UUID permitId = UUID.randomUUID();
+
+        mvc.perform(put("/v1/expeditions/{id}/permits/{permitId}", expeditionId, permitId))
                 .andExpect(status().isNoContent());
+
+        verify(assignments).addPermit(new ExpeditionId(expeditionId), new PermitId(permitId));
     }
 
     @Test

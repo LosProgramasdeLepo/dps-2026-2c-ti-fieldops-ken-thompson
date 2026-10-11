@@ -3,6 +3,7 @@ package edu.itba.fieldops.frameworks.api;
 import edu.itba.fieldops.api.expedition.ItineraryController;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.usecase.expedition.PlanItinerary;
@@ -88,13 +89,19 @@ class ItineraryControllerTest {
 
     @Test
     void addsAPredecessor() throws Exception {
+        UUID expeditionId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID predecessorId = UUID.randomUUID();
+
         mvc.perform(put(
                         "/v1/expeditions/{id}/activities/{activityId}/predecessors/{predecessorId}",
-                        UUID.randomUUID(),
-                        UUID.randomUUID(),
-                        UUID.randomUUID()
+                        expeditionId,
+                        activityId,
+                        predecessorId
                 ))
                 .andExpect(status().isNoContent());
+
+        verify(itinerary).addDependency(new ExpeditionId(expeditionId), new ActivityId(activityId), new ActivityId(predecessorId));
     }
 
     private static String sampling(UUID certificationId) {
