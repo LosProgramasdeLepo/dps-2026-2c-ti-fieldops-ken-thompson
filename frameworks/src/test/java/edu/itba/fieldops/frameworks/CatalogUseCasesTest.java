@@ -10,7 +10,6 @@ import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.PermitKind;
@@ -76,11 +75,13 @@ class CatalogUseCasesTest extends UseCaseFixture {
     }
 
     @Test
-    void rejectsACertificationThePersonAlreadyHolds() {
+    void certifyingAgainLeavesTheCertificationInPlace() {
         CertificationId sampling = personnel.registerCertification("Sampling");
         PersonId ada = personnel.registerPerson("Ada", List.of(sampling), Availability.always());
 
-        assertThrows(InvalidValue.class, () -> personnel.certify(ada, sampling));
+        personnel.certify(ada, sampling);
+
+        assertEquals(List.of(new Certification(sampling, "Sampling")), catalog.person(ada).orElseThrow().certifications());
     }
 
     @Test

@@ -46,8 +46,7 @@ class RunControllerTest {
         mvc.perform(post("/v1/expeditions/{id}/run", id)).andExpect(status().isNoContent());
         mvc.perform(post("/v1/expeditions/{id}/run/suspension", id)).andExpect(status().isNoContent());
         mvc.perform(delete("/v1/expeditions/{id}/run/suspension", id)).andExpect(status().isNoContent());
-        mvc.perform(post("/v1/expeditions/{id}/run/activities", id).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"activityId\":\"" + activityId + "\"}"))
+        mvc.perform(post("/v1/expeditions/{id}/run/activities/{activityId}/initiation", id, activityId))
                 .andExpect(status().isNoContent());
         mvc.perform(post("/v1/expeditions/{id}/run/activities/{activityId}/completion", id, activityId)
                         .contentType(MediaType.APPLICATION_JSON)
