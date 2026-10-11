@@ -84,7 +84,7 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 
 `POST /expeditions/{id}/blocks` responde 201 con el bloque y `Location` `/v1/expeditions/{id}`. `node` `BLOCK`: `arrangement` `SEQUENTIAL` o `PARALLEL`, y `parts` (al menos dos). `node` `ACTIVITY`: `activity` con la forma de arriba.
 
-`PUT /expeditions/{id}/activities/{activityId}/predecessors/{predecessorId}` agrega una precedencia. `POST /expeditions/{id}/assignments`. `type` `PERSON` (`activityId`, `personId`), `VEHICLE` (`activityId`, `vehicleId`), `INSTRUMENT` (`activityId`, `instrumentId`) o `CONSUMABLE` (`activityId`, `consumableId`, `quantity` desde 1). `PUT /expeditions/{id}/permits/{permitId}`. `GET /expeditions/{id}/assignment-suggestions` devuelve la lista.
+`PUT /expeditions/{id}/activities/{activityId}/predecessors/{predecessorId}` agrega una precedencia. `POST /expeditions/{id}/assignments`. `type` `PERSON` (`activityId`, `personId`), `VEHICLE` (`activityId`, `vehicleId`), `INSTRUMENT` (`activityId`, `instrumentId`) o `CONSUMABLE` (`activityId`, `consumableId`, `quantity` desde 1). `PUT /expeditions/{id}/permits/{permitId}`. Repetir ese `PUT`, el de una certificación o el de una precedencia responde 204: el vínculo ya está. `GET /expeditions/{id}/assignment-suggestions` devuelve la lista.
 
 `POST /expeditions/{id}/submission` pasa a revisión. `DELETE` de esa ruta vuelve a borrador. `GET /expeditions/{id}/validation`: `{expeditionId, version, issues[]}`, cada issue con `severity`, `code` y `message`. `POST /expeditions/{id}/accepted-warnings`: `{issue, justification, acceptedBy}`; el issue es el de la validación vigente. `POST /expeditions/{id}/approval`.
 
@@ -92,10 +92,10 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 
 ### Corrida
 
-`POST /expeditions/{id}/run` la inicia. `GET` devuelve `{expeditionId, inForceId, status, activities, incidents, observations}`; sin corrida, 404. `status`: `IN_PROGRESS`, `SUSPENDED`, `FINISHED`. `POST /expeditions/{id}/run/suspension` suspende y `DELETE` de esa ruta reanuda. `POST /expeditions/{id}/run/completion` termina. `POST /expeditions/{id}/run/activities` recibe `{activityId}`. `POST .../activities/{activityId}/completion` recibe `{result}`. `POST /expeditions/{id}/run/observations` recibe `{text}`. `GET /expeditions/{id}/report`.
+`POST /expeditions/{id}/run` la inicia. `GET` devuelve `{expeditionId, inForceId, status, activities, incidents, observations}`; sin corrida, 404. `status`: `IN_PROGRESS`, `SUSPENDED`, `FINISHED`. `POST /expeditions/{id}/run/suspension` suspende y `DELETE` de esa ruta reanuda. `POST /expeditions/{id}/run/completion` termina. `POST /expeditions/{id}/run/activities/{activityId}/initiation` la arranca. `POST .../activities/{activityId}/completion` recibe `{result}`. `POST /expeditions/{id}/run/observations` recibe `{text}`. `GET /expeditions/{id}/report`.
 
 ### Incidentes y replanificación
 
-`POST /expeditions/{id}/incidents` recibe `{description, activityId}`. `activityId` es opcional; si viene, queda una propuesta. `POST /expeditions/{id}/revisions` responde 201, `{id}` y `Location` del borrador. En ese borrador, `DELETE /expeditions/{id}/activities/{activityId}` cancela, `POST .../activities/{activityId}/delay` recibe `{delay}` y `POST /expeditions/{id}/reassignments` reemplaza lo que no está disponible.
+`POST /expeditions/{id}/incidents` recibe `{description, activityId}`. `activityId` es opcional; si viene, queda una propuesta. `POST /expeditions/{id}/revisions` responde 201, `{id}` y `Location` del borrador. En ese borrador, `DELETE /expeditions/{id}/activities/{activityId}` cancela, `POST .../activities/{activityId}/delays` recibe `{delay}` y `POST /expeditions/{id}/replacements` reemplaza lo que no está disponible.
 
 `GET /expeditions/{id}/replan-proposals` pagina; 404 si el plan no existe. `GET /replan-proposals/{id}` trae el incidente, la decisión (`PENDING`, `ACCEPTED`, `REJECTED`), quién decidió, cuándo y el plan sugerido. `POST /replan-proposals/{id}/acceptance` y `POST .../rejection` reciben `{responsible}`.

@@ -34,7 +34,11 @@ public final class AdministerPersonnelInteractor implements AdministerPersonnel 
 
     @Override
     public void certify(PersonId personId, CertificationId certificationId) {
-        people.save(people.require(personId).certified(certifications.require(certificationId)));
+        Person person = people.require(personId);
+        if (person.holds(certificationId)) {
+            return;
+        }
+        people.save(person.certified(certifications.require(certificationId)));
     }
 
     @Override

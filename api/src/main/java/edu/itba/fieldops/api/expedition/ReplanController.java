@@ -46,13 +46,13 @@ public final class ReplanController {
         return Responses.noContent();
     }
 
-    @PostMapping("/v1/expeditions/{id}/activities/{activityId}/delay")
+    @PostMapping("/v1/expeditions/{id}/activities/{activityId}/delays")
     public ResponseEntity<Void> delay(@PathVariable UUID id, @PathVariable UUID activityId, @Valid @RequestBody DelayRequest request) {
         replan.delay(new ExpeditionId(id), new ActivityId(activityId), request.delay());
         return Responses.noContent();
     }
 
-    @PostMapping("/v1/expeditions/{id}/reassignments")
+    @PostMapping("/v1/expeditions/{id}/replacements")
     public ResponseEntity<Void> replaceUnavailable(@PathVariable UUID id) {
         replan.replaceUnavailable(new ExpeditionId(id));
         return Responses.noContent();

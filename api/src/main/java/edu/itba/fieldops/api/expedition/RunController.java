@@ -2,7 +2,6 @@ package edu.itba.fieldops.api.expedition;
 
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.FinishActivityRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.ObservationRequest;
-import edu.itba.fieldops.api.expedition.ExpeditionRequests.StartActivityRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.RunResponse;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ActivityId;
@@ -56,9 +55,9 @@ public final class RunController {
         return Responses.noContent();
     }
 
-    @PostMapping("/v1/expeditions/{id}/run/activities")
-    public ResponseEntity<Void> startActivity(@PathVariable UUID id, @Valid @RequestBody StartActivityRequest request) {
-        tracking.startActivity(new ExpeditionId(id), new ActivityId(request.activityId()));
+    @PostMapping("/v1/expeditions/{id}/run/activities/{activityId}/initiation")
+    public ResponseEntity<Void> startActivity(@PathVariable UUID id, @PathVariable UUID activityId) {
+        tracking.startActivity(new ExpeditionId(id), new ActivityId(activityId));
         return Responses.noContent();
     }
 

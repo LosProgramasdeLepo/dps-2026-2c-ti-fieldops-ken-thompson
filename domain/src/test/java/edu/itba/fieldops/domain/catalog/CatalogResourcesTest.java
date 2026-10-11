@@ -48,17 +48,37 @@ class CatalogResourcesTest {
     }
 
     @Test
-    void permitCoversMatchingZoneAndWindow() {
-        Permit permit = new Permit(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK, PermitKind.ZONE);
-
-        Permit night = new Permit(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK, PermitKind.NIGHT);
-
-        assertAll(
-                () -> assertTrue(permit.covers(new WorkZone("Delta"), WEEK)),
-                () -> assertFalse(permit.covers(new WorkZone("Coast"), WEEK)),
-                () -> assertEquals(PermitKind.NIGHT, night.kind()),
-                () -> assertTrue(night.covers(new WorkZone("Delta"), WEEK))
+    void coversAMatchingZoneAndAWindowInsideItsValidity() {
+        TimePeriod inside = new TimePeriod(
+                Instant.parse("2026-11-02T00:00:00Z"),
+                Instant.parse("2026-11-03T00:00:00Z")
         );
+
+        assertTrue(deltaPermit(PermitKind.ZONE).covers(new WorkZone("Delta"), inside));
+    }
+
+    @Test
+    void doesNotCoverAnotherZone() {
+        assertFalse(deltaPermit(PermitKind.ZONE).covers(new WorkZone("Coast"), WEEK));
+    }
+
+    @Test
+    void doesNotCoverAWindowThatExtendsPastItsValidity() {
+        TimePeriod pastTheEnd = new TimePeriod(
+                Instant.parse("2026-11-07T00:00:00Z"),
+                Instant.parse("2026-11-09T00:00:00Z")
+        );
+
+        assertFalse(deltaPermit(PermitKind.ZONE).covers(new WorkZone("Delta"), pastTheEnd));
+    }
+
+    @Test
+    void aNightPermitKeepsItsKind() {
+        assertEquals(PermitKind.NIGHT, deltaPermit(PermitKind.NIGHT).kind());
+    }
+
+    private static Permit deltaPermit(PermitKind kind) {
+        return new Permit(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK, kind);
     }
 
     @Test

@@ -4,8 +4,10 @@ import edu.itba.fieldops.api.expedition.ReviewController;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.usecase.expedition.ReviewExpedition;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -35,10 +38,17 @@ class ReviewControllerTest {
     private ReviewExpedition review;
 
     @Test
-    void submitsAndReturnsToDraft() throws Exception {
+    void submitsThePlan() throws Exception {
         UUID id = UUID.randomUUID();
         mvc.perform(post("/v1/expeditions/{id}/submission", id)).andExpect(status().isNoContent());
+        verify(review).submit(new ExpeditionId(id));
+    }
+
+    @Test
+    void returnsThePlanToDraft() throws Exception {
+        UUID id = UUID.randomUUID();
         mvc.perform(delete("/v1/expeditions/{id}/submission", id)).andExpect(status().isNoContent());
+        verify(review).returnToDraft(new ExpeditionId(id));
     }
 
     @Test
@@ -59,12 +69,21 @@ class ReviewControllerTest {
 
     @Test
     void acceptsAWarning() throws Exception {
-        mvc.perform(post("/v1/expeditions/{id}/accepted-warnings", UUID.randomUUID())
+        UUID expeditionId = UUID.randomUUID();
+        UUID acceptedBy = UUID.randomUUID();
+
+        mvc.perform(post("/v1/expeditions/{id}/accepted-warnings", expeditionId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"issue":{"severity":"WARNING","code":"CAPACITY","message":"vehicle is over capacity"},"justification":"One extra passenger walks","acceptedBy":"%s"}
-                                """.formatted(UUID.randomUUID())))
+                                """.formatted(acceptedBy)))
                 .andExpect(status().isNoContent());
+
+        verify(review).acceptWarning(new ExpeditionId(expeditionId), new AcceptedWarning(
+                new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle is over capacity"),
+                "One extra passenger walks",
+                new PersonId(acceptedBy)
+        ));
     }
 
     @Test

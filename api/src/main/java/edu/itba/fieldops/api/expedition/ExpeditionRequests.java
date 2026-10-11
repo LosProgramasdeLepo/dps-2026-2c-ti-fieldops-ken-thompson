@@ -190,9 +190,6 @@ public final class ExpeditionRequests {
     public record DelayRequest(@NotNull Duration delay) {
     }
 
-    public record StartActivityRequest(@NotNull UUID activityId) {
-    }
-
     public record FinishActivityRequest(@NotBlank @Size(max = 2000) String result) {
     }
 
