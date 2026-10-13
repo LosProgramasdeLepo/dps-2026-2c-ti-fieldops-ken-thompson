@@ -64,12 +64,13 @@ public record OperationalReport(
         Objects.requireNonNull(execution, "execution");
         Estimate estimate = Estimate.of(expedition);
         List<ActivityExecution> finished = execution.activities().stream().filter(ActivityExecution::isFinished).toList();
+        boolean started = !execution.activities().isEmpty();
         return new OperationalReport(
                 OperationalStatus.of(execution),
                 expedition.activities().size(),
                 execution.activities().size(),
                 finished.size(),
-                actualDuration(expedition, finished),
+                started ? actualDuration(expedition, finished) : estimate.duration(),
                 estimate.risk(),
                 consumed(expedition, finished),
                 estimate.estimatedConsumption(),
