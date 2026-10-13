@@ -38,7 +38,7 @@
 
 **Seguimiento.** Una actividad arranca dentro de su ventana y con sus predecesores, explícitos y de secuencia, terminados. Se cierra después de su inicio aunque pase la ventana. La expedición termina cuando está terminado lo iniciado y lo del plan vigente. Incidentes y observaciones se registran con la corrida en curso o suspendida. `Clock` sella los instantes. La consulta de la corrida informa el plan vigente (`RunSnapshot.inForce`), para que el seguimiento muestre las actividades de la revisión que rige.
 
-**Estimación e informe.** `Estimate`: duración del árbol, riesgo máximo (`LOW` sin actividades) y consumo estimado de las actividades. `OperationalReport` sin corrida informa la duración estimada y el consumo asignado; con corrida, la duración medida combinada en el árbol, el consumo asignado a lo terminado, los incidentes, las observaciones y los resultados.
+**Estimación e informe.** `Estimate`: duración del árbol, riesgo máximo (`LOW` sin actividades) y consumo estimado de las actividades. `OperationalReport` informa la duración estimada mientras ninguna actividad empezó, también con la corrida ya abierta. Con actividades iniciadas, la duración es la medida combinada en el árbol. Sin corrida informa el consumo asignado; con corrida, el consumo asignado a lo terminado, los incidentes, las observaciones y los resultados.
 
 **Invariantes.** El charter exige objetivos, zonas y responsables, y los responsables tienen que existir en el catálogo. La ventana alcanza la duración estimada. Los predecesores existen, no forman ciclos y terminan antes. La zona es de la expedición y la ventana está dentro del período. `TimePeriod`, `Stock`, `Passengers`, `WorkZone` y `ExpeditionCharter` se validan al construirse.
 
