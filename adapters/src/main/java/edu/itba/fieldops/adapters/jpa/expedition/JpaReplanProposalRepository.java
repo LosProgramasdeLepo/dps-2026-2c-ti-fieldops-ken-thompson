@@ -38,7 +38,7 @@ public final class JpaReplanProposalRepository implements ReplanProposalReposito
         Objects.requireNonNull(proposal, "proposal");
         transactions.executeWithoutResult(status -> {
             stored.save(proposal.suggested());
-            proposals.save(new ProposalEntity(proposal));
+            proposals.save(new ProposalEntity(proposal.state()));
         });
     }
 

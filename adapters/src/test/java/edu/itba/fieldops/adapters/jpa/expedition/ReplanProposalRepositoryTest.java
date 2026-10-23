@@ -11,6 +11,7 @@ import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionState;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
+import edu.itba.fieldops.domain.expedition.ProposalState;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
@@ -119,7 +120,7 @@ class ReplanProposalRepositoryTest {
         reload();
 
         ReplanProposal stored = proposals.find(proposal.id()).orElseThrow();
-        stored.accept(ada.id(), DAY.plus(Duration.ofHours(6)));
+        stored.accept(approved, approved.forReplan(ada.id()), DAY.plus(Duration.ofHours(6)));
         proposals.save(stored);
         reload();
 
@@ -168,11 +169,18 @@ class ReplanProposalRepositoryTest {
 
     @Test
     void rejectsADecisionByAPersonWhoIsNotRegistered() {
-        ReplanProposal proposal = proposal("flooded trail");
-        proposal.restoreDecision(
-                ReplanProposal.Decision.REJECTED,
-                new PersonId(UUID.randomUUID()),
-                DAY.plus(Duration.ofHours(6))
+        ReplanProposal pending = proposal("flooded trail");
+        ReplanProposal proposal = ReplanProposal.restore(
+                new ProposalState(
+                        pending.id(),
+                        pending.originalId(),
+                        pending.suggested().id(),
+                        pending.incident(),
+                        ReplanProposal.Decision.REJECTED,
+                        Optional.of(new PersonId(UUID.randomUUID())),
+                        Optional.of(DAY.plus(Duration.ofHours(6)))
+                ),
+                pending.suggested()
         );
 
         proposals.save(proposal);
