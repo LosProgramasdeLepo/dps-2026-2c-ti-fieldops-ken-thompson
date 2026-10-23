@@ -297,7 +297,7 @@ public final class ExpeditionMapping {
                     consumable.consumableId().value(),
                     consumable.quantity().amount()
             );
-            default -> throw new IllegalStateException("unsupported assignment");
+            default -> throw new IllegalArgumentException("unknown assignment: " + assignment);
         };
     }
 
