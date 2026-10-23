@@ -8,14 +8,22 @@ public record TimePeriod(Instant start, Instant end) {
     public TimePeriod {
         Objects.requireNonNull(start, "period start");
         Objects.requireNonNull(end, "period end");
-        if (end.isBefore(start)) {
-            throw new InvalidValue("period end must not be before start");
+        if (!end.isAfter(start)) {
+            throw new InvalidValue("period end must be after start");
         }
+    }
+
+    public Duration length() {
+        return Duration.between(start, end);
     }
 
     public boolean contains(Instant instant) {
         Objects.requireNonNull(instant, "instant");
         return !instant.isBefore(start) && !instant.isAfter(end);
+    }
+
+    public Occurrence at(Instant instant) {
+        return new Occurrence(this, instant);
     }
 
     public boolean contains(TimePeriod other) {

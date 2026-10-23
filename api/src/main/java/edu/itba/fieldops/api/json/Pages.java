@@ -1,7 +1,7 @@
 package edu.itba.fieldops.api.json;
 
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;

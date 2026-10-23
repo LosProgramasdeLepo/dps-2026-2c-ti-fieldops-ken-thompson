@@ -1,6 +1,6 @@
 package edu.itba.fieldops.api.json;
 
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 

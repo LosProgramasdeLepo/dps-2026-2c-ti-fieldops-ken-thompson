@@ -126,7 +126,13 @@ public final class ExpeditionResponses {
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record ActivityExecutionResponse(UUID activityId, Instant startedAt, Instant finishedAt, String result) {
+    public record ActivityExecutionResponse(
+            UUID activityId,
+            Instant startedAt,
+            Instant finishedAt,
+            String result,
+            Map<String, Integer> consumption
+    ) {
     }
 
     public record RunResponse(

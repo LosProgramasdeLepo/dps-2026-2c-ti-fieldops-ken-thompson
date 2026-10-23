@@ -74,13 +74,13 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 - `/consumables`: `{name, stock}`. `PUT /consumables/{id}/stock` con `{stock}`
 - `/permits`: `{kind, zone, validity}`
 
-`availability` es `{periods: [{start, end}]}`. El `kind` de un permiso es `zone` o `night operation`. `capacity` y `stock` son enteros positivos.
+`availability` es `{periods: [{start, end}]}`. El `kind` de un permiso es `zone` o `night operation`. `capacity` es un entero positivo y `stock` uno no negativo.
 
 ### Planes
 
 `POST /expeditions` recibe `{objectives[], period, zones[], responsibles[], restrictions[]}`. `GET /expeditions` devuelve resúmenes (`id`, `version`, `supersedes`, `status`, `charter`). `GET /expeditions/{id}` devuelve charter, itinerario, asignaciones, permisos y advertencias aceptadas. `status`: `DRAFT`, `IN_REVIEW`, `APPROVED`, `SUPERSEDED`.
 
-`POST /expeditions/{id}/activities`. `Location`: `/v1/expeditions/{id}/activities/{activityId}`. `kind`: `SAMPLING`, `MEASUREMENT`, `TRANSIT`, `NIGHT`, `DIVE`, `CAMP`. Comunes: `name`, `estimatedDuration`, `risk` (`LOW`, `MEDIUM`, `HIGH`), `consumption` (id de consumible a cantidad, desde 0), `zone`, `window`, `predecessors[]`. `SAMPLING`, `NIGHT` y `DIVE` agregan `certification`. `MEASUREMENT` agrega `certification` e `instrument`. `TRANSIT` y `CAMP` no agregan campos. `NIGHT` pide además iluminación y permiso nocturno, y el riesgo sube un nivel. El `GET` no devuelve `kind`: devuelve `requirements` (`certifications`, `heldByEveryone`, `instruments`, `specialPermits`, `vehicles`).
+`POST /expeditions/{id}/activities`. `Location`: `/v1/expeditions/{id}/activities/{activityId}`. `kind`: `SAMPLING`, `MEASUREMENT`, `TRANSIT`, `NIGHT`, `DIVE`, `CAMP`. Comunes: `name`, `estimatedDuration`, `risk` (`LOW`, `MEDIUM`, `HIGH`), `consumption` (id de consumible a cantidad, desde 1), `zone`, `window`, `predecessors[]`. `SAMPLING`, `NIGHT` y `DIVE` agregan `certification`. `MEASUREMENT` agrega `certification` e `instrument`. `TRANSIT` y `CAMP` no agregan campos. `NIGHT` pide además iluminación y permiso nocturno, y el riesgo sube un nivel. El `GET` no devuelve `kind`: devuelve `requirements` (`certifications`, `heldByEveryone`, `instruments`, `specialPermits`, `vehicles`).
 
 `POST /expeditions/{id}/blocks` responde 201 con el bloque y `Location` `/v1/expeditions/{id}`. `node` `BLOCK`: `arrangement` `SEQUENTIAL` o `PARALLEL`, y `parts` (al menos dos). `node` `ACTIVITY`: `activity` con la forma de arriba.
 
@@ -92,10 +92,10 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 
 ### Corrida
 
-`POST /expeditions/{id}/run` la inicia. `GET` devuelve `{expeditionId, inForceId, status, activities, incidents, observations}`; sin corrida, 404. `status`: `IN_PROGRESS`, `SUSPENDED`, `FINISHED`. `POST /expeditions/{id}/run/suspension` suspende y `DELETE` de esa ruta reanuda. `POST /expeditions/{id}/run/completion` termina. `POST /expeditions/{id}/run/activities/{activityId}/initiation` la arranca. `POST .../activities/{activityId}/completion` recibe `{result}`. `POST /expeditions/{id}/run/observations` recibe `{text}`. `GET /expeditions/{id}/report`.
+`POST /expeditions/{id}/run` la inicia. `GET` devuelve `{expeditionId, inForceId, status, activities, incidents, observations}`; sin corrida, 404. `status`: `IN_PROGRESS`, `SUSPENDED`, `FINISHED`. `POST /expeditions/{id}/run/suspension` suspende y `DELETE` de esa ruta reanuda. `POST /expeditions/{id}/run/completion` termina. `POST /expeditions/{id}/run/activities/{activityId}/initiation` la arranca. `POST .../activities/{activityId}/completion` recibe `{result, consumption}`; `consumption` (id de consumible a cantidad, desde 1) es opcional y cada actividad terminada lo devuelve en la corrida. `POST /expeditions/{id}/run/observations` recibe `{text}`. `GET /expeditions/{id}/report`.
 
 ### Incidentes y replanificación
 
-`POST /expeditions/{id}/incidents` recibe `{description, activityId}`. `activityId` es opcional; si viene, queda una propuesta. `POST /expeditions/{id}/revisions` responde 201, `{id}` y `Location` del borrador. En ese borrador, `DELETE /expeditions/{id}/activities/{activityId}` cancela, `POST .../activities/{activityId}/delays` recibe `{delay}` y `POST /expeditions/{id}/replacements` reemplaza lo que no está disponible.
+`POST /expeditions/{id}/incidents` recibe `{description, activityId}`. `activityId` es opcional; si viene, queda una propuesta. `POST /expeditions/{id}/revisions` responde 201, `{id}` y `Location` del borrador. En ese borrador, `DELETE /expeditions/{id}/activities/{activityId}` cancela, `POST .../activities/{activityId}/delays` recibe `{delay}`, una duración ISO-8601 positiva (cero o negativa: 422) y `POST /expeditions/{id}/replacements` reemplaza lo que no está disponible.
 
 `GET /expeditions/{id}/replan-proposals` pagina; 404 si el plan no existe. `GET /replan-proposals/{id}` trae el incidente, la decisión (`PENDING`, `ACCEPTED`, `REJECTED`), quién decidió, cuándo y el plan sugerido. `POST /replan-proposals/{id}/acceptance` y `POST .../rejection` reciben `{responsible}`.

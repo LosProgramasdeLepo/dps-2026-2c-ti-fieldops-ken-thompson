@@ -1,11 +1,11 @@
 package edu.itba.fieldops.usecase.expedition;
 
+import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
-import edu.itba.fieldops.domain.catalog.People;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.shared.UnknownResource;
+import edu.itba.fieldops.domain.usecase.expedition.DraftExpedition;
 
 import java.util.Objects;
 
@@ -21,12 +21,7 @@ public final class DraftExpeditionInteractor implements DraftExpedition {
     @Override
     public ExpeditionId draft(ExpeditionCharter charter) {
         Objects.requireNonNull(charter, "charter");
-        for (PersonId responsible : charter.responsibles()) {
-            if (people.person(responsible).isEmpty()) {
-                throw new UnknownResource("responsible", responsible.value().toString());
-            }
-        }
-        Expedition expedition = Expedition.draft(plans.nextId(), charter);
+        Expedition expedition = Expedition.draft(plans.nextId(), charter, people);
         plans.save(expedition);
         return expedition.id();
     }

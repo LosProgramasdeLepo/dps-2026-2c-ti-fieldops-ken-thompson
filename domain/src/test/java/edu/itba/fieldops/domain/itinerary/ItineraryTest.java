@@ -3,8 +3,9 @@ package edu.itba.fieldops.domain.itinerary;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ class ItineraryTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("blocksOfTwoParts")
     void aBlockCombinesTheDurationsOfItsParts(String arrangement, ActivityBlock block, Duration expected) {
-        assertEquals(expected, block.duration(Activity::estimatedDuration));
+        assertEquals(expected, block.duration(activity -> activity.estimatedDuration().value()));
     }
 
     @Test
@@ -54,14 +55,14 @@ class ItineraryTest {
     @Test
     void parallelConsumptionIsTheSumOfItsParts() {
         ConsumableId fuel = new ConsumableId(UUID.randomUUID());
-        Activity left = transit("left", 0, 2, Map.of(fuel, new Stock(3)));
-        Activity right = transit("right", 0, 5, Map.of(fuel, new Stock(4)));
+        Activity left = transit("left", 0, 2, Map.of(fuel, new Consumption(3)));
+        Activity right = transit("right", 0, 5, Map.of(fuel, new Consumption(4)));
         Itinerary itinerary = new Itinerary();
         itinerary.add(ActivityBlock.parallel(left, right));
 
         assertAll(
                 () -> assertEquals(Duration.ofHours(5), itinerary.estimatedDuration()),
-                () -> assertEquals(new Stock(7), itinerary.estimatedConsumption().get(fuel))
+                () -> assertEquals(new Consumption(7), itinerary.estimatedConsumption().get(fuel))
         );
     }
 
@@ -100,13 +101,13 @@ class ItineraryTest {
     void rejectsABlockThatDependsOnAnUnknownActivity() {
         Activity first = Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "first")
-                .estimated(Duration.ofHours(1), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(1)), RiskLevel.LOW)
                 .in(DELTA, window(0, 1))
                 .after(Set.of(new ActivityId(UUID.randomUUID())))
                 .build();
         Activity second = Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "second")
-                .estimated(Duration.ofHours(1), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(1)), RiskLevel.LOW)
                 .in(DELTA, window(2, 3))
                 .after(Set.of(first.id()))
                 .build();
@@ -150,7 +151,7 @@ class ItineraryTest {
         Itinerary itinerary = new Itinerary();
         itinerary.add(ActivityBlock.sequential(first, second));
 
-        itinerary.delay(first.id(), Duration.ofHours(1));
+        itinerary.delay(first.id(), new Delay(Duration.ofHours(1)));
 
         assertAll(
                 () -> assertEquals(window(1, 3), itinerary.activityOf(first.id()).window()),
@@ -263,10 +264,10 @@ class ItineraryTest {
         return transit(name, fromHour, toHour, Map.of());
     }
 
-    private static Activity transit(String name, int fromHour, int toHour, Map<ConsumableId, Stock> consumption) {
+    private static Activity transit(String name, int fromHour, int toHour, Map<ConsumableId, Consumption> consumption) {
         return Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), name)
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .consuming(consumption)
                 .build();
@@ -275,7 +276,7 @@ class ItineraryTest {
     private static Activity transitAfter(ActivityId id, int fromHour, int toHour, Set<ActivityId> predecessors) {
         return Activity.transit()
                 .named(id, "stored")
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .after(predecessors)
                 .build();
@@ -284,7 +285,7 @@ class ItineraryTest {
     private static Activity sampling(String name, int fromHour, int toHour, RiskLevel risk) {
         return Activity.sampling(new CertificationId(UUID.randomUUID()))
                 .named(new ActivityId(UUID.randomUUID()), name)
-                .estimated(Duration.ofHours(toHour - fromHour), risk)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), risk)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
     }

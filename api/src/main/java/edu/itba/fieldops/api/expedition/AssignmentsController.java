@@ -5,7 +5,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionResponses.AssignmentResponse;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
-import edu.itba.fieldops.usecase.expedition.AssignResources;
+import edu.itba.fieldops.domain.usecase.expedition.AssignResources;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

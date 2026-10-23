@@ -1,6 +1,10 @@
 package edu.itba.fieldops.adapters.jpa.expedition;
 
+import edu.itba.fieldops.adapters.InMemoryExecutionRepository;
+import edu.itba.fieldops.adapters.InMemoryExpeditionRepository;
+import edu.itba.fieldops.adapters.InMemoryPersonRegistry;
 import edu.itba.fieldops.adapters.jpa.JpaRepositoryTest;
+import edu.itba.fieldops.adapters.jpa.catalog.CertificationJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.ConsumableJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.InstrumentJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.JpaConsumableRegistry;
@@ -10,11 +14,13 @@ import edu.itba.fieldops.adapters.jpa.catalog.JpaPersonRegistry;
 import edu.itba.fieldops.adapters.jpa.catalog.JpaVehicleRegistry;
 import edu.itba.fieldops.adapters.jpa.catalog.PermitJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.PersonJpaRepository;
-import edu.itba.fieldops.adapters.jpa.catalog.CertificationJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.VehicleJpaRepository;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
+import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.BookableResources;
+import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Permit;
@@ -26,27 +32,31 @@ import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionState;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
+import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
+import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
+import edu.itba.fieldops.domain.shared.Capacity;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
 import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -98,6 +108,12 @@ class ExpeditionRepositoryTest {
     private PermitJpaRepository permitRows;
 
     private JpaExpeditionRepository plans;
+    private JpaPersonRegistry people;
+    private JpaVehicleRegistry vehicles;
+    private JpaInstrumentRegistry instruments;
+    private JpaConsumableRegistry consumables;
+    private JpaPermitRegistry permits;
+    private Catalogs catalogs;
     private Person ada;
     private Vehicle truck;
     private Instrument lamp;
@@ -109,13 +125,14 @@ class ExpeditionRepositoryTest {
     void registerTheCatalog() {
         TransactionTemplate transactions = new TransactionTemplate(transactionManager);
         plans = new JpaExpeditionRepository(expeditionRows, registrationRows, transactions);
-        JpaPersonRegistry people = new JpaPersonRegistry(personRows, certificationRows, transactions);
-        JpaVehicleRegistry vehicles = new JpaVehicleRegistry(vehicleRows, transactions);
-        JpaInstrumentRegistry instruments = new JpaInstrumentRegistry(instrumentRows, transactions);
-        JpaConsumableRegistry consumables = new JpaConsumableRegistry(consumableRows, transactions);
-        JpaPermitRegistry permits = new JpaPermitRegistry(permitRows, transactions);
+        people = new JpaPersonRegistry(personRows, certificationRows, transactions);
+        vehicles = new JpaVehicleRegistry(vehicleRows, transactions);
+        instruments = new JpaInstrumentRegistry(instrumentRows, transactions);
+        consumables = new JpaConsumableRegistry(consumableRows, transactions);
+        permits = new JpaPermitRegistry(permitRows, transactions);
+        catalogs = new Catalogs(new BookableResources(people, vehicles, instruments), consumables, permits);
         ada = new Person(people.nextPersonId(), "Ada", List.of(), Availability.always());
-        truck = new Vehicle(vehicles.nextVehicleId(), new Passengers(4), Availability.always());
+        truck = new Vehicle(vehicles.nextVehicleId(), new Capacity(4), Availability.always());
         lamp = new Instrument(instruments.nextInstrumentId(), InstrumentKind.LIGHTING, Availability.always());
         fuel = new Consumable(consumables.nextConsumableId(), "Fuel", new Stock(50));
         zonePermit = new Permit(permits.nextPermitId(), DELTA, PERIOD, PermitKind.ZONE);
@@ -154,7 +171,7 @@ class ExpeditionRepositoryTest {
     void aRevisionKeepsItsLineageAndPlansAreListedInTheOrderTheyWereSaved() {
         Expedition approved = approvedPlan();
         Expedition revision = approved.reviseAsDraft(plans.nextId());
-        revision.delay(revision.activities().getFirst().id(), Duration.ofHours(1));
+        revision.delay(revision.activities().getFirst().id(), new Delay(Duration.ofHours(1)));
 
         plans.save(approved);
         plans.save(revision);
@@ -179,7 +196,7 @@ class ExpeditionRepositoryTest {
         Activity ride = transit("Ride", 4, 6, Set.of(soil.id()));
         draft.addActivity(soil);
         draft.addActivity(ride);
-        draft.addAssignment(new PersonAssignment(ride.id(), ada.id()));
+        draft.addAssignment(new PersonAssignment(ride.id(), ada.id()), catalogs);
         plans.save(draft);
         reload();
 
@@ -220,7 +237,13 @@ class ExpeditionRepositoryTest {
         Expedition draft = draft();
         Activity soil = sampling("Soil", 0, 4, Set.of());
         draft.addActivity(soil);
-        draft.addAssignment(new PersonAssignment(soil.id(), new PersonId(UUID.randomUUID())));
+        InMemoryPersonRegistry elsewhere = new InMemoryPersonRegistry();
+        Person stranger = new Person(elsewhere.nextPersonId(), "Stranger", List.of(), Availability.always());
+        elsewhere.save(stranger);
+        draft.addAssignment(
+                new PersonAssignment(soil.id(), stranger.id()),
+                new Catalogs(new BookableResources(elsewhere, vehicles, instruments), consumables, permits)
+        );
 
         plans.save(draft);
 
@@ -244,30 +267,29 @@ class ExpeditionRepositoryTest {
         Activity camp = camp("Camp", 6, 8);
         Activity probe = Activity.measurement(SAMPLING, InstrumentKind.LIGHTING)
                 .named(plans.nextActivityId(), "Probe")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(8, 10))
                 .build();
         Activity watch = Activity.night(NIGHT_OPERATION)
                 .named(plans.nextActivityId(), "Night watch")
-                .estimated(Duration.ofHours(2), RiskLevel.MEDIUM)
-                .consuming(Map.of(fuel.id(), new Stock(2)))
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.MEDIUM)
+                .consuming(Map.of(fuel.id(), new Consumption(2)))
                 .in(DELTA, window(8, 10))
                 .build();
         expedition.addActivity(soil);
         expedition.addActivity(ride);
         expedition.addBlock(ActivityBlock.sequential(camp, ActivityBlock.parallel(probe, watch)));
-        expedition.addAssignment(new PersonAssignment(soil.id(), ada.id()));
-        expedition.addAssignment(new VehicleAssignment(ride.id(), truck.id()));
-        expedition.addAssignment(new InstrumentAssignment(watch.id(), lamp.id()));
-        expedition.addAssignment(new ConsumableAssignment(watch.id(), fuel.id(), new Stock(3)));
-        expedition.addPermit(zonePermit.id());
-        expedition.addPermit(nightPermit.id());
-        expedition.submitForReview();
-        expedition.acceptWarning(new AcceptedWarning(
-                new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "truck near capacity"),
-                "a second truck follows",
-                ada.id()
-        ));
+        expedition.addAssignment(new PersonAssignment(soil.id(), ada.id()), catalogs);
+        expedition.addAssignment(new VehicleAssignment(ride.id(), truck.id()), catalogs);
+        expedition.addAssignment(new InstrumentAssignment(watch.id(), lamp.id()), catalogs);
+        expedition.addAssignment(new ConsumableAssignment(watch.id(), fuel.id(), new Consumption(3)), catalogs);
+        expedition.addPermit(zonePermit.id(), permits);
+        expedition.addPermit(nightPermit.id(), permits);
+        ValidationIssue capacity = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "truck near capacity");
+        ExpeditionValidator reportingCapacity = planning -> new ValidationResult(planning.plan().id(), planning.plan().version(), List.of(capacity));
+        PlanningContexts contexts = new PlanningContexts(new InMemoryExpeditionRepository(), new InMemoryExecutionRepository(), catalogs);
+        expedition.submitForReview(reportingCapacity, contexts);
+        expedition.acceptWarning(reportingCapacity, contexts, new AcceptedWarning(capacity, "a second truck follows", ada.id()));
         return approved(expedition);
     }
 
@@ -293,14 +315,14 @@ class ExpeditionRepositoryTest {
                 List.of(DELTA),
                 List.of(ada.id()),
                 List.of(new Restriction("Leave no trace"))
-        ));
+        ), people);
     }
 
     private Activity sampling(String name, int fromHour, int toHour, Set<ActivityId> predecessors) {
         return Activity.sampling(SAMPLING)
                 .named(plans.nextActivityId(), name)
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.MEDIUM)
-                .consuming(Map.of(fuel.id(), new Stock(1)))
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.MEDIUM)
+                .consuming(Map.of(fuel.id(), new Consumption(1)))
                 .in(DELTA, window(fromHour, toHour))
                 .after(predecessors)
                 .build();
@@ -309,7 +331,7 @@ class ExpeditionRepositoryTest {
     private Activity transit(String name, int fromHour, int toHour, Set<ActivityId> predecessors) {
         return Activity.transit()
                 .named(plans.nextActivityId(), name)
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .after(predecessors)
                 .build();
@@ -318,7 +340,7 @@ class ExpeditionRepositoryTest {
     private Activity camp(String name, int fromHour, int toHour) {
         return Activity.camp()
                 .named(plans.nextActivityId(), name)
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
     }

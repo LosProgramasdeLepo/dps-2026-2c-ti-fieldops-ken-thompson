@@ -3,6 +3,7 @@ package edu.itba.fieldops.domain.validation;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.Consumable;
@@ -30,9 +31,12 @@ import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.ResourceCatalog;
+import edu.itba.fieldops.domain.support.StoredPeople;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -72,7 +76,10 @@ class ValidationExtensionTest {
     @Test
     void combinesACustomRuleWithAStandardRule() {
         Expedition expedition = expeditionWithTransit();
-        expedition.addAssignment(new PersonAssignment(expedition.activities().getFirst().id(), new PersonId(UUID.randomUUID())));
+        Person stranger = new Person(new PersonId(UUID.randomUUID()), "Stranger", List.of(), Availability.always());
+        ResourceCatalog elsewhere = new ResourceCatalog();
+        elsewhere.save(stranger);
+        expedition.addAssignment(new PersonAssignment(expedition.activities().getFirst().id(), stranger.id()), elsewhere.catalogs());
         ValidationRule alwaysCritical = context -> List.of(
                 new ValidationIssue(IssueSeverity.CRITICAL, "BRIEFING", "no briefing on file")
         );
@@ -105,19 +112,21 @@ class ValidationExtensionTest {
     }
 
     private static Expedition expeditionWithTransit() {
+        PersonId lead = new PersonId(UUID.randomUUID());
         Expedition expedition = Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 new ExpeditionCharter(
                         List.of(new Objective("relevar el frente del glaciar")),
                         new TimePeriod(DAY, DAY.plusSeconds(24 * 3600L)),
                         List.of(ZONE),
-                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(lead),
                         List.of(new Restriction("sin vuelos nocturnos"))
-                )
+                ),
+                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
         expedition.addActivity(Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "Traslado al campamento")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(ZONE, new TimePeriod(DAY, DAY.plusSeconds(4 * 3600L)))
                 .build());
         return expedition;

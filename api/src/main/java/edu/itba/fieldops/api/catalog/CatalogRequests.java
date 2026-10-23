@@ -25,7 +25,7 @@ public final class CatalogRequests {
     }
 
     public record RegisterVehicleRequest(
-            @NotNull @Min(0) Integer capacity,
+            @NotNull @Min(1) Integer capacity,
             @NotNull @Valid AvailabilityRequest availability
     ) {
     }

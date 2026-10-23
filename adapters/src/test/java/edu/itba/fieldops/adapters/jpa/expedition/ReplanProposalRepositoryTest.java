@@ -11,17 +11,21 @@ import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionState;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
+import edu.itba.fieldops.domain.expedition.ProposalReviewer;
+import edu.itba.fieldops.domain.expedition.ProposalState;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.Incident;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
 import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,14 +85,13 @@ class ReplanProposalRepositoryTest {
                 List.of(DELTA),
                 List.of(ada.id()),
                 List.of()
-        ));
+        ), people);
         soil = Activity.transit()
                 .named(plans.nextActivityId(), "Soil")
-                .estimated(Duration.ofHours(4), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.LOW)
                 .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))))
                 .build();
         approved.addActivity(soil);
-        approved.submitForReview();
         approved = approved(approved);
         plans.save(approved);
         reload();
@@ -119,7 +122,7 @@ class ReplanProposalRepositoryTest {
         reload();
 
         ReplanProposal stored = proposals.find(proposal.id()).orElseThrow();
-        stored.accept(ada.id(), DAY.plus(Duration.ofHours(6)));
+        new ProposalReviewer(plans, () -> DAY.plus(Duration.ofHours(6))).accept(stored, ada.id());
         proposals.save(stored);
         reload();
 
@@ -168,8 +171,19 @@ class ReplanProposalRepositoryTest {
 
     @Test
     void rejectsADecisionByAPersonWhoIsNotRegistered() {
-        ReplanProposal proposal = proposal("flooded trail");
-        proposal.reject(new PersonId(UUID.randomUUID()), DAY.plus(Duration.ofHours(6)));
+        ReplanProposal pending = proposal("flooded trail");
+        ReplanProposal proposal = ReplanProposal.restore(
+                new ProposalState(
+                        pending.id(),
+                        pending.originalId(),
+                        pending.suggested().id(),
+                        pending.incident(),
+                        ReplanProposal.Decision.REJECTED,
+                        Optional.of(new PersonId(UUID.randomUUID())),
+                        Optional.of(DAY.plus(Duration.ofHours(6)))
+                ),
+                pending.suggested()
+        );
 
         proposals.save(proposal);
 
@@ -198,9 +212,17 @@ class ReplanProposalRepositoryTest {
 
     private ReplanProposal proposal(String description) {
         Expedition suggestion = approved.reviseAsDraft(plans.nextId());
-        suggestion.delay(soil.id(), Duration.ofHours(2));
+        suggestion.delay(soil.id(), new Delay(Duration.ofHours(2)));
         Incident incident = Incident.affecting(soil.id(), description, DAY.plus(Duration.ofHours(1)));
-        return new ReplanProposal(proposals.nextId(), incident, suggestion);
+        return ReplanProposal.restore(new ProposalState(
+                proposals.nextId(),
+                approved.id(),
+                suggestion.id(),
+                incident,
+                ReplanProposal.Decision.PENDING,
+                Optional.empty(),
+                Optional.empty()
+        ), suggestion);
     }
 
     private void reload() {

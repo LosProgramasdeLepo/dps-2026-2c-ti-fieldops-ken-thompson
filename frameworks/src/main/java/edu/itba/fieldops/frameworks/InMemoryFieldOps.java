@@ -1,43 +1,39 @@
 package edu.itba.fieldops.frameworks;
 
+import edu.itba.fieldops.adapters.InMemoryCertificationRegistry;
+import edu.itba.fieldops.adapters.InMemoryConsumableRegistry;
 import edu.itba.fieldops.adapters.InMemoryExecutionRepository;
 import edu.itba.fieldops.adapters.InMemoryExpeditionRepository;
+import edu.itba.fieldops.adapters.InMemoryInstrumentRegistry;
+import edu.itba.fieldops.adapters.InMemoryPermitRegistry;
+import edu.itba.fieldops.adapters.InMemoryPersonRegistry;
 import edu.itba.fieldops.adapters.InMemoryReplanProposalRepository;
-import edu.itba.fieldops.adapters.ResourceCatalog;
-import edu.itba.fieldops.usecase.shared.Clock;
+import edu.itba.fieldops.adapters.InMemoryVehicleRegistry;
+import edu.itba.fieldops.domain.shared.Clock;
 
 public final class InMemoryFieldOps {
-    private final ResourceCatalog catalog = new ResourceCatalog();
-    private final InMemoryExpeditionRepository plans = new InMemoryExpeditionRepository();
-    private final InMemoryExecutionRepository runs = new InMemoryExecutionRepository();
-    private final InMemoryReplanProposalRepository proposals = new InMemoryReplanProposalRepository();
+    private final FieldOpsRepositories repositories = new FieldOpsRepositories(
+            new InMemoryCertificationRegistry(),
+            new InMemoryPersonRegistry(),
+            new InMemoryVehicleRegistry(),
+            new InMemoryInstrumentRegistry(),
+            new InMemoryConsumableRegistry(),
+            new InMemoryPermitRegistry(),
+            new InMemoryExpeditionRepository(),
+            new InMemoryExecutionRepository(),
+            new InMemoryReplanProposalRepository()
+    );
     private final FieldOps useCases;
 
     public InMemoryFieldOps(Clock clock) {
-        this.useCases = new FieldOps(repositories(), clock);
+        this.useCases = new FieldOps(repositories, clock);
     }
 
     public FieldOpsRepositories repositories() {
-        return new FieldOpsRepositories(catalog, catalog, catalog, catalog, catalog, catalog, plans, runs, proposals);
+        return repositories;
     }
 
     public FieldOps useCases() {
         return useCases;
-    }
-
-    public ResourceCatalog catalog() {
-        return catalog;
-    }
-
-    public InMemoryExpeditionRepository plans() {
-        return plans;
-    }
-
-    public InMemoryExecutionRepository runs() {
-        return runs;
-    }
-
-    public InMemoryReplanProposalRepository proposals() {
-        return proposals;
     }
 }

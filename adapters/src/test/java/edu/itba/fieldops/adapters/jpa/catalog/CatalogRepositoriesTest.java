@@ -9,15 +9,15 @@ import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,7 +115,7 @@ class CatalogRepositoriesTest {
 
     @Test
     void equipmentAndPermitsKeepTheDataTheyWereSavedWith() {
-        Vehicle truck = new Vehicle(vehicles.nextVehicleId(), new Passengers(6), WEEK);
+        Vehicle truck = new Vehicle(vehicles.nextVehicleId(), new Capacity(6), WEEK);
         Instrument lamp = new Instrument(instruments.nextInstrumentId(), InstrumentKind.LIGHTING, WEEK);
         Consumable fuel = new Consumable(consumables.nextConsumableId(), "Fuel", new Stock(40));
         Permit nightDelta = new Permit(
@@ -135,7 +135,7 @@ class CatalogRepositoriesTest {
         Instrument storedLamp = instruments.require(lamp.id());
         Consumable storedFuel = consumables.require(fuel.id());
         assertAll(
-                () -> assertEquals(new Passengers(6), storedTruck.capacity()),
+                () -> assertEquals(new Capacity(6), storedTruck.capacity()),
                 () -> assertEquals(WEEK, storedTruck.availability()),
                 () -> assertEquals(InstrumentKind.LIGHTING, storedLamp.kind()),
                 () -> assertEquals(WEEK, storedLamp.availability()),
@@ -191,7 +191,7 @@ class CatalogRepositoriesTest {
     }
 
     private Vehicle vehicle(int capacity) {
-        return new Vehicle(vehicles.nextVehicleId(), new Passengers(capacity), WEEK);
+        return new Vehicle(vehicles.nextVehicleId(), new Capacity(capacity), WEEK);
     }
 
     private void reload() {

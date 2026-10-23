@@ -62,8 +62,32 @@ class TimePeriodTest {
     }
 
     @Test
+    void anInstantOutsideThePeriodIsNotAnOccurrence() {
+        InvalidValue rejected = assertThrows(InvalidValue.class, () -> hours(0, 4).at(DAY.plusSeconds(5 * 3600L)));
+
+        assertEquals("instant is outside the period", rejected.getMessage());
+    }
+
+    @Test
+    void anInstantInsideThePeriodKeepsThatInstant() {
+        assertEquals(DAY, hours(0, 4).at(DAY).instant());
+    }
+
+    @Test
     void rejectsEndBeforeStart() {
         assertThrows(InvalidValue.class, () -> new TimePeriod(hours(4, 8).end(), hours(0, 4).start()));
+    }
+
+    @Test
+    void rejectsAPeriodThatLastsNoTime() {
+        Instant instant = hours(0, 4).start();
+
+        assertThrows(InvalidValue.class, () -> new TimePeriod(instant, instant));
+    }
+
+    @Test
+    void measuresItsLength() {
+        assertEquals(Duration.ofHours(4), hours(0, 4).length());
     }
 
     private static TimePeriod hours(int from, int to) {

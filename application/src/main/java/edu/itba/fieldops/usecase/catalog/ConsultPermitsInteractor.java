@@ -1,9 +1,11 @@
 package edu.itba.fieldops.usecase.catalog;
 
 import edu.itba.fieldops.domain.catalog.Permit;
+import edu.itba.fieldops.domain.catalog.PermitRegistry;
 import edu.itba.fieldops.domain.identity.PermitId;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
+import edu.itba.fieldops.domain.usecase.catalog.ConsultPermits;
 
 import java.util.Objects;
 

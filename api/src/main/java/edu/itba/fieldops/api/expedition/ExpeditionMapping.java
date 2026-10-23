@@ -9,6 +9,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionRequests.CampActivity;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.CharterRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.ConsumableAssignmentRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.DiveActivity;
+import edu.itba.fieldops.api.expedition.ExpeditionRequests.FinishActivityRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.InstrumentAssignmentRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.ItineraryNode;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.MeasurementActivity;
@@ -61,21 +62,24 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.itinerary.ResourceRequirements;
 import edu.itba.fieldops.domain.report.ActivityResult;
 import edu.itba.fieldops.domain.report.Estimate;
 import edu.itba.fieldops.domain.report.OperationalReport;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.PermitKind;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.Observation;
-import edu.itba.fieldops.usecase.expedition.PlanSnapshot;
-import edu.itba.fieldops.usecase.expedition.ProposalSnapshot;
-import edu.itba.fieldops.usecase.expedition.RunSnapshot;
+import edu.itba.fieldops.domain.tracking.Outcome;
+import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -113,7 +117,7 @@ public final class ExpeditionMapping {
         };
         return builder
                 .named(id, request.name())
-                .estimated(request.estimatedDuration(), request.risk())
+                .estimated(new EstimatedDuration(request.estimatedDuration()), request.risk())
                 .consuming(consumption(request.consumption()))
                 .in(new WorkZone(request.zone()), Periods.toPeriod(request.window()))
                 .after(predecessors(request.predecessors()))
@@ -139,9 +143,16 @@ public final class ExpeditionMapping {
             case ConsumableAssignmentRequest consumable -> new ConsumableAssignment(
                     new ActivityId(consumable.activityId()),
                     new ConsumableId(consumable.consumableId()),
-                    new Stock(consumable.quantity())
+                    new Consumption(consumable.quantity())
             );
         };
+    }
+
+    public static ActivityReport activityReport(FinishActivityRequest request) {
+        Outcome result = new Outcome(request.result());
+        return request.consumption() == null
+                ? ActivityReport.of(result)
+                : new ActivityReport(result, consumption(request.consumption()));
     }
 
     public static AcceptedWarning warning(AcceptWarningRequest request) {
@@ -256,7 +267,7 @@ public final class ExpeditionMapping {
         return new ActivityResponse(
                 activity.id().value(),
                 activity.name(),
-                activity.estimatedDuration().toString(),
+                activity.estimatedDuration().value().toString(),
                 activity.risk().name(),
                 amounts(activity.estimatedConsumption()),
                 activity.zone().name(),
@@ -286,7 +297,7 @@ public final class ExpeditionMapping {
                     consumable.consumableId().value(),
                     consumable.quantity().amount()
             );
-            default -> throw new IllegalStateException("unsupported assignment");
+            default -> throw new IllegalArgumentException("unknown assignment: " + assignment);
         };
     }
 
@@ -327,25 +338,26 @@ public final class ExpeditionMapping {
                 execution.activityId().value(),
                 execution.startedAt(),
                 execution.finishedAt().orElse(null),
-                execution.result().orElse(null)
+                execution.result().map(Outcome::text).orElse(null),
+                amounts(execution.consumed())
         );
     }
 
     private static ActivityResultResponse result(ActivityResult result) {
-        return new ActivityResultResponse(result.activityId().value(), result.result());
+        return new ActivityResultResponse(result.activityId().value(), result.result().text());
     }
 
     private static IssueResponse issue(ValidationIssue issue) {
         return new IssueResponse(issue.severity().name(), issue.code(), issue.message());
     }
 
-    private static Map<ConsumableId, Stock> consumption(Map<UUID, Integer> amounts) {
-        Map<ConsumableId, Stock> consumption = new LinkedHashMap<>();
-        amounts.forEach((id, amount) -> consumption.put(new ConsumableId(id), new Stock(amount)));
+    private static Map<ConsumableId, Consumption> consumption(Map<UUID, Integer> amounts) {
+        Map<ConsumableId, Consumption> consumption = new LinkedHashMap<>();
+        amounts.forEach((id, amount) -> consumption.put(new ConsumableId(id), new Consumption(amount)));
         return consumption;
     }
 
-    private static Map<String, Integer> amounts(Map<ConsumableId, Stock> consumption) {
+    private static Map<String, Integer> amounts(Map<ConsumableId, Consumption> consumption) {
         Map<String, Integer> amounts = new LinkedHashMap<>();
         consumption.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(java.util.Comparator.comparing(ConsumableId::value)))

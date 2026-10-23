@@ -2,19 +2,28 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.catalog.People;
+import edu.itba.fieldops.domain.catalog.Permits;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
+import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.Occurrence;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.shared.UnknownResource;
+import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,7 +39,14 @@ public final class Expedition {
     private final AcceptedWarnings acceptedWarnings = new AcceptedWarnings();
     private ExpeditionStatus status = ExpeditionStatus.DRAFT;
 
-    public static Expedition draft(ExpeditionId id, ExpeditionCharter charter) {
+    public static Expedition draft(ExpeditionId id, ExpeditionCharter charter, People people) {
+        Objects.requireNonNull(charter, "charter");
+        Objects.requireNonNull(people, "people");
+        for (PersonId responsible : charter.responsibles()) {
+            if (people.person(responsible).isEmpty()) {
+                throw new UnknownResource("responsible", responsible.value().toString());
+            }
+        }
         return new Expedition(id, charter);
     }
 
@@ -64,6 +80,9 @@ public final class Expedition {
 
     public Expedition reviseAsDraft(ExpeditionId revisionId) {
         requireStatus(ExpeditionStatus.APPROVED, "revise");
+        if (id.equals(revisionId)) {
+            throw new InvalidValue("a revision needs its own id");
+        }
         return new Expedition(revisionId, this);
     }
 
@@ -87,9 +106,9 @@ public final class Expedition {
         content.addDependency(activityId, predecessorId);
     }
 
-    public void addAssignment(Assignment assignment) {
+    public void addAssignment(Assignment assignment, Catalogs catalogs) {
         requireStatus(ExpeditionStatus.DRAFT, "assign resources");
-        content.addAssignment(assignment);
+        content.addAssignment(assignment, catalogs);
     }
 
     public void removeAssignment(Assignment assignment) {
@@ -97,30 +116,66 @@ public final class Expedition {
         content.removeAssignment(assignment);
     }
 
-    public void delay(ActivityId activityId, Duration delay) {
+    public void delay(ActivityId activityId, Delay delay) {
         requireStatus(ExpeditionStatus.DRAFT, "delay activity");
         content.delay(activityId, delay);
     }
 
-    public boolean delayFits(ActivityId activityId, Duration delay) {
+    public boolean delayFits(ActivityId activityId, Delay delay) {
         return content.delayFits(activityId, delay);
     }
 
-    public void addPermit(PermitId permitId) {
+    public void addPermit(PermitId permitId, Permits permits) {
         requireStatus(ExpeditionStatus.DRAFT, "attach permit");
-        content.addPermit(permitId);
+        content.addPermit(permitId, permits);
     }
 
-    public void acceptWarning(AcceptedWarning warning) {
+    ExpeditionExecution start(Instant at) {
+        if (status != ExpeditionStatus.APPROVED) {
+            throw new InvalidExpeditionTransition(status, "start");
+        }
+        requireWithinPeriod(at, "start");
+        return ExpeditionExecution.begin(id);
+    }
+
+    ActivityStart startOf(ActivityId activityId, Instant at, List<Expedition> plans) {
+        Expedition current = Revisions.inForce(this, Objects.requireNonNull(plans, "plans"));
+        Activity activity = current.activityOf(activityId);
+        if (!activity.window().contains(Objects.requireNonNull(at, "activity instant"))) {
+            throw new InvalidActivityExecution("activity instant is outside the planned window");
+        }
+        return new ActivityStart(
+                activityId,
+                activity.window().at(at),
+                current.predecessorsOf(activityId),
+                Revisions.lineage(current, plans)
+        );
+    }
+
+    Occurrence eventAt(Instant at, String event) {
+        requireWithinPeriod(at, event);
+        return charter().period().at(at);
+    }
+
+    public void acceptWarning(ExpeditionValidator validator, PlanningContexts contexts, AcceptedWarning warning) {
         requireStatus(ExpeditionStatus.IN_REVIEW, "accept warning");
+        Objects.requireNonNull(warning, "warning");
+        ValidationResult result = Objects.requireNonNull(validator, "validator").validate(contexts.around(this));
+        if (!result.warnings().contains(warning.issue())) {
+            throw new InvalidValue("not a current warning: " + warning.issue().code());
+        }
         register(warning);
     }
 
-    public void submitForReview() {
+    public void submitForReview(ExpeditionValidator validator, PlanningContexts contexts) {
+        requireStatus(ExpeditionStatus.DRAFT, "submit for review");
         if (activities().isEmpty()) {
             throw new InvalidItinerary("expedition has no activities");
         }
-        transition(ExpeditionStatus.DRAFT, ExpeditionStatus.IN_REVIEW, "submit for review");
+        if (Objects.requireNonNull(validator, "validator").validate(contexts.around(this)).hasCritical()) {
+            throw new ExpeditionNotApprovable("critical validation issues remain");
+        }
+        status = ExpeditionStatus.IN_REVIEW;
     }
 
     public void returnToDraft() {
@@ -128,18 +183,17 @@ public final class Expedition {
         acceptedWarnings.clear();
     }
 
-    public void approve(ExpeditionValidator validator, PlanningContext context, Optional<Expedition> predecessor) {
+    public void approve(ExpeditionValidator validator, PlanningContexts contexts, Optional<Expedition> predecessor) {
         requireStatus(ExpeditionStatus.IN_REVIEW, "approve");
-        if (Objects.requireNonNull(context, "context").plan() != this) {
-            throw new InvalidValue("approval context is for another expedition");
+        if (!Objects.requireNonNull(predecessor, "predecessor").map(Expedition::id).equals(supersedes())) {
+            throw new InvalidValue("approval must supersede the plan this one revises");
         }
-        Objects.requireNonNull(predecessor, "predecessor");
-        requireApprovable(Objects.requireNonNull(validator, "validator").validate(context));
+        requireApprovable(Objects.requireNonNull(validator, "validator").validate(contexts.around(this)));
         predecessor.ifPresent(Expedition::markSuperseded);
         status = ExpeditionStatus.APPROVED;
     }
 
-    public void markSuperseded() {
+    void markSuperseded() {
         transition(ExpeditionStatus.APPROVED, ExpeditionStatus.SUPERSEDED, "supersede");
     }
 
@@ -201,6 +255,10 @@ public final class Expedition {
         return content.activityOf(activityId);
     }
 
+    public boolean includes(ActivityId activityId) {
+        return content.includes(activityId);
+    }
+
     public Set<ActivityId> predecessorsOf(ActivityId activityId) {
         return content.predecessorsOf(activityId);
     }
@@ -217,7 +275,7 @@ public final class Expedition {
         return content.estimatedRisk();
     }
 
-    public Map<ConsumableId, Stock> estimatedConsumption() {
+    public Map<ConsumableId, Consumption> estimatedConsumption() {
         return content.estimatedConsumption();
     }
 
@@ -259,6 +317,12 @@ public final class Expedition {
     private void transition(ExpeditionStatus from, ExpeditionStatus to, String action) {
         requireStatus(from, action);
         status = to;
+    }
+
+    private void requireWithinPeriod(Instant at, String event) {
+        if (!charter().period().contains(Objects.requireNonNull(at, event))) {
+            throw new InvalidActivityExecution(event + " is outside the expedition period");
+        }
     }
 
     private void requireStatus(ExpeditionStatus expected, String action) {

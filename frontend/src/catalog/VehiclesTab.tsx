@@ -78,7 +78,7 @@ function RegisterVehicle({ onDone }: { onDone: () => void }) {
   return (
     <form className="form" onSubmit={action.onSubmit(() => vehiclesApi.register(capacity, availability))}>
       <Field label="Capacidad (pasajeros)">
-        <input type="number" min={0} required value={capacity} onChange={(event) => setCapacity(Number(event.target.value))} />
+        <input type="number" min={1} required value={capacity} onChange={(event) => setCapacity(Number(event.target.value))} />
       </Field>
       <FieldGroup label="Disponibilidad">
         <AvailabilityInput value={availability} onChange={setAvailability} />

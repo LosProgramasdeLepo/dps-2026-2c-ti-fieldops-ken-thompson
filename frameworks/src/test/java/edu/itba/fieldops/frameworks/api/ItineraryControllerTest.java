@@ -6,7 +6,7 @@ import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
-import edu.itba.fieldops.usecase.expedition.PlanItinerary;
+import edu.itba.fieldops.domain.usecase.expedition.PlanItinerary;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;

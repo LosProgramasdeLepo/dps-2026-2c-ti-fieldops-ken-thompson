@@ -61,7 +61,7 @@ public final class ExpeditionRequests {
             @NotBlank @Size(max = 200) String name,
             @NotNull Duration estimatedDuration,
             @NotNull RiskLevel risk,
-            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(0) Integer> consumption,
+            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(1) Integer> consumption,
             @NotBlank @Size(max = 200) String zone,
             @NotNull @Valid PeriodRequest window,
             @NotNull @Size(max = 20) Set<@NotNull UUID> predecessors
@@ -74,7 +74,7 @@ public final class ExpeditionRequests {
             @NotBlank @Size(max = 200) String name,
             @NotNull Duration estimatedDuration,
             @NotNull RiskLevel risk,
-            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(0) Integer> consumption,
+            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(1) Integer> consumption,
             @NotBlank @Size(max = 200) String zone,
             @NotNull @Valid PeriodRequest window,
             @NotNull @Size(max = 20) Set<@NotNull UUID> predecessors
@@ -85,7 +85,7 @@ public final class ExpeditionRequests {
             @NotBlank @Size(max = 200) String name,
             @NotNull Duration estimatedDuration,
             @NotNull RiskLevel risk,
-            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(0) Integer> consumption,
+            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(1) Integer> consumption,
             @NotBlank @Size(max = 200) String zone,
             @NotNull @Valid PeriodRequest window,
             @NotNull @Size(max = 20) Set<@NotNull UUID> predecessors
@@ -97,7 +97,7 @@ public final class ExpeditionRequests {
             @NotBlank @Size(max = 200) String name,
             @NotNull Duration estimatedDuration,
             @NotNull RiskLevel risk,
-            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(0) Integer> consumption,
+            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(1) Integer> consumption,
             @NotBlank @Size(max = 200) String zone,
             @NotNull @Valid PeriodRequest window,
             @NotNull @Size(max = 20) Set<@NotNull UUID> predecessors
@@ -109,7 +109,7 @@ public final class ExpeditionRequests {
             @NotBlank @Size(max = 200) String name,
             @NotNull Duration estimatedDuration,
             @NotNull RiskLevel risk,
-            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(0) Integer> consumption,
+            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(1) Integer> consumption,
             @NotBlank @Size(max = 200) String zone,
             @NotNull @Valid PeriodRequest window,
             @NotNull @Size(max = 20) Set<@NotNull UUID> predecessors
@@ -120,7 +120,7 @@ public final class ExpeditionRequests {
             @NotBlank @Size(max = 200) String name,
             @NotNull Duration estimatedDuration,
             @NotNull RiskLevel risk,
-            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(0) Integer> consumption,
+            @NotNull @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(1) Integer> consumption,
             @NotBlank @Size(max = 200) String zone,
             @NotNull @Valid PeriodRequest window,
             @NotNull @Size(max = 20) Set<@NotNull UUID> predecessors
@@ -190,7 +190,10 @@ public final class ExpeditionRequests {
     public record DelayRequest(@NotNull Duration delay) {
     }
 
-    public record FinishActivityRequest(@NotBlank @Size(max = 2000) String result) {
+    public record FinishActivityRequest(
+            @NotBlank @Size(max = 2000) String result,
+            @Size(max = 20) Map<@NotNull UUID, @NotNull @Min(1) Integer> consumption
+    ) {
     }
 
     public record ObservationRequest(@NotBlank @Size(max = 2000) String text) {

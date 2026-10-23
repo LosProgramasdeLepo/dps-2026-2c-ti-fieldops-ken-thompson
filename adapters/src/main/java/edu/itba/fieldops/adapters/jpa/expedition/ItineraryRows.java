@@ -5,12 +5,13 @@ import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.itinerary.ResourceRequirements;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 
@@ -74,7 +75,7 @@ record ItineraryRows(
         activities.add(new StoredActivity(
                 id,
                 activity.name(),
-                activity.estimatedDuration(),
+                activity.estimatedDuration().value(),
                 activity.risk().name(),
                 activity.zone().name(),
                 activity.window().start(),
@@ -116,12 +117,12 @@ record ItineraryRows(
         UUID id = stored.activityId();
         return Activity.restoring(requirementsOf(stored))
                 .named(new ActivityId(id), stored.name())
-                .estimated(stored.estimatedDuration(), RiskLevel.valueOf(stored.risk()))
+                .estimated(new EstimatedDuration(stored.estimatedDuration()), RiskLevel.valueOf(stored.risk()))
                 .consuming(consumption.stream()
                         .filter(row -> row.activityId().equals(id))
                         .collect(Collectors.toMap(
                                 row -> new ConsumableId(row.consumableId()),
-                                row -> new Stock(row.quantity())
+                                row -> new Consumption(row.quantity())
                         )))
                 .in(new WorkZone(stored.zone()), new TimePeriod(stored.windowStart(), stored.windowEnd()))
                 .after(predecessors.stream()

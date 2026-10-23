@@ -8,7 +8,7 @@ import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.usecase.expedition.ReviewExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;

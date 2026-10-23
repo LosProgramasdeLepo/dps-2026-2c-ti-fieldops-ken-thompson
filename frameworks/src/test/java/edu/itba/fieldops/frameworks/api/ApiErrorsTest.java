@@ -11,8 +11,8 @@ import edu.itba.fieldops.domain.shared.DomainException;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
-import edu.itba.fieldops.usecase.expedition.ConsultExpedition;
-import edu.itba.fieldops.usecase.expedition.DraftExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.ConsultExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.DraftExpedition;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -77,7 +77,7 @@ class ApiErrorsTest {
 
     @Test
     void invalidAssignmentIsUnprocessable() throws Exception {
-        expect(new InvalidAssignment("assigned quantity must be positive"), 422);
+        expect(new InvalidAssignment("duplicate assignment"), 422);
     }
 
     @Test

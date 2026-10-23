@@ -19,17 +19,19 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
+import edu.itba.fieldops.domain.shared.Capacity;
+import edu.itba.fieldops.domain.shared.Clock;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.usecase.catalog.AdministerEquipment;
-import edu.itba.fieldops.usecase.catalog.AdministerPersonnel;
-import edu.itba.fieldops.usecase.shared.Clock;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -76,8 +78,8 @@ public final class DemoData {
                 personnel.registerPerson("Bruno Diaz", List.of(sampling, diving, night), Availability.always()),
                 personnel.registerPerson("Carla Paz", List.of(sampling), Availability.always()),
                 personnel.registerPerson("Diego Sosa", List.of(sampling), Availability.always()),
-                equipment.registerVehicle(new Passengers(2), Availability.always()),
-                equipment.registerVehicle(new Passengers(6), Availability.always()),
+                equipment.registerVehicle(new Capacity(2), Availability.always()),
+                equipment.registerVehicle(new Capacity(6), Availability.always()),
                 equipment.registerInstrument(InstrumentKind.CAMP_GEAR, Availability.always()),
                 equipment.registerInstrument(InstrumentKind.DIVING_GEAR, Availability.always()),
                 equipment.registerInstrument(InstrumentKind.LIGHTING, Availability.always()),
@@ -121,13 +123,13 @@ public final class DemoData {
                 new PersonAssignment(drive.id(), catalog.bruno()),
                 new PersonAssignment(drive.id(), catalog.carla()),
                 new VehicleAssignment(drive.id(), catalog.truck()),
-                new ConsumableAssignment(drive.id(), catalog.fuel(), new Stock(20)),
+                new ConsumableAssignment(drive.id(), catalog.fuel(), new Consumption(20)),
                 new VehicleAssignment(camp.id(), catalog.van()),
                 new InstrumentAssignment(camp.id(), catalog.campGear()),
                 new PersonAssignment(eastSoil.id(), catalog.carla()),
-                new ConsumableAssignment(eastSoil.id(), catalog.vials(), new Stock(10)),
+                new ConsumableAssignment(eastSoil.id(), catalog.vials(), new Consumption(10)),
                 new PersonAssignment(westSoil.id(), catalog.carla()),
-                new ConsumableAssignment(westSoil.id(), catalog.vials(), new Stock(10)),
+                new ConsumableAssignment(westSoil.id(), catalog.vials(), new Consumption(10)),
                 new PersonAssignment(water.id(), catalog.diego()),
                 new InstrumentAssignment(water.id(), catalog.waterProbe()),
                 new PersonAssignment(dive.id(), catalog.ada()),
@@ -139,11 +141,11 @@ public final class DemoData {
                 new PersonAssignment(north.id(), catalog.carla()),
                 new PersonAssignment(north.id(), catalog.diego()),
                 new VehicleAssignment(north.id(), catalog.van()),
-                new ConsumableAssignment(north.id(), catalog.fuel(), new Stock(15)),
+                new ConsumableAssignment(north.id(), catalog.fuel(), new Consumption(15)),
                 new PersonAssignment(hides.id(), catalog.diego()),
                 new InstrumentAssignment(hides.id(), catalog.binoculars()),
                 new PersonAssignment(cores.id(), catalog.carla()),
-                new ConsumableAssignment(cores.id(), catalog.vials(), new Stock(5)),
+                new ConsumableAssignment(cores.id(), catalog.vials(), new Consumption(5)),
                 new PersonAssignment(birds.id(), catalog.diego()),
                 new InstrumentAssignment(birds.id(), catalog.binoculars()),
                 new PersonAssignment(back.id(), catalog.carla()),
@@ -184,7 +186,7 @@ public final class DemoData {
 
     private Activity planned(Activity.Builder kind, String name, Slot slot) {
         return kind.named(useCases.itinerary().nextActivityId(), name)
-                .estimated(Duration.ofHours(slot.toHour() - slot.fromHour()), RiskLevel.MEDIUM)
+                .estimated(new EstimatedDuration(Duration.ofHours(slot.toHour() - slot.fromHour())), RiskLevel.MEDIUM)
                 .in(DELTA, new TimePeriod(
                         firstDay.plus(Duration.ofHours(slot.fromHour())),
                         firstDay.plus(Duration.ofHours(slot.toHour()))
@@ -193,11 +195,11 @@ public final class DemoData {
     }
 
     private static Activity.Builder sampling(Catalog catalog, int vials) {
-        return Activity.sampling(catalog.sampling()).consuming(Map.of(catalog.vials(), new Stock(vials)));
+        return Activity.sampling(catalog.sampling()).consuming(Map.of(catalog.vials(), new Consumption(vials)));
     }
 
-    private static Map<ConsumableId, Stock> fuel(Catalog catalog, int litres) {
-        return Map.of(catalog.fuel(), new Stock(litres));
+    private static Map<ConsumableId, Consumption> fuel(Catalog catalog, int litres) {
+        return Map.of(catalog.fuel(), new Consumption(litres));
     }
 
     private record Slot(int fromHour, int toHour) {

@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { expeditionsApi, findRun } from '../api/expeditions';
 import type { ActivityExecution, ActivityItem, Expedition } from '../api/types';
+import { ConsumptionInput, toConsumption, type ConsumptionRow } from '../components/ConsumptionInput';
 import { Empty } from '../components/Empty';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Field } from '../components/Field';
 import { Panel } from '../components/Panel';
 import { StatusBadge } from '../components/StatusBadge';
 import { useAction } from '../hooks/useAction';
+import type { Catalog } from '../hooks/useCatalog';
 import { useLoad } from '../hooks/useLoad';
 import { formatInstant, formatPeriod } from '../time';
-import { activitiesOf, activityName, type PlanTabProps } from './describe';
+import { activitiesOf, activityName, consumptionOf, type PlanTabProps } from './describe';
 
 async function startedAncestor(plan: Expedition): Promise<string | null> {
   for (let previous = plan.supersedes; previous; ) {
@@ -29,7 +31,7 @@ interface LogEntry {
   activityId?: string;
 }
 
-export function RunTab({ plan, onChange }: PlanTabProps) {
+export function RunTab({ plan, catalog, onChange }: PlanTabProps) {
   const run = useLoad(() => findRun(plan.id), [plan]);
   const inForceId = run.data?.inForceId;
   const governing = useLoad(() => (inForceId && inForceId !== plan.id ? expeditionsApi.get(inForceId) : Promise.resolve(plan)), [inForceId, plan]);
@@ -135,6 +137,7 @@ export function RunTab({ plan, onChange }: PlanTabProps) {
               <ActivityRow
                 key={activity.id}
                 plan={plan}
+                catalog={catalog}
                 activity={activity}
                 execution={current.activities.find((execution) => execution.activityId === activity.id)}
                 running={current.status === 'IN_PROGRESS'}
@@ -174,14 +177,16 @@ export function RunTab({ plan, onChange }: PlanTabProps) {
 
 interface ActivityRowProps {
   plan: Expedition;
+  catalog: Catalog;
   activity: ActivityItem;
   execution?: ActivityExecution;
   running: boolean;
   onDone: () => void;
 }
 
-function ActivityRow({ plan, activity, execution, running, onDone }: ActivityRowProps) {
+function ActivityRow({ plan, catalog, activity, execution, running, onDone }: ActivityRowProps) {
   const [result, setResult] = useState('');
+  const [consumed, setConsumed] = useState<ConsumptionRow[]>([]);
   const action = useAction(onDone);
   const state = execution?.finishedAt ? 'done' : execution ? 'running' : 'waiting';
 
@@ -210,11 +215,15 @@ function ActivityRow({ plan, activity, execution, running, onDone }: ActivityRow
           <>
             {formatInstant(execution.finishedAt)}
             <div className="muted small">{execution.result}</div>
+            {Object.keys(execution.consumption).length > 0 && (
+              <div className="muted small">Consumo: {consumptionOf(execution.consumption, catalog)}</div>
+            )}
           </>
         )}
         {execution && !execution.finishedAt && running && (
-          <form className="form inline" onSubmit={action.onSubmit(() => expeditionsApi.finishActivity(plan.id, activity.id, result))}>
+          <form className="form inline" onSubmit={action.onSubmit(() => expeditionsApi.finishActivity(plan.id, activity.id, result, toConsumption(consumed)))}>
             <input required aria-label={`Resultado de ${activity.name}`} placeholder="Resultado" value={result} onChange={(event) => setResult(event.target.value)} />
+            <ConsumptionInput rows={consumed} onChange={setConsumed} catalog={catalog} />
             <button className="small" disabled={action.busy}>
               Finalizar
             </button>

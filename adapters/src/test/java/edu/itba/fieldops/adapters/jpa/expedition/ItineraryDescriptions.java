@@ -6,8 +6,8 @@ import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.itinerary.ResourceRequirements;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 
@@ -29,7 +29,7 @@ final class ItineraryDescriptions {
             case Activity activity -> new ActivityView(
                     activity.id(),
                     activity.name(),
-                    activity.estimatedDuration(),
+                    activity.estimatedDuration().value(),
                     activity.risk(),
                     activity.estimatedConsumption(),
                     activity.requirements(),
@@ -46,7 +46,7 @@ final class ItineraryDescriptions {
             String name,
             Duration estimatedDuration,
             RiskLevel risk,
-            Map<ConsumableId, Stock> estimatedConsumption,
+            Map<ConsumableId, Consumption> estimatedConsumption,
             ResourceRequirements requirements,
             WorkZone zone,
             TimePeriod window,

@@ -12,8 +12,9 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
-import edu.itba.fieldops.usecase.expedition.ReplanExpedition;
-import edu.itba.fieldops.usecase.expedition.ReviewReplanProposal;
+import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.usecase.expedition.ReplanExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.ReviewReplanProposal;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -48,7 +49,7 @@ public final class ReplanController {
 
     @PostMapping("/v1/expeditions/{id}/activities/{activityId}/delays")
     public ResponseEntity<Void> delay(@PathVariable UUID id, @PathVariable UUID activityId, @Valid @RequestBody DelayRequest request) {
-        replan.delay(new ExpeditionId(id), new ActivityId(activityId), request.delay());
+        replan.delay(new ExpeditionId(id), new ActivityId(activityId), new Delay(request.delay()));
         return Responses.noContent();
     }
 
