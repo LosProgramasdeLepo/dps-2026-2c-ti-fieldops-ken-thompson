@@ -1,6 +1,5 @@
 package edu.itba.fieldops.frameworks;
 
-import edu.itba.fieldops.adapters.FixedClock;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;

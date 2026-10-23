@@ -1,6 +1,5 @@
 package edu.itba.fieldops.frameworks;
 
-import edu.itba.fieldops.adapters.FixedClock;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.itinerary.Activity;
