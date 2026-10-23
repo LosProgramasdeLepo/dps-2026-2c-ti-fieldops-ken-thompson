@@ -112,6 +112,62 @@ class ReplanProposalTest {
     }
 
     @Test
+    void aStoredDecisionIsRestoredAfterTheOriginalIsSuperseded() {
+        Expedition original = approved();
+        PersonId ada = original.charter().responsibles().getFirst();
+        Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        original.markSuperseded();
+
+        ReplanProposal restored = ReplanProposal.restore(
+                new ProposalState(
+                        new ProposalId(UUID.randomUUID()),
+                        original.id(),
+                        revision.id(),
+                        incident(),
+                        ReplanProposal.Decision.ACCEPTED,
+                        Optional.of(ada),
+                        Optional.of(DAY)
+                ),
+                revision
+        );
+
+        assertEquals(ReplanProposal.Decision.ACCEPTED, restored.decision());
+        assertEquals(original.id(), restored.originalId());
+        assertEquals(Optional.of(ada), restored.decidedBy());
+        assertEquals(Optional.of(DAY), restored.decidedAt());
+    }
+
+    @Test
+    void aPendingProposalDoesNotCarryADecision() {
+        InvalidValue rejected = assertThrows(InvalidValue.class, () -> new ProposalState(
+                new ProposalId(UUID.randomUUID()),
+                new ExpeditionId(UUID.randomUUID()),
+                new ExpeditionId(UUID.randomUUID()),
+                incident(),
+                ReplanProposal.Decision.PENDING,
+                Optional.of(new PersonId(UUID.randomUUID())),
+                Optional.of(DAY)
+        ));
+
+        assertEquals("a pending proposal has no decision", rejected.getMessage());
+    }
+
+    @Test
+    void aDecisionRecordsWhoAndWhen() {
+        InvalidValue rejected = assertThrows(InvalidValue.class, () -> new ProposalState(
+                new ProposalId(UUID.randomUUID()),
+                new ExpeditionId(UUID.randomUUID()),
+                new ExpeditionId(UUID.randomUUID()),
+                incident(),
+                ReplanProposal.Decision.REJECTED,
+                Optional.empty(),
+                Optional.empty()
+        ));
+
+        assertEquals("a decision records who and when", rejected.getMessage());
+    }
+
+    @Test
     void incidentWithoutActivityIsRejected() {
         Incident general = Incident.of("storm", DAY);
         Expedition revision = revision();

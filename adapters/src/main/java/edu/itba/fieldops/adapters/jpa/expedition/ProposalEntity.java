@@ -2,7 +2,9 @@ package edu.itba.fieldops.adapters.jpa.expedition;
 
 import edu.itba.fieldops.adapters.jpa.tracking.StoredIncident;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ProposalState;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import jakarta.persistence.AttributeOverride;
@@ -13,6 +15,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Entity
@@ -48,14 +51,14 @@ public class ProposalEntity {
     protected ProposalEntity() {
     }
 
-    ProposalEntity(ReplanProposal proposal) {
-        this.id = proposal.id().value();
-        this.originalId = proposal.originalId().value();
-        this.suggestedId = proposal.suggested().id().value();
-        this.incident = StoredIncident.of(proposal.incident());
-        this.decision = proposal.decision().name();
-        this.decidedBy = proposal.decidedBy().map(PersonId::value).orElse(null);
-        this.decidedAt = proposal.decidedAt().orElse(null);
+    ProposalEntity(ProposalState state) {
+        this.id = state.id().value();
+        this.originalId = state.originalId().value();
+        this.suggestedId = state.suggestedId().value();
+        this.incident = StoredIncident.of(state.incident());
+        this.decision = state.decision().name();
+        this.decidedBy = state.decidedBy().map(PersonId::value).orElse(null);
+        this.decidedAt = state.decidedAt().orElse(null);
     }
 
     UUID suggestedId() {
@@ -63,11 +66,16 @@ public class ProposalEntity {
     }
 
     ReplanProposal toDomain(Expedition suggested) {
-        ReplanProposal proposal = new ReplanProposal(new ProposalId(id), incident.toDomain(), suggested);
         ReplanProposal.Decision recorded = ReplanProposal.Decision.valueOf(decision);
-        if (recorded != ReplanProposal.Decision.PENDING) {
-            proposal.restoreDecision(recorded, new PersonId(decidedBy), decidedAt);
-        }
-        return proposal;
+        Optional<PersonId> by = decidedBy == null ? Optional.empty() : Optional.of(new PersonId(decidedBy));
+        return ReplanProposal.restore(new ProposalState(
+                new ProposalId(id),
+                new ExpeditionId(originalId),
+                new ExpeditionId(suggestedId),
+                incident.toDomain(),
+                recorded,
+                by,
+                Optional.ofNullable(decidedAt)
+        ), suggested);
     }
 }
