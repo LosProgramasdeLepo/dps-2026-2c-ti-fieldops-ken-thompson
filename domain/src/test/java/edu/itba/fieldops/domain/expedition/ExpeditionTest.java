@@ -11,6 +11,8 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
+import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.shared.DomainException;
 import edu.itba.fieldops.domain.shared.InvalidValue;
@@ -52,13 +54,45 @@ class ExpeditionTest {
         Expedition expedition = wetlandDraft();
         Activity activity = sampling();
         expedition.addActivity(activity);
-        expedition.submitForReview();
+        submit(expedition);
 
         assertThrows(
                 InvalidExpeditionTransition.class,
-                () -> expedition.addAssignment(new PersonAssignment(activity.id(), new PersonId(UUID.randomUUID())))
+                () -> expedition.addAssignment(new PersonAssignment(activity.id(), new PersonId(UUID.randomUUID())), new ResourceCatalog().catalogs())
         );
         assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
+    }
+
+    @Test
+    void submissionRejectsCriticalIssuesAndKeepsTheDraft() {
+        Expedition expedition = wetlandDraft();
+        expedition.addActivity(sampling());
+
+        ExpeditionNotApprovable rejected = assertThrows(
+                ExpeditionNotApprovable.class,
+                () -> expedition.submitForReview(result(critical()), contexts())
+        );
+
+        assertEquals("critical validation issues remain", rejected.getMessage());
+        assertEquals(ExpeditionStatus.DRAFT, expedition.status());
+    }
+
+    @Test
+    void submissionAcceptsWarningsForTheReviewToJustify() {
+        Expedition expedition = wetlandDraft();
+        expedition.addActivity(sampling());
+
+        expedition.submitForReview(result(acceptedCapacityWarning(expedition).issue()), contexts());
+
+        assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
+    }
+
+    @Test
+    void submissionRejectsAnEmptyItinerary() {
+        Expedition expedition = wetlandDraft();
+
+        assertThrows(InvalidItinerary.class, () -> submit(expedition));
+        assertEquals(ExpeditionStatus.DRAFT, expedition.status());
     }
 
     @Test
@@ -68,7 +102,7 @@ class ExpeditionTest {
 
         assertThrows(
                 InvalidExpeditionTransition.class,
-                () -> expedition.addAssignment(new PersonAssignment(activity.id(), new PersonId(UUID.randomUUID())))
+                () -> expedition.addAssignment(new PersonAssignment(activity.id(), new PersonId(UUID.randomUUID())), new ResourceCatalog().catalogs())
         );
     }
 
@@ -160,7 +194,7 @@ class ExpeditionTest {
     void rejectsDuplicateAcceptedWarning() {
         Expedition expedition = wetlandDraft();
         expedition.addActivity(sampling());
-        expedition.submitForReview();
+        submit(expedition);
         AcceptedWarning warning = acceptedCapacityWarning(expedition);
         accept(expedition, warning);
 
@@ -171,7 +205,7 @@ class ExpeditionTest {
     void returnToDraftClearsAcceptedWarnings() {
         Expedition expedition = wetlandDraft();
         expedition.addActivity(sampling());
-        expedition.submitForReview();
+        submit(expedition);
         accept(expedition, acceptedCapacityWarning(expedition));
 
         expedition.returnToDraft();
@@ -184,7 +218,7 @@ class ExpeditionTest {
         Expedition expedition = wetlandDraft();
         Activity first = sampling();
         expedition.addActivity(first);
-        expedition.submitForReview();
+        submit(expedition);
         expedition.returnToDraft();
 
         expedition.removeActivity(first.id());
@@ -236,7 +270,7 @@ class ExpeditionTest {
     void aRevisionIsNotApprovedWithoutSupersedingItsPredecessor() {
         Expedition original = approvedWithSampling();
         Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
-        revision.submitForReview();
+        submit(revision);
 
         InvalidValue rejected = assertThrows(
                 InvalidValue.class,
@@ -262,7 +296,7 @@ class ExpeditionTest {
     void approveSupersedesThePredecessor() {
         Expedition original = approvedWithSampling();
         Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
-        revision.submitForReview();
+        submit(revision);
 
         revision.approve(result(), contexts(), Optional.of(original));
 
@@ -274,7 +308,7 @@ class ExpeditionTest {
     void aCriticalIssueDoesNotSupersedeThePredecessor() {
         Expedition original = approvedWithSampling();
         Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
-        revision.submitForReview();
+        submit(revision);
 
         assertThrows(
                 ExpeditionNotApprovable.class,
@@ -289,7 +323,7 @@ class ExpeditionTest {
     void approveLeavesTheRevisionInReviewWhenThePredecessorCannotBeSuperseded() {
         Expedition original = approvedWithSampling();
         Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
-        revision.submitForReview();
+        submit(revision);
         original.markSuperseded();
 
         assertThrows(
@@ -360,7 +394,7 @@ class ExpeditionTest {
     void aRestoredPlanHasTheStateItWasStoredWith() {
         Expedition expedition = wetlandDraft();
         expedition.addActivity(sampling());
-        expedition.submitForReview();
+        submit(expedition);
         accept(expedition, acceptedCapacityWarning(expedition));
         Expedition approved = StoredPlans.approved(expedition);
 
@@ -406,7 +440,7 @@ class ExpeditionTest {
         );
         Activity elsewhere = Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "Elsewhere")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(new WorkZone("Andes"), window(0, 2))
                 .build();
         return Stream.of(
@@ -472,9 +506,16 @@ class ExpeditionTest {
         Expedition expedition = wetlandDraft();
         Activity activity = sampling();
         expedition.addActivity(activity);
-        expedition.addAssignment(new PersonAssignment(activity.id(), new PersonId(UUID.randomUUID())));
-        expedition.submitForReview();
+        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(), Availability.always());
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.save(ada);
+        expedition.addAssignment(new PersonAssignment(activity.id(), ada.id()), catalog.catalogs());
+        submit(expedition);
         return StoredPlans.approved(expedition);
+    }
+
+    private static void submit(Expedition expedition) {
+        expedition.submitForReview(result(), contexts());
     }
 
     private static void accept(Expedition expedition, AcceptedWarning warning) {
@@ -499,7 +540,7 @@ class ExpeditionTest {
     private static Expedition inReview() {
         Expedition expedition = wetlandDraft();
         expedition.addActivity(sampling());
-        expedition.submitForReview();
+        submit(expedition);
         return expedition;
     }
 
@@ -523,7 +564,7 @@ class ExpeditionTest {
     private static Activity sampling() {
         return Activity.sampling(new CertificationId(UUID.randomUUID()))
                 .named(new ActivityId(UUID.randomUUID()), "Soil sampling")
-                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
+                .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.MEDIUM)
                 .in(DELTA, window(0, 4))
                 .build();
     }
@@ -531,7 +572,7 @@ class ExpeditionTest {
     private static Activity transit() {
         return Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "Camp to site")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(4, 6))
                 .build();
     }

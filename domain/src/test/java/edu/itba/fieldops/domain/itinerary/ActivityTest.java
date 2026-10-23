@@ -3,10 +3,11 @@ package edu.itba.fieldops.domain.itinerary;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import org.junit.jupiter.api.Test;
@@ -74,20 +75,20 @@ class ActivityTest {
         ConsumableId vials = new ConsumableId(UUID.randomUUID());
         Activity shortSample = Activity.sampling(certification())
                 .named(id(), "short")
-                .estimated(Duration.ofHours(1), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(1)), RiskLevel.LOW)
                 .in(DELTA, window(Duration.ofHours(1)))
                 .build();
         Activity longSample = Activity.sampling(certification())
                 .named(id(), "long")
-                .estimated(Duration.ofHours(6), RiskLevel.MEDIUM)
+                .estimated(new EstimatedDuration(Duration.ofHours(6)), RiskLevel.MEDIUM)
                 .in(DELTA, window(Duration.ofHours(6)))
-                .consuming(Map.of(vials, new Stock(4)))
+                .consuming(Map.of(vials, new Consumption(4)))
                 .build();
 
         assertAll(
-                () -> assertEquals(Duration.ofHours(1), shortSample.estimatedDuration()),
-                () -> assertEquals(Duration.ofHours(6), longSample.estimatedDuration()),
-                () -> assertEquals(new Stock(4), longSample.estimatedConsumption().get(vials))
+                () -> assertEquals(new EstimatedDuration(Duration.ofHours(1)), shortSample.estimatedDuration()),
+                () -> assertEquals(new EstimatedDuration(Duration.ofHours(6)), longSample.estimatedDuration()),
+                () -> assertEquals(new Consumption(4), longSample.estimatedConsumption().get(vials))
         );
     }
 
@@ -97,7 +98,7 @@ class ActivityTest {
 
         assertThrows(InvalidItinerary.class, () -> Activity.transit()
                 .named(activityId, "loop")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(Duration.ofHours(2)))
                 .after(Set.of(activityId))
                 .build());
@@ -107,7 +108,7 @@ class ActivityTest {
     void anActivityNeedsAPlace() {
         Activity.Builder withoutPlace = Activity.transit()
                 .named(id(), "move")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW);
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW);
 
         assertThrows(NullPointerException.class, withoutPlace::build);
     }
@@ -116,7 +117,7 @@ class ActivityTest {
     void rejectsWindowShorterThanEstimate() {
         assertThrows(InvalidItinerary.class, () -> Activity.transit()
                 .named(id(), "short")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(Duration.ofHours(1)))
                 .build());
     }
@@ -157,7 +158,7 @@ class ActivityTest {
 
     private static Activity planned(Activity.Builder builder, RiskLevel risk) {
         return builder.named(id(), "planned")
-                .estimated(Duration.ofHours(2), risk)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), risk)
                 .in(DELTA, window(Duration.ofHours(2)))
                 .build();
     }

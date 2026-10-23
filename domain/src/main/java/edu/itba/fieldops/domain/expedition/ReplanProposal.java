@@ -25,7 +25,7 @@ public final class ReplanProposal {
     private PersonId decidedBy;
     private Instant decidedAt;
 
-    public ReplanProposal(ProposalId id, Incident incident, Expedition suggested) {
+    ReplanProposal(ProposalId id, Incident incident, Expedition suggested) {
         this.id = Objects.requireNonNull(id, "proposal id");
         this.incident = Objects.requireNonNull(incident, "incident");
         this.suggested = Objects.requireNonNull(suggested, "suggested plan");
@@ -56,17 +56,17 @@ public final class ReplanProposal {
         return new ProposalState(id, originalId, suggested.id(), incident, decision, decidedBy(), decidedAt());
     }
 
-    public void accept(Expedition original, Responsible responsible, Instant at) {
+    void accept(Expedition original, PersonId responsible, Instant at) {
         requireResponsible(original, responsible);
         if (original.status() != ExpeditionStatus.APPROVED) {
             throw new InvalidExpeditionTransition(original.status(), "accept replan");
         }
-        decide(Decision.ACCEPTED, responsible.personId(), at);
+        decide(Decision.ACCEPTED, responsible, at);
     }
 
-    public void reject(Expedition original, Responsible responsible, Instant at) {
+    void reject(Expedition original, PersonId responsible, Instant at) {
         requireResponsible(original, responsible);
-        decide(Decision.REJECTED, responsible.personId(), at);
+        decide(Decision.REJECTED, responsible, at);
     }
 
     public ProposalId id() {
@@ -97,11 +97,11 @@ public final class ReplanProposal {
         return Optional.ofNullable(decidedAt);
     }
 
-    private void requireResponsible(Expedition original, Responsible responsible) {
+    private void requireResponsible(Expedition original, PersonId responsible) {
         if (!Objects.requireNonNull(original, "original").id().equals(originalId)) {
             throw new InvalidValue("replan must be decided on the plan it revises");
         }
-        if (!Objects.requireNonNull(responsible, "responsible").belongsTo(original)) {
+        if (!original.charter().isResponsible(Objects.requireNonNull(responsible, "responsible"))) {
             throw new InvalidValue("replan must be decided by a responsible");
         }
     }

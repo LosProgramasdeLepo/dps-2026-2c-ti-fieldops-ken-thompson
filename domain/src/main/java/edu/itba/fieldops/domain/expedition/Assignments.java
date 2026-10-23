@@ -2,7 +2,7 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
-import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.shared.Consumption;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -95,10 +95,10 @@ public final class Assignments {
         return List.copyOf(consumables);
     }
 
-    public Map<ConsumableId, Stock> consumption() {
-        Map<ConsumableId, Stock> totals = new HashMap<>();
+    public Map<ConsumableId, Consumption> consumption() {
+        Map<ConsumableId, Consumption> totals = new HashMap<>();
         for (ConsumableAssignment assignment : consumables) {
-            totals.merge(assignment.consumableId(), assignment.quantity(), Stock::plus);
+            totals.merge(assignment.consumableId(), assignment.quantity(), Consumption::plus);
         }
         return Map.copyOf(totals);
     }

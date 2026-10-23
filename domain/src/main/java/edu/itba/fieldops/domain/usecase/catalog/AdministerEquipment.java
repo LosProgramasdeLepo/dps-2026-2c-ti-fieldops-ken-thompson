@@ -4,12 +4,12 @@ import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.Stock;
 
 public interface AdministerEquipment {
-    VehicleId registerVehicle(Passengers capacity, Availability availability);
+    VehicleId registerVehicle(Capacity capacity, Availability availability);
 
     InstrumentId registerInstrument(InstrumentKind kind, Availability availability);
 

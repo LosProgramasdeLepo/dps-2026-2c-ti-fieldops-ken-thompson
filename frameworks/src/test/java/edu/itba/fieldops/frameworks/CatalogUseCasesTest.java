@@ -9,10 +9,10 @@ import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
-import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -35,24 +35,24 @@ class CatalogUseCasesTest extends UseCaseFixture {
         CertificationId sampling = personnel.registerCertification("Sampling");
 
         PersonId personId = personnel.registerPerson("Ada", List.of(sampling), Availability.always());
-        VehicleId vehicleId = equipment.registerVehicle(new Passengers(4), Availability.always());
+        VehicleId vehicleId = equipment.registerVehicle(new Capacity(4), Availability.always());
         InstrumentId instrumentId = equipment.registerInstrument(new InstrumentKind("probe"), Availability.always());
         ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
         PermitId permitId = permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD);
 
         assertAll(
-                () -> assertTrue(catalog.person(personId).orElseThrow().holds(sampling)),
-                () -> assertTrue(catalog.vehicle(vehicleId).isPresent()),
-                () -> assertTrue(catalog.instrument(instrumentId).isPresent()),
-                () -> assertTrue(catalog.consumable(vials).isPresent()),
-                () -> assertTrue(catalog.permit(permitId).isPresent())
+                () -> assertTrue(repositories.people().person(personId).orElseThrow().holds(sampling)),
+                () -> assertTrue(repositories.vehicles().vehicle(vehicleId).isPresent()),
+                () -> assertTrue(repositories.instruments().instrument(instrumentId).isPresent()),
+                () -> assertTrue(repositories.consumables().consumable(vials).isPresent()),
+                () -> assertTrue(repositories.permits().permit(permitId).isPresent())
         );
     }
 
     @Test
     void changesAvailabilityCertifiesAndChangesStock() {
         PersonId ada = personnel.registerPerson("Ada", List.of(), Availability.always());
-        VehicleId boat = equipment.registerVehicle(new Passengers(4), Availability.always());
+        VehicleId boat = equipment.registerVehicle(new Capacity(4), Availability.always());
         InstrumentId lamp = equipment.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
         ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
         CertificationId diving = personnel.registerCertification("Diving");
@@ -66,11 +66,11 @@ class CatalogUseCasesTest extends UseCaseFixture {
         equipment.changeStock(vials, new Stock(5));
 
         assertAll(
-                () -> assertFalse(catalog.person(ada).orElseThrow().availableDuring(morning)),
-                () -> assertTrue(catalog.person(ada).orElseThrow().holds(diving)),
-                () -> assertFalse(catalog.vehicle(boat).orElseThrow().availableDuring(morning)),
-                () -> assertFalse(catalog.instrument(lamp).orElseThrow().availableDuring(morning)),
-                () -> assertEquals(new Stock(5), catalog.consumable(vials).orElseThrow().stock())
+                () -> assertFalse(repositories.people().person(ada).orElseThrow().availableDuring(morning)),
+                () -> assertTrue(repositories.people().person(ada).orElseThrow().holds(diving)),
+                () -> assertFalse(repositories.vehicles().vehicle(boat).orElseThrow().availableDuring(morning)),
+                () -> assertFalse(repositories.instruments().instrument(lamp).orElseThrow().availableDuring(morning)),
+                () -> assertEquals(new Stock(5), repositories.consumables().consumable(vials).orElseThrow().stock())
         );
     }
 
@@ -81,7 +81,7 @@ class CatalogUseCasesTest extends UseCaseFixture {
 
         personnel.certify(ada, sampling);
 
-        assertEquals(List.of(new Certification(sampling, "Sampling")), catalog.person(ada).orElseThrow().certifications());
+        assertEquals(List.of(new Certification(sampling, "Sampling")), repositories.people().person(ada).orElseThrow().certifications());
     }
 
     @Test
@@ -119,7 +119,7 @@ class CatalogUseCasesTest extends UseCaseFixture {
     void consultsEachRegisteredResourceById() {
         CertificationId sampling = personnel.registerCertification("Sampling");
         PersonId ada = personnel.registerPerson("Ada", List.of(sampling), Availability.always());
-        VehicleId boat = equipment.registerVehicle(new Passengers(4), Availability.always());
+        VehicleId boat = equipment.registerVehicle(new Capacity(4), Availability.always());
         InstrumentId probe = equipment.registerInstrument(new InstrumentKind("probe"), Availability.always());
         ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
         PermitId permit = permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD);
@@ -127,7 +127,7 @@ class CatalogUseCasesTest extends UseCaseFixture {
         assertAll(
                 () -> assertEquals("Sampling", consultPersonnel.certification(sampling).name()),
                 () -> assertEquals(List.of(sampling), consultPersonnel.person(ada).certifications().stream().map(Certification::id).toList()),
-                () -> assertEquals(new Passengers(4), consultEquipment.vehicle(boat).capacity()),
+                () -> assertEquals(new Capacity(4), consultEquipment.vehicle(boat).capacity()),
                 () -> assertEquals(new InstrumentKind("probe"), consultEquipment.instrument(probe).kind()),
                 () -> assertEquals(new Stock(20), consultEquipment.consumable(vials).stock()),
                 () -> assertEquals(new WorkZone("Delta"), consultPermits.permit(permit).zone())
@@ -137,7 +137,7 @@ class CatalogUseCasesTest extends UseCaseFixture {
     @Test
     void listsEveryKindOfCatalogResource() {
         personnel.registerCertification("Sampling");
-        equipment.registerVehicle(new Passengers(4), Availability.always());
+        equipment.registerVehicle(new Capacity(4), Availability.always());
         equipment.registerInstrument(new InstrumentKind("probe"), Availability.always());
         equipment.registerConsumable("vials", new Stock(20));
         permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD);

@@ -1,5 +1,7 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.catalog.Permits;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.PermitId;
@@ -9,9 +11,10 @@ import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.itinerary.Itinerary;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -46,8 +49,8 @@ final class PlanContent {
                 new ArrayList<>()
         );
         content.activities().forEach(content::requirePlanned);
-        state.assignments().forEach(content::addAssignment);
-        state.permits().forEach(content::addPermit);
+        state.assignments().forEach(content::file);
+        state.permits().forEach(content::attach);
         return content;
     }
 
@@ -86,20 +89,24 @@ final class PlanContent {
                 .allMatch(activity -> charter.period().contains(activity.window()));
     }
 
-    void addAssignment(Assignment assignment) {
-        itinerary.activityOf(Objects.requireNonNull(assignment, "assignment").activityId());
-        assignments.add(assignment);
+    void addAssignment(Assignment assignment, Catalogs catalogs) {
+        Objects.requireNonNull(assignment, "assignment");
+        assignment.unknownIn(Objects.requireNonNull(catalogs, "catalogs")).ifPresent(label -> {
+            throw new InvalidAssignment("unknown " + label);
+        });
+        file(assignment);
     }
 
     void removeAssignment(Assignment assignment) {
         assignments.remove(Objects.requireNonNull(assignment, "assignment"));
     }
 
-    void addPermit(PermitId permitId) {
-        if (permits.contains(Objects.requireNonNull(permitId, "permit id"))) {
-            throw new InvalidValue("duplicate permit: " + permitId);
+    void addPermit(PermitId permitId, Permits known) {
+        Objects.requireNonNull(permitId, "permit id");
+        if (Objects.requireNonNull(known, "permits").permit(permitId).isEmpty()) {
+            throw new UnknownResource("permit", permitId.value().toString());
         }
-        permits.add(permitId);
+        attach(permitId);
     }
 
     ExpeditionCharter charter() {
@@ -122,6 +129,10 @@ final class PlanContent {
         return itinerary.activityOf(activityId);
     }
 
+    boolean includes(ActivityId activityId) {
+        return itinerary.includes(activityId);
+    }
+
     Set<ActivityId> predecessorsOf(ActivityId activityId) {
         return itinerary.predecessorsOf(activityId);
     }
@@ -138,7 +149,7 @@ final class PlanContent {
         return itinerary.risk();
     }
 
-    Map<ConsumableId, Stock> estimatedConsumption() {
+    Map<ConsumableId, Consumption> estimatedConsumption() {
         return itinerary.estimatedConsumption();
     }
 
@@ -148,6 +159,18 @@ final class PlanContent {
 
     List<PermitId> permits() {
         return List.copyOf(permits);
+    }
+
+    private void file(Assignment assignment) {
+        itinerary.activityOf(Objects.requireNonNull(assignment, "assignment").activityId());
+        assignments.add(assignment);
+    }
+
+    private void attach(PermitId permitId) {
+        if (permits.contains(Objects.requireNonNull(permitId, "permit id"))) {
+            throw new InvalidValue("duplicate permit: " + permitId);
+        }
+        permits.add(permitId);
     }
 
     private void requirePlanned(Activity activity) {

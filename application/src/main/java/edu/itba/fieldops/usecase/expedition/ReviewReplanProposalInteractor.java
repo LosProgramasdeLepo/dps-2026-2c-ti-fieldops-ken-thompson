@@ -1,7 +1,7 @@
 package edu.itba.fieldops.usecase.expedition;
 
-import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.ProposalReviewer;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -19,7 +19,7 @@ import java.util.Objects;
 public final class ReviewReplanProposalInteractor implements ReviewReplanProposal {
     private final ExpeditionRepository plans;
     private final ReplanProposalRepository proposals;
-    private final Clock clock;
+    private final ProposalReviewer reviewer;
 
     public ReviewReplanProposalInteractor(
             ExpeditionRepository plans,
@@ -28,14 +28,13 @@ public final class ReviewReplanProposalInteractor implements ReviewReplanProposa
     ) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.proposals = Objects.requireNonNull(proposals, "proposals");
-        this.clock = Objects.requireNonNull(clock, "clock");
+        this.reviewer = new ProposalReviewer(plans, clock);
     }
 
     @Override
     public void accept(ProposalId proposalId, PersonId responsible) {
         ReplanProposal proposal = require(proposalId);
-        Expedition original = plans.require(proposal.originalId());
-        proposal.accept(original, original.forReplan(responsible), clock.now());
+        reviewer.accept(proposal, responsible);
         plans.save(proposal.suggested());
         proposals.save(proposal);
     }
@@ -43,8 +42,7 @@ public final class ReviewReplanProposalInteractor implements ReviewReplanProposa
     @Override
     public void reject(ProposalId proposalId, PersonId responsible) {
         ReplanProposal proposal = require(proposalId);
-        Expedition original = plans.require(proposal.originalId());
-        proposal.reject(original, original.forReplan(responsible), clock.now());
+        reviewer.reject(proposal, responsible);
         proposals.save(proposal);
     }
 

@@ -10,7 +10,7 @@ import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.shared.Consumption;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +40,7 @@ record AssignmentRows(
                         new ActivityId(row.activityId()), new InstrumentId(row.resourceId())
                 )),
                 consumables.stream().<Assignment>map(row -> new ConsumableAssignment(
-                        new ActivityId(row.activityId()), new ConsumableId(row.consumableId()), new Stock(row.quantity())
+                        new ActivityId(row.activityId()), new ConsumableId(row.consumableId()), new Consumption(row.quantity())
                 ))
         ).flatMap(rows -> rows).toList();
     }

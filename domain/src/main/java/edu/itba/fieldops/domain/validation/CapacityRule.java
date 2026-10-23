@@ -8,6 +8,7 @@ import edu.itba.fieldops.domain.expedition.Assignments;
 import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.Passengers;
 
 import java.util.ArrayList;
@@ -30,16 +31,17 @@ public final class CapacityRule implements ValidationRule {
         if (assigned.isEmpty()) {
             return Optional.empty();
         }
-        Passengers capacity = Passengers.ZERO;
+        List<Capacity> capacities = new ArrayList<>();
         for (VehicleAssignment assignment : assigned) {
             Optional<Vehicle> vehicle = vehicles.vehicle(assignment.vehicleId());
             if (vehicle.isEmpty()) {
                 return Optional.empty();
             }
-            capacity = capacity.plus(vehicle.get().capacity());
+            capacities.add(vehicle.get().capacity());
         }
+        Capacity capacity = capacities.stream().reduce(Capacity::plus).orElseThrow();
         Passengers passengers = new Passengers(assignments.peopleOf(activity.id()).size());
-        if (capacity.isAtLeast(passengers)) {
+        if (capacity.carries(passengers)) {
             return Optional.empty();
         }
         return Optional.of(new ValidationIssue(
@@ -47,7 +49,7 @@ public final class CapacityRule implements ValidationRule {
                 "CAPACITY",
                 "activity " + activity.name()
                         + " assigned " + passengers.count()
-                        + " people but vehicles can carry " + capacity.count()
+                        + " people but vehicles can carry " + capacity.seats()
         ));
     }
 }

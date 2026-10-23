@@ -7,7 +7,9 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
+import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -24,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static edu.itba.fieldops.domain.support.Submissions.submit;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -40,7 +43,7 @@ class ReplannerIncidentTest {
         Prepared prepared = approvedSampling();
         Incident incident = Incident.affecting(prepared.activity.id(), "storm on site", DAY.plus(Duration.ofHours(2)));
 
-        Expedition revision = respondTo(prepared, incident);
+        Expedition revision = proposedPlan(prepared, incident);
 
         assertEquals(window(2, 6), revision.activityOf(prepared.activity.id()).window());
     }
@@ -53,7 +56,7 @@ class ReplannerIncidentTest {
         );
         Incident incident = Incident.affecting(prepared.activity.id(), "equipment failure", DAY);
 
-        Expedition revision = respondTo(prepared, incident);
+        Expedition revision = proposedPlan(prepared, incident);
 
         assertTrue(revision.activities().isEmpty());
     }
@@ -63,7 +66,7 @@ class ReplannerIncidentTest {
         Prepared prepared = approvedSampling();
         Incident incident = Incident.affecting(prepared.activity.id(), "storm on site", DAY.plus(Duration.ofDays(10)));
 
-        Expedition revision = respondTo(prepared, incident);
+        Expedition revision = proposedPlan(prepared, incident);
 
         assertTrue(revision.activities().isEmpty());
     }
@@ -76,7 +79,7 @@ class ReplannerIncidentTest {
         Prepared prepared = approvedSampling(ada, certification, bob);
         Incident incident = Incident.affecting(prepared.activity.id(), "forecast change", DAY);
 
-        Expedition revision = respondTo(prepared, incident);
+        Expedition revision = proposedPlan(prepared, incident);
 
         assertAll(
                 () -> assertEquals(window(0, 4), revision.activityOf(prepared.activity.id()).window()),
@@ -89,17 +92,49 @@ class ReplannerIncidentTest {
         Prepared prepared = approvedSampling();
         Incident general = Incident.of("storm on site", DAY);
 
-        assertThrows(InvalidValue.class, () -> respondTo(prepared, general));
+        assertThrows(InvalidValue.class, () -> proposedPlan(prepared, general));
     }
 
-    private Expedition respondTo(Prepared prepared, Incident incident) {
+    @Test
+    void aProposalAnswersAnIncidentRecordedOnTheRun() {
+        Prepared prepared = approvedSampling();
+        Incident incident = Incident.affecting(prepared.activity.id(), "storm on site", DAY.plus(Duration.ofHours(2)));
+        prepared.execution.addIncident(incident);
         Expedition revision = prepared.expedition.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
-        replanner.respondTo(
-                new PlanningContext(revision, prepared.catalog.catalogs(), OccupyingExpeditions.of(revision, List.of(), Map.of())),
-                incident,
-                prepared.execution
+
+        ReplanProposal proposal = replanner.propose(new ProposalId(UUID.randomUUID()), contextOf(prepared, revision), incident, prepared.execution);
+
+        assertAll(
+                () -> assertEquals(prepared.expedition.id(), proposal.originalId()),
+                () -> assertEquals(revision, proposal.suggested()),
+                () -> assertEquals(incident, proposal.incident()),
+                () -> assertEquals(ReplanProposal.Decision.PENDING, proposal.decision())
         );
-        return revision;
+    }
+
+    @Test
+    void aProposalDoesNotAnswerAnIncidentTheRunDidNotRecord() {
+        Prepared prepared = approvedSampling();
+        Incident incident = Incident.affecting(prepared.activity.id(), "storm on site", DAY.plus(Duration.ofHours(2)));
+        Expedition revision = prepared.expedition.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        PlanningContext context = contextOf(prepared, revision);
+        ProposalId id = new ProposalId(UUID.randomUUID());
+
+        InvalidValue rejected = assertThrows(InvalidValue.class, () -> replanner.propose(id, context, incident, prepared.execution));
+
+        assertEquals("incident is not recorded on the run", rejected.getMessage());
+        assertEquals(window(0, 4), revision.activityOf(prepared.activity.id()).window());
+    }
+
+    private Expedition proposedPlan(Prepared prepared, Incident incident) {
+        prepared.execution.addIncident(incident);
+        Expedition revision = prepared.expedition.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        return replanner.propose(new ProposalId(UUID.randomUUID()), contextOf(prepared, revision), incident, prepared.execution)
+                .suggested();
+    }
+
+    private static PlanningContext contextOf(Prepared prepared, Expedition revision) {
+        return new PlanningContext(revision, prepared.catalog.catalogs(), OccupyingExpeditions.of(revision, List.of(), Map.of()));
     }
 
     private static Prepared approvedSampling() {
@@ -111,7 +146,7 @@ class ReplannerIncidentTest {
     private static Prepared approvedSampling(Person assignee, Certification certification, Person... others) {
         Activity activity = Activity.sampling(certification.id())
                 .named(new ActivityId(UUID.randomUUID()), "Soil sampling")
-                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
+                .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.MEDIUM)
                 .in(DELTA, window(0, 4))
                 .build();
         Expedition expedition = Expedition.draft(
@@ -125,15 +160,15 @@ class ReplannerIncidentTest {
                 ),
                 StoredPeople.of(assignee)
         );
-        expedition.addActivity(activity);
-        expedition.addAssignment(new PersonAssignment(activity.id(), assignee.id()));
-        expedition.submitForReview();
-        expedition = StoredPlans.approved(expedition);
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.save(assignee);
         for (Person other : others) {
             catalog.save(other);
         }
+        expedition.addActivity(activity);
+        expedition.addAssignment(new PersonAssignment(activity.id(), assignee.id()), catalog.catalogs());
+        submit(expedition);
+        expedition = StoredPlans.approved(expedition);
         return new Prepared(expedition, activity, assignee, expedition.start(DAY), catalog);
     }
 

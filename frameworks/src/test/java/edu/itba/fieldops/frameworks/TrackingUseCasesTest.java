@@ -14,10 +14,12 @@ import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.report.OperationalReport;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
 import edu.itba.fieldops.domain.tracking.Outcome;
@@ -60,7 +62,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         tracking.startActivity(sampling.expeditionId(), sampling.activityId());
         clock.set(at(5));
 
-        tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), new Outcome("samples stored late"));
+        tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), ActivityReport.of(new Outcome("samples stored late")));
 
         assertTrue(run(sampling.expeditionId()).activities().getFirst().isFinished());
     }
@@ -81,7 +83,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         clock.set(at(0));
         tracking.startActivity(sequence.expeditionId(), sequence.upstream());
         clock.set(at(2));
-        tracking.finishActivity(sequence.expeditionId(), sequence.upstream(), new Outcome("upstream sampled"));
+        tracking.finishActivity(sequence.expeditionId(), sequence.upstream(), ActivityReport.of(new Outcome("upstream sampled")));
 
         tracking.startActivity(sequence.expeditionId(), sequence.downstream());
 
@@ -95,7 +97,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         tracking.suspend(sampling.expeditionId());
         tracking.resume(sampling.expeditionId());
         clock.set(at(4));
-        tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), new Outcome("samples stored"));
+        tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), ActivityReport.of(new Outcome("samples stored")));
 
         tracking.finish(sampling.expeditionId());
 
@@ -106,7 +108,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
     void consultsTheRunWithWhatHasStartedAndFinished() {
         TwoSamplings plan = startedTwoSamplings();
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
+        tracking.finishActivity(plan.expeditionId(), plan.first(), ActivityReport.of(new Outcome("samples stored")));
         tracking.startActivity(plan.expeditionId(), plan.later());
 
         RunSnapshot snapshot = tracking.run(plan.expeditionId());
@@ -146,18 +148,22 @@ class TrackingUseCasesTest extends UseCaseFixture {
     }
 
     @Test
-    void theReportUsesTheActualDurationAndOnlyTheConsumptionOfFinishedActivities() {
+    void theReportUsesTheActualDurationAndTheConsumptionRecordedByFinishedActivities() {
         ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
         TwoSamplings plan = approvedTwoSamplingsConsuming(vials);
         tracking.start(plan.expeditionId());
         tracking.startActivity(plan.expeditionId(), plan.first());
         clock.set(at(2));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
+        tracking.finishActivity(
+                plan.expeditionId(),
+                plan.first(),
+                new ActivityReport(new Outcome("samples stored"), Map.of(vials, new Consumption(4)))
+        );
 
         OperationalReport report = reports.of(plan.expeditionId());
 
         assertEquals(Duration.ofHours(2), report.duration());
-        assertEquals(Map.of(vials, new Stock(5)), report.consumption());
+        assertEquals(Map.of(vials, new Consumption(4)), report.consumption());
     }
 
     @Test
@@ -165,7 +171,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         TwoSamplings plan = startedTwoSamplings();
         revisionWithout(plan.expeditionId(), plan.later());
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
+        tracking.finishActivity(plan.expeditionId(), plan.first(), ActivityReport.of(new Outcome("samples stored")));
 
         tracking.startActivity(plan.expeditionId(), plan.later());
 
@@ -180,7 +186,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         approval.approve(revision);
         assertThrows(InvalidItinerary.class, () -> tracking.startActivity(plan.expeditionId(), plan.later()));
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
+        tracking.finishActivity(plan.expeditionId(), plan.first(), ActivityReport.of(new Outcome("samples stored")));
 
         tracking.finish(plan.expeditionId());
 
@@ -195,7 +201,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         review.submit(approvedRevision);
         approval.approve(approvedRevision);
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
+        tracking.finishActivity(plan.expeditionId(), plan.first(), ActivityReport.of(new Outcome("samples stored")));
 
         tracking.finish(plan.expeditionId());
 
@@ -231,10 +237,10 @@ class TrackingUseCasesTest extends UseCaseFixture {
         assertTrue(hasOverlap(other.expeditionId()));
 
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
+        tracking.finishActivity(plan.expeditionId(), plan.first(), ActivityReport.of(new Outcome("samples stored")));
         tracking.startActivity(plan.expeditionId(), plan.later());
         clock.set(at(6));
-        tracking.finishActivity(plan.expeditionId(), plan.later(), new Outcome("samples stored"));
+        tracking.finishActivity(plan.expeditionId(), plan.later(), ActivityReport.of(new Outcome("samples stored")));
         tracking.finish(plan.expeditionId());
 
         assertFalse(hasOverlap(other.expeditionId()));
@@ -261,8 +267,8 @@ class TrackingUseCasesTest extends UseCaseFixture {
 
     private TwoSamplings approvedTwoSamplingsConsuming(ConsumableId vials) {
         TwoSamplings plan = twoSamplings();
-        assignments.addAssignment(plan.expeditionId(), new ConsumableAssignment(plan.first(), vials, new Stock(5)));
-        assignments.addAssignment(plan.expeditionId(), new ConsumableAssignment(plan.later(), vials, new Stock(4)));
+        assignments.addAssignment(plan.expeditionId(), new ConsumableAssignment(plan.first(), vials, new Consumption(5)));
+        assignments.addAssignment(plan.expeditionId(), new ConsumableAssignment(plan.later(), vials, new Consumption(4)));
         review.submit(plan.expeditionId());
         approval.approve(plan.expeditionId());
         return plan;

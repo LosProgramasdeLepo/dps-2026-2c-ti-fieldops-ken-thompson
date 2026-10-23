@@ -6,6 +6,7 @@ import type {
   BlockItem,
   BlockRequest,
   CharterRequest,
+  Consumption,
   Created,
   Estimate,
   Expedition,
@@ -50,8 +51,8 @@ export const expeditionsApi = {
   resume: (id: Uuid) => http.delete(`${run(id)}/suspension`),
   finish: (id: Uuid) => http.post(`${run(id)}/completion`),
   startActivity: (id: Uuid, activityId: Uuid) => http.post(`${run(id)}/activities/${activityId}/initiation`),
-  finishActivity: (id: Uuid, activityId: Uuid, result: string) =>
-    http.post(`${run(id)}/activities/${activityId}/completion`, { result }),
+  finishActivity: (id: Uuid, activityId: Uuid, result: string, consumption: Consumption) =>
+    http.post(`${run(id)}/activities/${activityId}/completion`, { result, consumption }),
   observe: (id: Uuid, text: string) => http.post(`${run(id)}/observations`, { text }),
   recordIncident: (id: Uuid, description: string, activityId?: Uuid) =>
     http.post(`${expedition(id)}/incidents`, { description, activityId }),

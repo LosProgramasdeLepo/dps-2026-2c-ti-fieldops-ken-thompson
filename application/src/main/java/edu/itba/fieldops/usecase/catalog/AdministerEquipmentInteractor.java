@@ -10,8 +10,8 @@ import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 
@@ -29,7 +29,7 @@ public final class AdministerEquipmentInteractor implements AdministerEquipment 
     }
 
     @Override
-    public VehicleId registerVehicle(Passengers capacity, Availability availability) {
+    public VehicleId registerVehicle(Capacity capacity, Availability availability) {
         VehicleId id = vehicles.nextVehicleId();
         vehicles.save(new Vehicle(id, capacity, availability));
         return id;

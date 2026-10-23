@@ -7,6 +7,7 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -14,6 +15,7 @@ import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
@@ -27,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static edu.itba.fieldops.domain.support.Submissions.submit;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,7 +61,7 @@ class ExpeditionExecutionTest {
     void startsAnActivityOnceItsPredecessorFinished() {
         RunOnPlan started = running(activity(first, 0, 4), activity(second, 4, 8).after(Set.of(first)));
         started.run.startActivity(started.plan.startOf(first, DAY, List.of(started.plan)));
-        started.run.finishActivity(first, PERIOD.at(hours(4)), new Outcome("site reached"));
+        started.run.finishActivity(first, PERIOD.at(hours(4)), ActivityReport.of(new Outcome("site reached")));
 
         started.run.startActivity(started.plan.startOf(second, hours(4), List.of(started.plan)));
 
@@ -69,7 +72,7 @@ class ExpeditionExecutionTest {
     void finishingAnActivityRecordsWhenAndWithWhatResult() {
         ExpeditionExecution running = open(expeditionId, new ActivityExecution(first, DAY));
 
-        running.finishActivity(first, PERIOD.at(hours(1)), new Outcome("samples stored"));
+        running.finishActivity(first, PERIOD.at(hours(1)), ActivityReport.of(new Outcome("samples stored")));
 
         ActivityExecution finished = running.activities().getFirst();
         assertAll(
@@ -81,16 +84,16 @@ class ExpeditionExecutionTest {
     @Test
     void cannotFinishAnActivityTwice() {
         ExpeditionExecution running = open(expeditionId, new ActivityExecution(first, DAY));
-        running.finishActivity(first, PERIOD.at(hours(1)), new Outcome("samples stored"));
+        running.finishActivity(first, PERIOD.at(hours(1)), ActivityReport.of(new Outcome("samples stored")));
 
-        assertThrows(InvalidActivityExecution.class, () -> running.finishActivity(first, PERIOD.at(hours(2)), new Outcome("samples stored again")));
+        assertThrows(InvalidActivityExecution.class, () -> running.finishActivity(first, PERIOD.at(hours(2)), ActivityReport.of(new Outcome("samples stored again"))));
     }
 
     @Test
     void theRecordedActivitiesCannotBeChangedFromOutside() {
         ExpeditionExecution running = open(expeditionId, new ActivityExecution(first, DAY));
 
-        running.activities().getFirst().finish(hours(1), new Outcome("samples stored"));
+        running.activities().getFirst().finish(hours(1), ActivityReport.of(new Outcome("samples stored")));
 
         assertFalse(running.activities().getFirst().isFinished());
     }
@@ -99,7 +102,7 @@ class ExpeditionExecutionTest {
     void finishesOnceEveryPlannedActivityFinished() {
         RunOnPlan started = running(activity(first, 0, 4));
         started.run.startActivity(started.plan.startOf(first, DAY, List.of(started.plan)));
-        started.run.finishActivity(first, PERIOD.at(hours(1)), new Outcome("samples stored"));
+        started.run.finishActivity(first, PERIOD.at(hours(1)), ActivityReport.of(new Outcome("samples stored")));
 
         started.run.finish(started.plan);
 
@@ -127,7 +130,7 @@ class ExpeditionExecutionTest {
         Activity later = activity(second, 4, 8).build();
         Expedition plan = draftWithoutActivities();
         plan.addBlock(ActivityBlock.sequential(earlier, later));
-        plan.submitForReview();
+        submit(plan);
         Expedition approved = StoredPlans.approved(plan);
         ExpeditionExecution run = approved.start(DAY);
 
@@ -193,7 +196,7 @@ class ExpeditionExecutionTest {
     void aRestoredRunHasTheStateItWasStoredWith() {
         ExpeditionExecution withActivities = open(
                 expeditionId,
-                new ActivityExecution(first, DAY).finish(hours(4), new Outcome("site reached")),
+                new ActivityExecution(first, DAY).finish(hours(4), ActivityReport.of(new Outcome("site reached"))),
                 new ActivityExecution(second, hours(4))
         );
         withActivities.addIncident(Incident.affecting(second, "flooded trail", hours(5)));
@@ -263,7 +266,7 @@ class ExpeditionExecutionTest {
         for (Activity.Builder activity : activities) {
             plan.addActivity(activity.build());
         }
-        plan.submitForReview();
+        submit(plan);
         Expedition approved = StoredPlans.approved(plan);
         return new RunOnPlan(approved, approved.start(DAY));
     }
@@ -271,7 +274,7 @@ class ExpeditionExecutionTest {
     private static Activity.Builder activity(ActivityId id, int fromHour, int toHour) {
         return Activity.transit()
                 .named(id, "survey")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, new TimePeriod(hours(fromHour), hours(toHour)));
     }
 

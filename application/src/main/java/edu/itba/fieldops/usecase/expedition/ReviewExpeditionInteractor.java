@@ -5,7 +5,6 @@ import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.expedition.PlanningContexts;
@@ -33,10 +32,7 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
     @Override
     public void submit(ExpeditionId expeditionId) {
         Expedition expedition = plans.require(expeditionId);
-        if (validationOf(expedition).hasCritical()) {
-            throw new ExpeditionNotApprovable("critical validation issues remain");
-        }
-        expedition.submitForReview();
+        expedition.submitForReview(validator, contexts);
         plans.save(expedition);
     }
 

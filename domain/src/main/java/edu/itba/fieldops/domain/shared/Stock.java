@@ -7,11 +7,7 @@ public record Stock(int amount) {
         }
     }
 
-    public Stock plus(Stock other) {
-        return new Stock(amount + other.amount);
-    }
-
-    public boolean isAtLeast(Stock other) {
-        return amount >= other.amount;
+    public boolean covers(Consumption needed) {
+        return amount >= needed.amount();
     }
 }

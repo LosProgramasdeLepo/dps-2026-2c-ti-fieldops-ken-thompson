@@ -1,6 +1,7 @@
 package edu.itba.fieldops.domain.catalog;
 
 import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.Texts;
 
@@ -33,7 +34,7 @@ public final class Consumable {
         return new Consumable(id, name, stock);
     }
 
-    public boolean hasAtLeast(Stock needed) {
-        return stock.isAtLeast(needed);
+    public boolean covers(Consumption needed) {
+        return stock.covers(needed);
     }
 }

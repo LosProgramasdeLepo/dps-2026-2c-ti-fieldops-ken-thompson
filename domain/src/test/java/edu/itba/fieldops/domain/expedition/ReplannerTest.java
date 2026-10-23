@@ -11,7 +11,9 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static edu.itba.fieldops.domain.support.Submissions.submit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -65,7 +68,7 @@ class ReplannerTest {
         Expedition expedition = draftWith(first);
         expedition.addActivity(second);
         expedition.addDependency(second.id(), first.id());
-        expedition.addAssignment(new PersonAssignment(first.id(), ada.id()));
+        expedition.addAssignment(new PersonAssignment(first.id(), ada.id()), catalog.catalogs());
 
         replanner.delay(unoccupied(expedition), first.id(), new Delay(Duration.ofHours(2)));
 
@@ -84,7 +87,7 @@ class ReplannerTest {
         Expedition occupying = inReviewWithAdaBetween(4, 8);
         Activity sample = sampling(0, 4);
         Expedition expedition = draftWith(sample);
-        expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
+        expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()), catalog.catalogs());
 
         replanner.delay(occupiedBy(expedition, occupying), sample.id(), new Delay(Duration.ofHours(4)));
 
@@ -107,7 +110,7 @@ class ReplannerTest {
         Expedition occupying = inReviewWithAdaBetween(0, 4);
         Activity sample = sampling(0, 4);
         Expedition expedition = draftWith(sample);
-        expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
+        expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()), catalog.catalogs());
 
         replanner.replaceUnavailable(occupiedBy(expedition, occupying));
 
@@ -122,10 +125,10 @@ class ReplannerTest {
         catalog.save(vials);
         Expedition occupying = inReviewWithAdaBetween(0, 4);
         Activity sample = sampling(0, 4);
-        ConsumableAssignment vialsAssigned = new ConsumableAssignment(sample.id(), vials.id(), new Stock(3));
+        ConsumableAssignment vialsAssigned = new ConsumableAssignment(sample.id(), vials.id(), new Consumption(3));
         Expedition expedition = draftWith(sample);
-        expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
-        expedition.addAssignment(vialsAssigned);
+        expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()), catalog.catalogs());
+        expedition.addAssignment(vialsAssigned, catalog.catalogs());
 
         replanner.replaceUnavailable(occupiedBy(expedition, occupying));
 
@@ -140,8 +143,8 @@ class ReplannerTest {
         catalog.save(bob);
         Activity sample = sampling(0, 4);
         Expedition approved = draftWith(sample);
-        approved.addAssignment(new PersonAssignment(sample.id(), ada.id()));
-        approved.submitForReview();
+        approved.addAssignment(new PersonAssignment(sample.id(), ada.id()), catalog.catalogs());
+        submit(approved);
         Expedition inForce = StoredPlans.approved(approved);
         Expedition revision = inForce.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
 
@@ -155,8 +158,8 @@ class ReplannerTest {
         catalog.save(ada);
         Activity sample = sampling(0, 4);
         Expedition expedition = draftWith(sample);
-        expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()));
-        expedition.submitForReview();
+        expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()), catalog.catalogs());
+        submit(expedition);
         PlanningContext context = unoccupied(expedition);
 
         assertThrows(InvalidExpeditionTransition.class, () -> replanner.replaceUnavailable(context));
@@ -175,8 +178,8 @@ class ReplannerTest {
     private Expedition inReviewWithAdaBetween(int fromHour, int toHour) {
         Activity activity = sampling(fromHour, toHour);
         Expedition expedition = draftWith(activity);
-        expedition.addAssignment(new PersonAssignment(activity.id(), ada.id()));
-        expedition.submitForReview();
+        expedition.addAssignment(new PersonAssignment(activity.id(), ada.id()), catalog.catalogs());
+        submit(expedition);
         return expedition;
     }
 
@@ -187,7 +190,7 @@ class ReplannerTest {
     private Activity sampling(int fromHour, int toHour) {
         return Activity.sampling(certification.id())
                 .named(new ActivityId(UUID.randomUUID()), "sample")
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.MEDIUM)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.MEDIUM)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
     }

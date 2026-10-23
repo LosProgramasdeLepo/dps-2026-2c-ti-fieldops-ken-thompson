@@ -2,7 +2,9 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.People;
+import edu.itba.fieldops.domain.catalog.Permits;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -13,10 +15,10 @@ import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Occurrence;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 
@@ -104,9 +106,9 @@ public final class Expedition {
         content.addDependency(activityId, predecessorId);
     }
 
-    public void addAssignment(Assignment assignment) {
+    public void addAssignment(Assignment assignment, Catalogs catalogs) {
         requireStatus(ExpeditionStatus.DRAFT, "assign resources");
-        content.addAssignment(assignment);
+        content.addAssignment(assignment, catalogs);
     }
 
     public void removeAssignment(Assignment assignment) {
@@ -123,9 +125,9 @@ public final class Expedition {
         return content.delayFits(activityId, delay);
     }
 
-    public void addPermit(PermitId permitId) {
+    public void addPermit(PermitId permitId, Permits permits) {
         requireStatus(ExpeditionStatus.DRAFT, "attach permit");
-        content.addPermit(permitId);
+        content.addPermit(permitId, permits);
     }
 
     ExpeditionExecution start(Instant at) {
@@ -150,13 +152,9 @@ public final class Expedition {
         );
     }
 
-    Occurrence finishAt(Instant at) {
-        requireWithinPeriod(at, "finish");
+    Occurrence eventAt(Instant at, String event) {
+        requireWithinPeriod(at, event);
         return charter().period().at(at);
-    }
-
-    public Responsible forReplan(PersonId personId) {
-        return responsible(personId, "replan must be decided by a responsible");
     }
 
     public void acceptWarning(ExpeditionValidator validator, PlanningContexts contexts, AcceptedWarning warning) {
@@ -169,11 +167,15 @@ public final class Expedition {
         register(warning);
     }
 
-    public void submitForReview() {
+    public void submitForReview(ExpeditionValidator validator, PlanningContexts contexts) {
+        requireStatus(ExpeditionStatus.DRAFT, "submit for review");
         if (activities().isEmpty()) {
             throw new InvalidItinerary("expedition has no activities");
         }
-        transition(ExpeditionStatus.DRAFT, ExpeditionStatus.IN_REVIEW, "submit for review");
+        if (Objects.requireNonNull(validator, "validator").validate(contexts.around(this)).hasCritical()) {
+            throw new ExpeditionNotApprovable("critical validation issues remain");
+        }
+        status = ExpeditionStatus.IN_REVIEW;
     }
 
     public void returnToDraft() {
@@ -253,6 +255,10 @@ public final class Expedition {
         return content.activityOf(activityId);
     }
 
+    public boolean includes(ActivityId activityId) {
+        return content.includes(activityId);
+    }
+
     public Set<ActivityId> predecessorsOf(ActivityId activityId) {
         return content.predecessorsOf(activityId);
     }
@@ -269,7 +275,7 @@ public final class Expedition {
         return content.estimatedRisk();
     }
 
-    public Map<ConsumableId, Stock> estimatedConsumption() {
+    public Map<ConsumableId, Consumption> estimatedConsumption() {
         return content.estimatedConsumption();
     }
 
@@ -290,13 +296,6 @@ public final class Expedition {
                 throw new ExpeditionNotApprovable("warning not justified: " + warning.code());
             }
         }
-    }
-
-    private Responsible responsible(PersonId personId, String rejection) {
-        if (!charter().isResponsible(Objects.requireNonNull(personId, "responsible"))) {
-            throw new InvalidValue(rejection);
-        }
-        return new Responsible(this, personId);
     }
 
     private void register(AcceptedWarning warning) {

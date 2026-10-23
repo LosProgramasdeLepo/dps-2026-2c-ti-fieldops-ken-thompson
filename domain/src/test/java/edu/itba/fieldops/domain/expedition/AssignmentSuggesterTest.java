@@ -12,8 +12,9 @@ import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static edu.itba.fieldops.domain.support.Submissions.submit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,9 +59,9 @@ class AssignmentSuggesterTest {
         Person ada = person("Ada", certification, Availability.always());
         Activity activity = sampling(certification.id(), 0, 4);
         Expedition expedition = draftWith(activity);
-        expedition.addAssignment(new PersonAssignment(activity.id(), ada.id()));
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.save(ada);
+        expedition.addAssignment(new PersonAssignment(activity.id(), ada.id()), catalog.catalogs());
 
         List<Assignment> suggestions = suggester.suggest(contextOf(expedition, catalog));
 
@@ -72,14 +74,14 @@ class AssignmentSuggesterTest {
         Person ada = person("Ada", certification, Availability.always());
         Person bob = person("Bob", certification, Availability.always());
         Activity firstActivity = sampling(certification.id(), 0, 4);
-        Expedition occupying = draftWith(firstActivity);
-        occupying.addAssignment(new PersonAssignment(firstActivity.id(), ada.id()));
-        occupying.submitForReview();
-        Activity secondActivity = sampling(certification.id(), 0, 4);
-        Expedition expedition = draftWith(secondActivity);
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.save(ada);
         catalog.save(bob);
+        Expedition occupying = draftWith(firstActivity);
+        occupying.addAssignment(new PersonAssignment(firstActivity.id(), ada.id()), catalog.catalogs());
+        submit(occupying);
+        Activity secondActivity = sampling(certification.id(), 0, 4);
+        Expedition expedition = draftWith(secondActivity);
 
         List<Assignment> suggestions = suggester.suggest(new PlanningContext(expedition, catalog.catalogs(), OccupyingExpeditions.of(expedition, List.of(occupying), Map.of())));
 
@@ -91,13 +93,13 @@ class AssignmentSuggesterTest {
         Certification certification = certification();
         Person ada = person("Ada", certification, Availability.always());
         Activity morning = sampling(certification.id(), 0, 4);
-        Expedition occupying = draftWith(morning);
-        occupying.addAssignment(new PersonAssignment(morning.id(), ada.id()));
-        occupying.submitForReview();
-        Activity afternoon = sampling(certification.id(), 4, 8);
-        Expedition expedition = draftWith(afternoon);
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.save(ada);
+        Expedition occupying = draftWith(morning);
+        occupying.addAssignment(new PersonAssignment(morning.id(), ada.id()), catalog.catalogs());
+        submit(occupying);
+        Activity afternoon = sampling(certification.id(), 4, 8);
+        Expedition expedition = draftWith(afternoon);
 
         List<Assignment> suggestions = suggester.suggest(new PlanningContext(expedition, catalog.catalogs(), OccupyingExpeditions.of(expedition, List.of(occupying), Map.of())));
 
@@ -106,7 +108,7 @@ class AssignmentSuggesterTest {
 
     @Test
     void proposesVehicleForTransit() {
-        Vehicle vehicle = new Vehicle(new VehicleId(UUID.randomUUID()), new Passengers(4), Availability.always());
+        Vehicle vehicle = new Vehicle(new VehicleId(UUID.randomUUID()), new Capacity(4), Availability.always());
         Activity activity = transit(0, 2);
         Expedition expedition = draftWith(activity);
         ResourceCatalog catalog = new ResourceCatalog();
@@ -160,7 +162,7 @@ class AssignmentSuggesterTest {
         Person ada = person("Ada", nightOperation, Availability.always());
         Activity watch = Activity.night(nightOperation.id())
                 .named(new ActivityId(UUID.randomUUID()), "night watch")
-                .estimated(Duration.ofHours(4), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.LOW)
                 .in(DELTA, window(0, 4))
                 .build();
         Expedition expedition = draftWith(watch);
@@ -205,7 +207,7 @@ class AssignmentSuggesterTest {
     private static Activity sampling(CertificationId certificationId, int fromHour, int toHour) {
         return Activity.sampling(certificationId)
                 .named(new ActivityId(UUID.randomUUID()), "sample")
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.MEDIUM)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.MEDIUM)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
     }
@@ -213,7 +215,7 @@ class AssignmentSuggesterTest {
     private static Activity transit(int fromHour, int toHour) {
         return Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "transit")
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
     }
@@ -221,7 +223,7 @@ class AssignmentSuggesterTest {
     private static Activity measurement(CertificationId certificationId, int fromHour, int toHour) {
         return Activity.measurement(certificationId, PROBE)
                 .named(new ActivityId(UUID.randomUUID()), "measure")
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.HIGH)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.HIGH)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
     }
