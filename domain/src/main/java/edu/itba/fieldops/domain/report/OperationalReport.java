@@ -1,12 +1,11 @@
 package edu.itba.fieldops.domain.report;
 
-import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.Observation;
@@ -16,8 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public record OperationalReport(
         OperationalStatus status,
@@ -26,8 +23,8 @@ public record OperationalReport(
         int finishedActivities,
         Duration duration,
         RiskLevel risk,
-        Map<ConsumableId, Stock> consumption,
-        Map<ConsumableId, Stock> estimatedConsumption,
+        Map<ConsumableId, Consumption> consumption,
+        Map<ConsumableId, Consumption> estimatedConsumption,
         List<Incident> incidents,
         List<Observation> observations,
         List<ActivityResult> activityResults
@@ -72,7 +69,7 @@ public record OperationalReport(
                 finished.size(),
                 started ? actualDuration(expedition, finished) : estimate.duration(),
                 estimate.risk(),
-                consumed(expedition, finished),
+                consumed(finished),
                 estimate.estimatedConsumption(),
                 execution.incidents(),
                 execution.observations(),
@@ -88,13 +85,10 @@ public record OperationalReport(
         return expedition.duration(activity -> measured.getOrDefault(activity.id(), Duration.ZERO));
     }
 
-    private static Map<ConsumableId, Stock> consumed(Expedition expedition, List<ActivityExecution> finished) {
-        Set<ActivityId> finishedIds = finished.stream().map(ActivityExecution::activityId).collect(Collectors.toSet());
-        Map<ConsumableId, Stock> totals = new HashMap<>();
-        for (ConsumableAssignment assignment : expedition.assignments().consumables()) {
-            if (finishedIds.contains(assignment.activityId())) {
-                totals.merge(assignment.consumableId(), assignment.quantity(), Stock::plus);
-            }
+    private static Map<ConsumableId, Consumption> consumed(List<ActivityExecution> finished) {
+        Map<ConsumableId, Consumption> totals = new HashMap<>();
+        for (ActivityExecution run : finished) {
+            run.consumed().forEach((id, amount) -> totals.merge(id, amount, Consumption::plus));
         }
         return totals;
     }

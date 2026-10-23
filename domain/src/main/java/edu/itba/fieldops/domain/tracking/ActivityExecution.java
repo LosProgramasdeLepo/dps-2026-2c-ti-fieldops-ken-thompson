@@ -1,8 +1,11 @@
 package edu.itba.fieldops.domain.tracking;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.Consumption;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -23,7 +26,7 @@ public final class ActivityExecution {
         this.completion = Optional.of(completion);
     }
 
-    public ActivityExecution finish(Instant finishedAt, Outcome result) {
+    public ActivityExecution finish(Instant finishedAt, ActivityReport report) {
         if (completion.isPresent()) {
             throw new InvalidActivityExecution("activity already finished: " + activityId);
         }
@@ -31,7 +34,7 @@ public final class ActivityExecution {
         if (finishedAt.isBefore(startedAt)) {
             throw new InvalidActivityExecution("finish must not be before start");
         }
-        return new ActivityExecution(activityId, startedAt, new Completion(finishedAt, result));
+        return new ActivityExecution(activityId, startedAt, new Completion(finishedAt, report));
     }
 
     public ActivityId activityId() {
@@ -47,17 +50,21 @@ public final class ActivityExecution {
     }
 
     public Optional<Outcome> result() {
-        return completion.map(Completion::result);
+        return completion.map(finished -> finished.report().result());
+    }
+
+    public Map<ConsumableId, Consumption> consumed() {
+        return completion.map(finished -> finished.report().consumed()).orElse(Map.of());
     }
 
     public boolean isFinished() {
         return completion.isPresent();
     }
 
-    private record Completion(Instant finishedAt, Outcome result) {
+    private record Completion(Instant finishedAt, ActivityReport report) {
         private Completion {
             Objects.requireNonNull(finishedAt, "finished at");
-            Objects.requireNonNull(result, "result");
+            Objects.requireNonNull(report, "activity report");
         }
     }
 }

@@ -5,15 +5,17 @@ import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
+import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InvalidValue;
-import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,19 @@ class ReplanningUseCasesTest extends UseCaseFixture {
 
         assertTrue(proposalReview.of(sampling.expeditionId(), FIRST_PAGE).items().isEmpty());
         assertEquals(List.of(Incident.of("storm on site", DAY)), runs.find(sampling.expeditionId()).orElseThrow().incidents());
+    }
+
+    @Test
+    void anIncidentOnAnActivityOutsideThePlanIsNotRecorded() {
+        Sampling sampling = runningSampling();
+        ActivityId stranger = new ActivityId(UUID.randomUUID());
+
+        assertThrows(InvalidActivityExecution.class, () -> incidents.record(sampling.expeditionId(), "storm on site", stranger));
+
+        assertAll(
+                () -> assertTrue(runs.find(sampling.expeditionId()).orElseThrow().incidents().isEmpty()),
+                () -> assertTrue(proposalReview.of(sampling.expeditionId(), FIRST_PAGE).items().isEmpty())
+        );
     }
 
     @Test
@@ -138,8 +153,8 @@ class ReplanningUseCasesTest extends UseCaseFixture {
     @Test
     void anUnavailableVehicleIsReplacedInTheRevision() {
         PersonId ada = personnel.registerPerson("Ada", List.of(), Availability.always());
-        VehicleId boat = equipment.registerVehicle(new Passengers(4), Availability.always());
-        VehicleId spare = equipment.registerVehicle(new Passengers(4), Availability.always());
+        VehicleId boat = equipment.registerVehicle(new Capacity(4), Availability.always());
+        VehicleId spare = equipment.registerVehicle(new Capacity(4), Availability.always());
         Crossing crossing = crossing(ada, boat);
         review.submit(crossing.expeditionId());
         approval.approve(crossing.expeditionId());

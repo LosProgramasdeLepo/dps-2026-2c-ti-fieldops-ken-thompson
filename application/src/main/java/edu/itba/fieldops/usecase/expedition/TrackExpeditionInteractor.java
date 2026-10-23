@@ -1,5 +1,6 @@
 package edu.itba.fieldops.usecase.expedition;
 
+import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
@@ -11,8 +12,7 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.shared.UnknownResource;
-import edu.itba.fieldops.domain.tracking.Observation;
-import edu.itba.fieldops.domain.tracking.Outcome;
+import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
 
@@ -21,14 +21,17 @@ import java.util.Objects;
 public final class TrackExpeditionInteractor implements TrackExpedition {
     private final ExpeditionRepository plans;
     private final ExecutionRepository executions;
-    private final Clock clock;
     private final ExpeditionTracker tracker;
 
-    public TrackExpeditionInteractor(ExpeditionRepository plans, ExecutionRepository executions, Clock clock) {
+    public TrackExpeditionInteractor(
+            ExpeditionRepository plans,
+            ExecutionRepository executions,
+            Consumables consumables,
+            Clock clock
+    ) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.executions = Objects.requireNonNull(executions, "executions");
-        this.clock = Objects.requireNonNull(clock, "clock");
-        this.tracker = new ExpeditionTracker(plans, executions, clock);
+        this.tracker = new ExpeditionTracker(plans, executions, consumables, clock);
     }
 
     @Override
@@ -65,16 +68,16 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     }
 
     @Override
-    public void finishActivity(ExpeditionId expeditionId, ActivityId activityId, Outcome result) {
+    public void finishActivity(ExpeditionId expeditionId, ActivityId activityId, ActivityReport report) {
         ExpeditionExecution execution = requireRun(expeditionId, "finish activity");
-        tracker.finishActivity(execution, activityId, result);
+        tracker.finishActivity(execution, activityId, report);
         executions.save(execution);
     }
 
     @Override
     public void addObservation(ExpeditionId expeditionId, String text) {
         ExpeditionExecution execution = requireRun(expeditionId, "record observation");
-        execution.addObservation(new Observation(text, clock.now()));
+        tracker.observe(execution, text);
         executions.save(execution);
     }
 

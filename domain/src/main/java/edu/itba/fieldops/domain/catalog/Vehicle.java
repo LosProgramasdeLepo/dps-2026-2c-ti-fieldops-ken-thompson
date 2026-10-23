@@ -1,17 +1,17 @@
 package edu.itba.fieldops.domain.catalog;
 
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.Objects;
 
 public final class Vehicle implements Bookable {
     private final VehicleId id;
-    private final Passengers capacity;
+    private final Capacity capacity;
     private final Availability availability;
 
-    public Vehicle(VehicleId id, Passengers capacity, Availability availability) {
+    public Vehicle(VehicleId id, Capacity capacity, Availability availability) {
         this.id = Objects.requireNonNull(id, "vehicle id");
         this.capacity = Objects.requireNonNull(capacity, "capacity");
         this.availability = Objects.requireNonNull(availability, "availability");
@@ -21,7 +21,7 @@ public final class Vehicle implements Bookable {
         return id;
     }
 
-    public Passengers capacity() {
+    public Capacity capacity() {
         return capacity;
     }
 

@@ -8,14 +8,14 @@ import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultEquipment;
-import edu.itba.fieldops.domain.shared.Page;
-import edu.itba.fieldops.domain.shared.PageRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -50,6 +51,14 @@ class EquipmentControllerTest {
 
     @MockitoBean
     private ConsultEquipment consult;
+
+    @Test
+    void aVehicleWithoutSeatsIsRejectedAtTheEdge() throws Exception {
+        mvc.perform(post("/v1/vehicles").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"capacity\":0,\"availability\":" + AVAILABILITY + "}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(equipment);
+    }
 
     @Test
     void registersAVehicleAnInstrumentAndAConsumable() throws Exception {
@@ -90,7 +99,7 @@ class EquipmentControllerTest {
         UUID instrument = UUID.randomUUID();
         UUID consumable = UUID.randomUUID();
         PageRequest request = new PageRequest(0, 20);
-        when(consult.vehicles(request)).thenReturn(page(new Vehicle(new VehicleId(vehicle), new Passengers(4), Availability.always()), request));
+        when(consult.vehicles(request)).thenReturn(page(new Vehicle(new VehicleId(vehicle), new Capacity(4), Availability.always()), request));
         when(consult.instruments(request)).thenReturn(page(new Instrument(new InstrumentId(instrument), InstrumentKind.LIGHTING, Availability.always()), request));
         when(consult.consumables(request)).thenReturn(page(new Consumable(new ConsumableId(consumable), "Vials", new Stock(5)), request));
 
@@ -104,7 +113,7 @@ class EquipmentControllerTest {
         UUID vehicle = UUID.randomUUID();
         UUID instrument = UUID.randomUUID();
         UUID consumable = UUID.randomUUID();
-        when(consult.vehicle(new VehicleId(vehicle))).thenReturn(new Vehicle(new VehicleId(vehicle), new Passengers(4), Availability.always()));
+        when(consult.vehicle(new VehicleId(vehicle))).thenReturn(new Vehicle(new VehicleId(vehicle), new Capacity(4), Availability.always()));
         when(consult.instrument(new InstrumentId(instrument))).thenReturn(new Instrument(new InstrumentId(instrument), InstrumentKind.LIGHTING, Availability.always()));
         when(consult.consumable(new ConsumableId(consumable))).thenReturn(new Consumable(new ConsumableId(consumable), "Vials", new Stock(5)));
 

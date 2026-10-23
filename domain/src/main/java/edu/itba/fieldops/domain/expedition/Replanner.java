@@ -1,6 +1,7 @@
 package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.shared.InvalidValue;
@@ -35,7 +36,16 @@ public final class Replanner {
         refill(context);
     }
 
-    public void respondTo(PlanningContext context, Incident incident, ExpeditionExecution execution) {
+    public ReplanProposal propose(ProposalId id, PlanningContext revision, Incident incident, ExpeditionExecution execution) {
+        if (!execution.incidents().contains(incident)) {
+            throw new InvalidValue("incident is not recorded on the run");
+        }
+        ReplanProposal proposal = new ReplanProposal(id, incident, revision.plan());
+        respondTo(revision, incident, execution);
+        return proposal;
+    }
+
+    private void respondTo(PlanningContext context, Incident incident, ExpeditionExecution execution) {
         ActivityId activityId = incident.activityId()
                 .orElseThrow(() -> new InvalidValue("incident must affect an activity"));
         Activity activity = context.plan().activityOf(activityId);
@@ -65,7 +75,7 @@ public final class Replanner {
 
     private void refill(PlanningContext context) {
         for (Assignment assignment : suggester.suggest(context)) {
-            context.plan().addAssignment(assignment);
+            context.plan().addAssignment(assignment, context.catalogs());
         }
     }
 

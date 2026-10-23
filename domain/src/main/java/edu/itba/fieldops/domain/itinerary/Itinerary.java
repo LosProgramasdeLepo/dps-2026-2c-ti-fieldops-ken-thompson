@@ -2,8 +2,8 @@ package edu.itba.fieldops.domain.itinerary;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -90,6 +90,11 @@ public final class Itinerary {
         return find(activities(), activityId);
     }
 
+    public boolean includes(ActivityId activityId) {
+        Objects.requireNonNull(activityId, "activity id");
+        return activities().stream().anyMatch(activity -> activity.id().equals(activityId));
+    }
+
     public Set<ActivityId> predecessorsOf(ActivityId activityId) {
         activityOf(activityId);
         return Set.copyOf(Precedence.of(items).get(activityId));
@@ -114,7 +119,7 @@ public final class Itinerary {
     }
 
     public Duration estimatedDuration() {
-        return duration(Activity::estimatedDuration);
+        return duration(activity -> activity.estimatedDuration().value());
     }
 
     public RiskLevel risk() {
@@ -124,10 +129,10 @@ public final class Itinerary {
                 .orElse(RiskLevel.LOW);
     }
 
-    public Map<ConsumableId, Stock> estimatedConsumption() {
-        Map<ConsumableId, Stock> estimated = new HashMap<>();
+    public Map<ConsumableId, Consumption> estimatedConsumption() {
+        Map<ConsumableId, Consumption> estimated = new HashMap<>();
         for (Activity activity : activities()) {
-            activity.estimatedConsumption().forEach((id, quantity) -> estimated.merge(id, quantity, Stock::plus));
+            activity.estimatedConsumption().forEach((id, quantity) -> estimated.merge(id, quantity, Consumption::plus));
         }
         return Map.copyOf(estimated);
     }

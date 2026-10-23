@@ -3,10 +3,10 @@ package edu.itba.fieldops.domain.itinerary;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.Texts;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
@@ -24,9 +24,9 @@ import java.util.function.UnaryOperator;
 public final class Activity implements ItineraryItem {
     private final ActivityId id;
     private final String name;
-    private final Duration estimatedDuration;
+    private final EstimatedDuration estimatedDuration;
     private final RiskLevel risk;
-    private final Map<ConsumableId, Stock> estimatedConsumption;
+    private final Map<ConsumableId, Consumption> estimatedConsumption;
     private final ResourceRequirements requirements;
     private final WorkZone zone;
     private final TimePeriod window;
@@ -42,13 +42,10 @@ public final class Activity implements ItineraryItem {
         this.zone = Objects.requireNonNull(builder.zone, "activity zone");
         this.window = Objects.requireNonNull(builder.window, "activity window");
         this.predecessors = Set.copyOf(builder.predecessors);
-        if (estimatedDuration.isNegative() || estimatedDuration.isZero()) {
-            throw new InvalidItinerary("estimated duration must be positive");
-        }
         if (predecessors.contains(id)) {
             throw new InvalidItinerary("activity cannot precede itself");
         }
-        if (Duration.between(window.start(), window.end()).compareTo(estimatedDuration) < 0) {
+        if (!estimatedDuration.fitsIn(window)) {
             throw new InvalidItinerary("activity window is shorter than estimated duration");
         }
     }
@@ -125,7 +122,7 @@ public final class Activity implements ItineraryItem {
         return name;
     }
 
-    public Duration estimatedDuration() {
+    public EstimatedDuration estimatedDuration() {
         return estimatedDuration;
     }
 
@@ -133,7 +130,7 @@ public final class Activity implements ItineraryItem {
         return risk;
     }
 
-    public Map<ConsumableId, Stock> estimatedConsumption() {
+    public Map<ConsumableId, Consumption> estimatedConsumption() {
         return estimatedConsumption;
     }
 
@@ -208,9 +205,9 @@ public final class Activity implements ItineraryItem {
         private final UnaryOperator<RiskLevel> riskFactor;
         private ActivityId id;
         private String name;
-        private Duration estimatedDuration;
+        private EstimatedDuration estimatedDuration;
         private RiskLevel risk;
-        private Map<ConsumableId, Stock> estimatedConsumption = Map.of();
+        private Map<ConsumableId, Consumption> estimatedConsumption = Map.of();
         private WorkZone zone;
         private TimePeriod window;
         private Set<ActivityId> predecessors = Set.of();
@@ -242,13 +239,13 @@ public final class Activity implements ItineraryItem {
             return this;
         }
 
-        public Builder estimated(Duration estimatedDuration, RiskLevel risk) {
+        public Builder estimated(EstimatedDuration estimatedDuration, RiskLevel risk) {
             this.estimatedDuration = estimatedDuration;
             this.risk = risk;
             return this;
         }
 
-        public Builder consuming(Map<ConsumableId, Stock> estimatedConsumption) {
+        public Builder consuming(Map<ConsumableId, Consumption> estimatedConsumption) {
             this.estimatedConsumption = Objects.requireNonNull(estimatedConsumption, "estimated consumption");
             return this;
         }

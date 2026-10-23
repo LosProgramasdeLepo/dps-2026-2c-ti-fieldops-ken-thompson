@@ -3,7 +3,7 @@ package edu.itba.fieldops.adapters.jpa.catalog;
 import edu.itba.fieldops.adapters.jpa.StoredPeriod;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.domain.shared.Passengers;
+import edu.itba.fieldops.domain.shared.Capacity;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -39,11 +39,11 @@ public class VehicleEntity {
 
     VehicleEntity(Vehicle vehicle) {
         this.id = vehicle.id().value();
-        this.capacity = vehicle.capacity().count();
+        this.capacity = vehicle.capacity().seats();
         this.availability = new ArrayList<>(StoredPeriod.of(vehicle.availability()));
     }
 
     public Vehicle toDomain() {
-        return new Vehicle(new VehicleId(id), new Passengers(capacity), StoredPeriod.availability(availability));
+        return new Vehicle(new VehicleId(id), new Capacity(capacity), StoredPeriod.availability(availability));
     }
 }

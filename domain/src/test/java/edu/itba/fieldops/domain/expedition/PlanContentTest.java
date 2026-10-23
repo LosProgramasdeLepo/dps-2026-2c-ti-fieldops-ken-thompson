@@ -1,17 +1,26 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Permit;
+import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
+import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.ResourceCatalog;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -28,6 +37,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PlanContentTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
+    private static final Person ADA = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(), Availability.always());
+    private static final Permit ZONE_PERMIT = new Permit(
+            new PermitId(UUID.randomUUID()),
+            DELTA,
+            new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
+            PermitKind.ZONE
+    );
 
     @Test
     void acceptsOneActivityPerKind() {
@@ -64,7 +80,7 @@ class PlanContentTest {
         PlanContent plan = wetlandPlan();
         Activity orphan = Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "dependent")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(0, 2))
                 .after(Set.of(new ActivityId(UUID.randomUUID())))
                 .build();
@@ -118,7 +134,7 @@ class PlanContentTest {
         plan.addActivity(first);
         Activity lateStart = Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "late start")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(3, 5))
                 .after(Set.of(first.id()))
                 .build();
@@ -183,11 +199,39 @@ class PlanContentTest {
     @Test
     void rejectsAssignmentToUnknownActivity() {
         PlanContent plan = wetlandPlan();
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.save(ADA);
 
         assertThrows(
                 InvalidItinerary.class,
-                () -> plan.addAssignment(new PersonAssignment(new ActivityId(UUID.randomUUID()), new PersonId(UUID.randomUUID())))
+                () -> plan.addAssignment(new PersonAssignment(new ActivityId(UUID.randomUUID()), ADA.id()), catalog.catalogs())
         );
+    }
+
+    @Test
+    void rejectsAssigningAPersonTheCatalogDoesNotKnow() {
+        PlanContent plan = wetlandPlan();
+        Activity activity = sampling();
+        plan.addActivity(activity);
+
+        InvalidAssignment rejected = assertThrows(
+                InvalidAssignment.class,
+                () -> plan.addAssignment(new PersonAssignment(activity.id(), ADA.id()), new ResourceCatalog().catalogs())
+        );
+
+        assertEquals("unknown person " + ADA.id().value(), rejected.getMessage());
+        assertTrue(plan.assignments().all().isEmpty());
+    }
+
+    @Test
+    void rejectsAssigningAConsumableTheCatalogDoesNotKnow() {
+        PlanContent plan = wetlandPlan();
+        Activity activity = sampling();
+        plan.addActivity(activity);
+        ConsumableAssignment vials = new ConsumableAssignment(activity.id(), new ConsumableId(UUID.randomUUID()), new Consumption(2));
+
+        assertThrows(InvalidAssignment.class, () -> plan.addAssignment(vials, new ResourceCatalog().catalogs()));
+        assertTrue(plan.assignments().all().isEmpty());
     }
 
     @Test
@@ -195,29 +239,47 @@ class PlanContentTest {
         PlanContent plan = wetlandPlan();
         Activity activity = sampling();
         plan.addActivity(activity);
-        PersonAssignment assignment = new PersonAssignment(activity.id(), new PersonId(UUID.randomUUID()));
-        plan.addAssignment(assignment);
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.save(ADA);
+        PersonAssignment assignment = new PersonAssignment(activity.id(), ADA.id());
+        plan.addAssignment(assignment, catalog.catalogs());
 
-        assertThrows(InvalidAssignment.class, () -> plan.addAssignment(assignment));
+        assertThrows(InvalidAssignment.class, () -> plan.addAssignment(assignment, catalog.catalogs()));
     }
 
     @Test
     void attachesAPermit() {
         PlanContent plan = wetlandPlan();
-        PermitId permit = new PermitId(UUID.randomUUID());
+        ResourceCatalog catalog = withPermit();
 
-        plan.addPermit(permit);
+        plan.addPermit(ZONE_PERMIT.id(), catalog);
 
-        assertEquals(List.of(permit), plan.permits());
+        assertEquals(List.of(ZONE_PERMIT.id()), plan.permits());
+    }
+
+    @Test
+    void rejectsAPermitTheCatalogDoesNotKnow() {
+        PlanContent plan = wetlandPlan();
+
+        UnknownResource rejected = assertThrows(UnknownResource.class, () -> plan.addPermit(ZONE_PERMIT.id(), new ResourceCatalog()));
+
+        assertEquals("unknown permit: " + ZONE_PERMIT.id().value(), rejected.getMessage());
+        assertTrue(plan.permits().isEmpty());
     }
 
     @Test
     void rejectsDuplicatePermit() {
         PlanContent plan = wetlandPlan();
-        PermitId permit = new PermitId(UUID.randomUUID());
-        plan.addPermit(permit);
+        ResourceCatalog catalog = withPermit();
+        plan.addPermit(ZONE_PERMIT.id(), catalog);
 
-        assertThrows(InvalidValue.class, () -> plan.addPermit(permit));
+        assertThrows(InvalidValue.class, () -> plan.addPermit(ZONE_PERMIT.id(), catalog));
+    }
+
+    private static ResourceCatalog withPermit() {
+        ResourceCatalog catalog = new ResourceCatalog();
+        catalog.save(ZONE_PERMIT);
+        return catalog;
     }
 
     private static PlanContent wetlandPlan() {
@@ -237,7 +299,7 @@ class PlanContentTest {
     private static Activity sampling() {
         return Activity.sampling(new CertificationId(UUID.randomUUID()))
                 .named(new ActivityId(UUID.randomUUID()), "Soil sampling")
-                .estimated(Duration.ofHours(4), RiskLevel.MEDIUM)
+                .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.MEDIUM)
                 .in(DELTA, window(0, 4))
                 .build();
     }
@@ -249,7 +311,7 @@ class PlanContentTest {
     private static Activity transit(String name, int fromHour, int toHour, WorkZone zone) {
         return Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), name)
-                .estimated(Duration.ofHours(toHour - fromHour), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(zone, window(fromHour, toHour))
                 .build();
     }
@@ -257,7 +319,7 @@ class PlanContentTest {
     private static Activity measurement() {
         return Activity.measurement(new CertificationId(UUID.randomUUID()), new InstrumentKind("probe"))
                 .named(new ActivityId(UUID.randomUUID()), "Water measurement")
-                .estimated(Duration.ofHours(3), RiskLevel.HIGH)
+                .estimated(new EstimatedDuration(Duration.ofHours(3)), RiskLevel.HIGH)
                 .in(DELTA, window(6, 9))
                 .build();
     }

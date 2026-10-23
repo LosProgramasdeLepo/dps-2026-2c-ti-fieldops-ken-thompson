@@ -6,10 +6,10 @@ import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.shared.Occurrence;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
-import edu.itba.fieldops.domain.tracking.Outcome;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -89,24 +89,24 @@ public final class ExpeditionExecution {
         activities.add(new ActivityExecution(start.activityId(), start.at().instant()));
     }
 
-    void finishActivity(ActivityId activityId, Occurrence at, Outcome result) {
+    void finishActivity(ActivityId activityId, Occurrence at, ActivityReport report) {
         requireStatus(Status.IN_PROGRESS, "finish activity");
         for (int index = 0; index < activities.size(); index++) {
             ActivityExecution execution = activities.get(index);
             if (execution.activityId().equals(activityId)) {
-                activities.set(index, execution.finish(at.instant(), result));
+                activities.set(index, execution.finish(at.instant(), report));
                 return;
             }
         }
         throw new InvalidActivityExecution("activity not started: " + activityId);
     }
 
-    public void addIncident(Incident incident) {
+    void addIncident(Incident incident) {
         requireActive("record incident");
         incidents.add(Objects.requireNonNull(incident, "incident"));
     }
 
-    public void addObservation(Observation observation) {
+    void addObservation(Observation observation) {
         requireActive("record observation");
         observations.add(Objects.requireNonNull(observation, "observation"));
     }

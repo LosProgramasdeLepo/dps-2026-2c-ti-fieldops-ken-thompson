@@ -167,6 +167,7 @@ export interface ActivityExecution {
   startedAt: Instant;
   finishedAt?: Instant;
   result?: string;
+  consumption: Consumption;
 }
 
 export interface Run {

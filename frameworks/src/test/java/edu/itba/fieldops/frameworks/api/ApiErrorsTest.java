@@ -77,7 +77,7 @@ class ApiErrorsTest {
 
     @Test
     void invalidAssignmentIsUnprocessable() throws Exception {
-        expect(new InvalidAssignment("assigned quantity must be positive"), 422);
+        expect(new InvalidAssignment("duplicate assignment"), 422);
     }
 
     @Test

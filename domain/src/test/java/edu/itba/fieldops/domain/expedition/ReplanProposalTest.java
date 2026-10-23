@@ -7,10 +7,12 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.StoredExpeditions;
 import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.tracking.Incident;
@@ -22,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static edu.itba.fieldops.domain.support.Submissions.submit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -34,7 +37,7 @@ class ReplanProposalTest {
         PersonId ada = original.charter().responsibles().getFirst();
         ReplanProposal proposal = proposalFor(original);
 
-        proposal.accept(original, original.forReplan(ada), DAY);
+        proposal.accept(original, ada, DAY);
 
         assertEquals(ReplanProposal.Decision.ACCEPTED, proposal.decision());
         assertEquals(Optional.of(ada), proposal.decidedBy());
@@ -48,7 +51,7 @@ class ReplanProposalTest {
         PersonId ada = original.charter().responsibles().getFirst();
         ReplanProposal proposal = proposalFor(original);
 
-        proposal.reject(original, original.forReplan(ada), DAY);
+        proposal.reject(original, ada, DAY);
 
         assertEquals(ReplanProposal.Decision.REJECTED, proposal.decision());
         assertEquals(Optional.of(ada), proposal.decidedBy());
@@ -59,7 +62,7 @@ class ReplanProposalTest {
     void cannotAcceptTwice() {
         Expedition original = approved();
         ReplanProposal proposal = proposalFor(original);
-        Responsible ada = original.forReplan(original.charter().responsibles().getFirst());
+        PersonId ada = original.charter().responsibles().getFirst();
         proposal.accept(original, ada, DAY);
 
         assertThrows(
@@ -71,26 +74,10 @@ class ReplanProposalTest {
     @Test
     void aStrangerCannotDecideAProposal() {
         Expedition original = approved();
-
-        InvalidValue rejected = assertThrows(
-                InvalidValue.class,
-                () -> original.forReplan(new PersonId(UUID.randomUUID()))
-        );
-
-        assertEquals("replan must be decided by a responsible", rejected.getMessage());
-    }
-
-    @Test
-    void aResponsibleOfAnotherPlanCannotAccept() {
-        PersonId lead = new PersonId(UUID.randomUUID());
-        Expedition original = approved(lead);
-        Expedition other = approved(lead);
         ReplanProposal proposal = proposalFor(original);
+        PersonId stranger = new PersonId(UUID.randomUUID());
 
-        InvalidValue rejected = assertThrows(
-                InvalidValue.class,
-                () -> proposal.accept(original, other.forReplan(lead), DAY)
-        );
+        InvalidValue rejected = assertThrows(InvalidValue.class, () -> proposal.accept(original, stranger, DAY));
 
         assertEquals("replan must be decided by a responsible", rejected.getMessage());
         assertEquals(ReplanProposal.Decision.PENDING, proposal.decision());
@@ -104,7 +91,7 @@ class ReplanProposalTest {
 
         InvalidValue rejected = assertThrows(
                 InvalidValue.class,
-                () -> proposal.accept(other, other.forReplan(lead), DAY)
+                () -> proposal.accept(other, lead, DAY)
         );
 
         assertEquals("replan must be decided on the plan it revises", rejected.getMessage());
@@ -115,7 +102,7 @@ class ReplanProposalTest {
     void cannotDecideBeforeTheIncident() {
         Expedition original = approved();
         ReplanProposal proposal = proposalFor(original);
-        Responsible ada = original.forReplan(original.charter().responsibles().getFirst());
+        PersonId ada = original.charter().responsibles().getFirst();
 
         InvalidValue rejected = assertThrows(
                 InvalidValue.class,
@@ -130,7 +117,7 @@ class ReplanProposalTest {
     void cannotAcceptWhenTheOriginalIsNoLongerApproved() {
         Expedition original = approved();
         ReplanProposal proposal = proposalFor(original);
-        Responsible ada = original.forReplan(original.charter().responsibles().getFirst());
+        PersonId ada = original.charter().responsibles().getFirst();
         original.markSuperseded();
 
         InvalidExpeditionTransition rejected = assertThrows(
@@ -222,6 +209,31 @@ class ReplanProposalTest {
         assertEquals(revision.supersedes().orElseThrow(), proposal.originalId());
     }
 
+    @Test
+    void theReviewerDecidesWithTheResponsibleOfTheStoredOriginalAtTheClockTime() {
+        Expedition original = approved();
+        PersonId ada = original.charter().responsibles().getFirst();
+        ReplanProposal proposal = proposalFor(original);
+        Instant decided = DAY.plus(Duration.ofHours(3));
+
+        new ProposalReviewer(new StoredExpeditions(original), () -> decided).accept(proposal, ada);
+
+        assertEquals(ReplanProposal.Decision.ACCEPTED, proposal.decision());
+        assertEquals(Optional.of(ada), proposal.decidedBy());
+        assertEquals(Optional.of(decided), proposal.decidedAt());
+    }
+
+    @Test
+    void theReviewerDoesNotLetAStrangerReject() {
+        Expedition original = approved();
+        ReplanProposal proposal = proposalFor(original);
+        ProposalReviewer reviewer = new ProposalReviewer(new StoredExpeditions(original), () -> DAY);
+        PersonId stranger = new PersonId(UUID.randomUUID());
+
+        assertThrows(InvalidValue.class, () -> reviewer.reject(proposal, stranger));
+        assertEquals(ReplanProposal.Decision.PENDING, proposal.decision());
+    }
+
     private static ReplanProposal proposalFor(Expedition original) {
         return new ReplanProposal(new ProposalId(UUID.randomUUID()), incident(), original.reviseAsDraft(new ExpeditionId(UUID.randomUUID())));
     }
@@ -242,10 +254,10 @@ class ReplanProposalTest {
         Expedition expedition = draft(lead);
         expedition.addActivity(Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "Approach")
-                .estimated(Duration.ofHours(2), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(new WorkZone("Delta"), new TimePeriod(DAY, DAY.plus(Duration.ofHours(2))))
                 .build());
-        expedition.submitForReview();
+        submit(expedition);
         return StoredPlans.approved(expedition);
     }
 

@@ -1,16 +1,12 @@
 import type { ActivityKind, ActivityRequest, Expedition, Instant, Period, RiskLevel, Uuid } from '../api/types';
 import { CheckList } from '../components/CheckList';
+import { ConsumptionInput, toConsumption, type ConsumptionRow } from '../components/ConsumptionInput';
 import { Field, FieldGroup } from '../components/Field';
 import { PeriodInput } from '../components/PeriodInput';
 import type { Catalog } from '../hooks/useCatalog';
 import { ACTIVITY_KINDS, RISK_LABELS } from '../labels';
 import { addHours, isoDuration } from '../time';
 import { activitiesOf } from './describe';
-
-interface ConsumptionRow {
-  consumableId: Uuid;
-  amount: number;
-}
 
 export interface ActivityDraft {
   kind: ActivityKind;
@@ -51,7 +47,7 @@ export function toActivityRequest(draft: ActivityDraft): ActivityRequest {
     name: draft.name,
     estimatedDuration: isoDuration(draft.hours, draft.minutes),
     risk: draft.risk,
-    consumption: Object.fromEntries(draft.consumption.map((row) => [row.consumableId, row.amount])),
+    consumption: toConsumption(draft.consumption),
     zone: draft.zone,
     window: draft.window,
     predecessors: draft.predecessors,
@@ -134,42 +130,6 @@ export function ActivityFields({ value, onChange, plan, catalog }: ActivityField
       <FieldGroup label="Consumo estimado" wide>
         <ConsumptionInput rows={value.consumption} onChange={(rows) => set('consumption', rows)} catalog={catalog} />
       </FieldGroup>
-    </div>
-  );
-}
-
-interface ConsumptionInputProps {
-  rows: ConsumptionRow[];
-  onChange: (rows: ConsumptionRow[]) => void;
-  catalog: Catalog;
-}
-
-function ConsumptionInput({ rows, onChange, catalog }: ConsumptionInputProps) {
-  const replace = (index: number, row: ConsumptionRow) => onChange(rows.map((current, position) => (position === index ? row : current)));
-  const first = catalog.consumables[0];
-
-  return (
-    <div className="stack">
-      {rows.map((row, index) => (
-        <span key={index} className="row">
-          <select aria-label="Consumible" value={row.consumableId} onChange={(event) => replace(index, { ...row, consumableId: event.target.value })}>
-            {catalog.consumables.map((consumable) => (
-              <option key={consumable.id} value={consumable.id}>
-                {consumable.name}
-              </option>
-            ))}
-          </select>
-          <input type="number" aria-label="Cantidad" min={0} value={row.amount} onChange={(event) => replace(index, { ...row, amount: Number(event.target.value) })} />
-          <button type="button" className="link" onClick={() => onChange(rows.filter((_, position) => position !== index))}>
-            Quitar
-          </button>
-        </span>
-      ))}
-      {first && (
-        <button type="button" className="link" onClick={() => onChange([...rows, { consumableId: first.id, amount: 1 }])}>
-          Agregar consumible
-        </button>
-      )}
     </div>
   );
 }

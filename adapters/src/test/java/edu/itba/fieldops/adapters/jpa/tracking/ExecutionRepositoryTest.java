@@ -2,12 +2,15 @@ package edu.itba.fieldops.adapters.jpa.tracking;
 
 import edu.itba.fieldops.adapters.jpa.JpaRepositoryTest;
 import edu.itba.fieldops.adapters.jpa.catalog.CertificationJpaRepository;
+import edu.itba.fieldops.adapters.jpa.catalog.ConsumableJpaRepository;
+import edu.itba.fieldops.adapters.jpa.catalog.JpaConsumableRegistry;
 import edu.itba.fieldops.adapters.jpa.catalog.JpaPersonRegistry;
 import edu.itba.fieldops.adapters.jpa.catalog.PersonJpaRepository;
 import edu.itba.fieldops.adapters.jpa.expedition.ExpeditionJpaRepository;
 import edu.itba.fieldops.adapters.jpa.expedition.ExpeditionRegistrationJpaRepository;
 import edu.itba.fieldops.adapters.jpa.expedition.JpaExpeditionRepository;
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.expedition.ExecutionState;
 import edu.itba.fieldops.domain.expedition.Expedition;
@@ -16,9 +19,12 @@ import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.shared.Consumption;
+import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.Observation;
 import edu.itba.fieldops.domain.tracking.Outcome;
@@ -33,6 +39,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -58,9 +65,12 @@ class ExecutionRepositoryTest {
     private CertificationJpaRepository certificationRows;
     @Autowired
     private PersonJpaRepository personRows;
+    @Autowired
+    private ConsumableJpaRepository consumableRows;
 
     private JpaExecutionRepository runs;
     private ExpeditionId expeditionId;
+    private Consumable fuel;
     private final ActivityId soil = new ActivityId(UUID.randomUUID());
     private final ActivityId ride = new ActivityId(UUID.randomUUID());
 
@@ -72,6 +82,9 @@ class ExecutionRepositoryTest {
         JpaExpeditionRepository plans = new JpaExpeditionRepository(expeditionRows, registrationRows, transactions);
         Person ada = new Person(people.nextPersonId(), "Ada", List.of(), Availability.always());
         people.save(ada);
+        JpaConsumableRegistry consumables = new JpaConsumableRegistry(consumableRows, transactions);
+        fuel = new Consumable(consumables.nextConsumableId(), "Fuel", new Stock(50));
+        consumables.save(fuel);
         Expedition plan = Expedition.draft(plans.nextId(), new ExpeditionCharter(
                 List.of(new Objective("Map the delta")),
                 new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
@@ -90,15 +103,15 @@ class ExecutionRepositoryTest {
                 expeditionId,
                 ExpeditionExecution.Status.IN_PROGRESS,
                 List.of(
-                        new ActivityExecution(soil, DAY).finish(hours(4), new Outcome("twelve samples")),
+                        new ActivityExecution(soil, DAY).finish(
+                                hours(4),
+                                new ActivityReport(new Outcome("twelve samples"), Map.of(fuel.id(), new Consumption(3)))
+                        ),
                         new ActivityExecution(ride, hours(4))
                 ),
-                List.of(),
-                List.of()
+                List.of(Incident.affecting(ride, "flooded trail", hours(5)), Incident.of("radio down", hours(5))),
+                List.of(new Observation("heron colony", hours(5)))
         ));
-        run.addIncident(Incident.affecting(ride, "flooded trail", hours(5)));
-        run.addIncident(Incident.of("radio down", hours(5)));
-        run.addObservation(new Observation("heron colony", hours(5)));
         run.suspend();
 
         runs.save(run);
@@ -110,6 +123,8 @@ class ExecutionRepositoryTest {
                 () -> assertEquals(List.of(soil, ride), stored.activities().stream().map(ActivityExecution::activityId).toList()),
                 () -> assertEquals(Optional.of(hours(4)), stored.activities().getFirst().finishedAt()),
                 () -> assertEquals(Optional.of(new Outcome("twelve samples")), stored.activities().getFirst().result()),
+                () -> assertEquals(Map.of(fuel.id(), new Consumption(3)), stored.activities().getFirst().consumed()),
+                () -> assertEquals(Map.of(), stored.activities().get(1).consumed()),
                 () -> assertEquals(Optional.empty(), stored.activities().get(1).finishedAt()),
                 () -> assertEquals(run.incidents(), stored.incidents()),
                 () -> assertEquals(run.observations(), stored.observations())
@@ -132,7 +147,7 @@ class ExecutionRepositoryTest {
         ExpeditionExecution finishedRun = ExpeditionExecution.restore(new ExecutionState(
                 expeditionId,
                 ExpeditionExecution.Status.FINISHED,
-                List.of(stored.activities().getFirst().finish(hours(3), new Outcome("done"))),
+                List.of(stored.activities().getFirst().finish(hours(3), ActivityReport.of(new Outcome("done")))),
                 stored.incidents(),
                 stored.observations()
         ));

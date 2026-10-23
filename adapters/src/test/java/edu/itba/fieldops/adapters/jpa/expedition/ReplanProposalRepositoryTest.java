@@ -11,6 +11,7 @@ import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionState;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
+import edu.itba.fieldops.domain.expedition.ProposalReviewer;
 import edu.itba.fieldops.domain.expedition.ProposalState;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -18,6 +19,7 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -86,11 +88,10 @@ class ReplanProposalRepositoryTest {
         ), people);
         soil = Activity.transit()
                 .named(plans.nextActivityId(), "Soil")
-                .estimated(Duration.ofHours(4), RiskLevel.LOW)
+                .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.LOW)
                 .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))))
                 .build();
         approved.addActivity(soil);
-        approved.submitForReview();
         approved = approved(approved);
         plans.save(approved);
         reload();
@@ -121,7 +122,7 @@ class ReplanProposalRepositoryTest {
         reload();
 
         ReplanProposal stored = proposals.find(proposal.id()).orElseThrow();
-        stored.accept(approved, approved.forReplan(ada.id()), DAY.plus(Duration.ofHours(6)));
+        new ProposalReviewer(plans, () -> DAY.plus(Duration.ofHours(6))).accept(stored, ada.id());
         proposals.save(stored);
         reload();
 
@@ -213,7 +214,15 @@ class ReplanProposalRepositoryTest {
         Expedition suggestion = approved.reviseAsDraft(plans.nextId());
         suggestion.delay(soil.id(), new Delay(Duration.ofHours(2)));
         Incident incident = Incident.affecting(soil.id(), description, DAY.plus(Duration.ofHours(1)));
-        return new ReplanProposal(proposals.nextId(), incident, suggestion);
+        return ReplanProposal.restore(new ProposalState(
+                proposals.nextId(),
+                approved.id(),
+                suggestion.id(),
+                incident,
+                ReplanProposal.Decision.PENDING,
+                Optional.empty(),
+                Optional.empty()
+        ), suggestion);
     }
 
     private void reload() {
