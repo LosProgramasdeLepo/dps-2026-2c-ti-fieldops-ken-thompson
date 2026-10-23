@@ -2,7 +2,9 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
@@ -13,8 +15,11 @@ import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.shared.UnknownResource;
+import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -30,7 +35,14 @@ public final class Expedition {
     private final AcceptedWarnings acceptedWarnings = new AcceptedWarnings();
     private ExpeditionStatus status = ExpeditionStatus.DRAFT;
 
-    public static Expedition draft(ExpeditionId id, ExpeditionCharter charter) {
+    public static Expedition draft(ExpeditionId id, ExpeditionCharter charter, List<Person> people) {
+        Objects.requireNonNull(charter, "charter");
+        Objects.requireNonNull(people, "people");
+        for (PersonId responsible : charter.responsibles()) {
+            if (people.stream().noneMatch(person -> person.id().equals(responsible))) {
+                throw new UnknownResource("responsible", responsible.value().toString());
+            }
+        }
         return new Expedition(id, charter);
     }
 
@@ -111,8 +123,52 @@ public final class Expedition {
         content.addPermit(permitId);
     }
 
-    public void acceptWarning(AcceptedWarning warning) {
+    public ExpeditionExecution start(Instant at, List<Expedition> plans, List<ExpeditionExecution> runs) {
+        Objects.requireNonNull(plans, "plans");
+        Objects.requireNonNull(runs, "runs");
+        Set<ExpeditionId> lineage = Revisions.lineage(this, plans);
+        for (ExpeditionExecution run : runs) {
+            if (lineage.contains(run.expeditionId())) {
+                throw new InvalidExpeditionTransition(run.status(), "start");
+            }
+        }
+        if (status != ExpeditionStatus.APPROVED) {
+            throw new InvalidExpeditionTransition(status, "start");
+        }
+        if (!charter().period().contains(Objects.requireNonNull(at, "start"))) {
+            throw new InvalidActivityExecution("start is outside the expedition period");
+        }
+        return ExpeditionExecution.begin(id, charter().period().at(at));
+    }
+
+    public ActivityStart startOf(ActivityId activityId, Instant at, List<Expedition> plans) {
+        Expedition current = Revisions.inForce(this, Objects.requireNonNull(plans, "plans"));
+        Activity activity = current.activityOf(activityId);
+        if (!activity.window().contains(Objects.requireNonNull(at, "activity instant"))) {
+            throw new InvalidActivityExecution("activity instant is outside the planned window");
+        }
+        return new ActivityStart(
+                activityId,
+                activity.window().at(at),
+                current.predecessorsOf(activityId),
+                Revisions.lineage(current, plans)
+        );
+    }
+
+    public Responsible forReplan(PersonId personId) {
+        return responsible(personId, "replan must be decided by a responsible");
+    }
+
+    public void acceptWarning(ExpeditionValidator validator, PlanningContext context, AcceptedWarning warning) {
         requireStatus(ExpeditionStatus.IN_REVIEW, "accept warning");
+        if (Objects.requireNonNull(context, "context").plan() != this) {
+            throw new InvalidValue("context is for another expedition");
+        }
+        Objects.requireNonNull(warning, "warning");
+        ValidationResult result = Objects.requireNonNull(validator, "validator").validate(context);
+        if (!result.warnings().contains(warning.issue())) {
+            throw new InvalidValue("not a current warning: " + warning.issue().code());
+        }
         register(warning);
     }
 
@@ -238,6 +294,13 @@ public final class Expedition {
                 throw new ExpeditionNotApprovable("warning not justified: " + warning.code());
             }
         }
+    }
+
+    private Responsible responsible(PersonId personId, String rejection) {
+        if (!charter().isResponsible(Objects.requireNonNull(personId, "responsible"))) {
+            throw new InvalidValue(rejection);
+        }
+        return new Responsible(this, personId);
     }
 
     private void register(AcceptedWarning warning) {

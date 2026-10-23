@@ -47,7 +47,9 @@ class ReplannerIncidentTest {
     @Test
     void cancelsWhenTheActivityHasAlreadyStarted() {
         Prepared prepared = approvedSampling();
-        prepared.execution.startActivity(prepared.activity.id(), DAY, prepared.activity.predecessors());
+        prepared.execution.startActivity(
+                prepared.expedition.startOf(prepared.activity.id(), DAY, List.of(prepared.expedition))
+        );
         Incident incident = Incident.affecting(prepared.activity.id(), "equipment failure", DAY);
 
         Expedition revision = respondTo(prepared, incident);
@@ -119,7 +121,8 @@ class ReplannerIncidentTest {
                         List.of(DELTA),
                         List.of(assignee.id()),
                         List.of(new Restriction("Daylight only"))
-                )
+                ),
+                List.of(assignee)
         );
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), assignee.id()));
@@ -130,7 +133,7 @@ class ReplannerIncidentTest {
         for (Person other : others) {
             catalog.save(other);
         }
-        return new Prepared(expedition, activity, assignee, ExpeditionExecution.started(expedition.id()), catalog);
+        return new Prepared(expedition, activity, assignee, expedition.start(DAY, List.of(expedition), List.of()), catalog);
     }
 
     private static TimePeriod window(int fromHour, int toHour) {

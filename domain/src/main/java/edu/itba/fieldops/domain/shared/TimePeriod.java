@@ -18,6 +18,10 @@ public record TimePeriod(Instant start, Instant end) {
         return !instant.isBefore(start) && !instant.isAfter(end);
     }
 
+    public Occurrence at(Instant instant) {
+        return new Occurrence(this, instant);
+    }
+
     public boolean contains(TimePeriod other) {
         Objects.requireNonNull(other, "other period");
         return !other.start.isBefore(start) && !other.end.isAfter(end);

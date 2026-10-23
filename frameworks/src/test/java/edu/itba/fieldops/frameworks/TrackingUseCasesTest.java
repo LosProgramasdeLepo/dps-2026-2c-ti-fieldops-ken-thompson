@@ -65,33 +65,26 @@ class TrackingUseCasesTest extends UseCaseFixture {
     }
 
     @Test
-    void anActivityOfASequenceStartsOnlyAfterThePreviousOneFinishes() {
-        CertificationId certificationId = certification();
-        PersonId ada = certifiedPerson("Ada", certificationId);
-        ExpeditionId expeditionId = draftResponsibleFor(ada);
-        ActivityId upstream = itinerary.nextActivityId();
-        ActivityId downstream = itinerary.nextActivityId();
-        itinerary.addBlock(expeditionId, ActivityBlock.sequential(
-                sampling(certificationId, upstream, hours(0, 2)),
-                sampling(certificationId, downstream, hours(2, 4))
-        ));
-        assignments.addAssignment(expeditionId, new PersonAssignment(upstream, ada));
-        assignments.addAssignment(expeditionId, new PersonAssignment(downstream, ada));
-        assignments.addPermit(expeditionId, permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
-        review.submit(expeditionId);
-        approval.approve(expeditionId);
-        tracking.start(expeditionId);
+    void anActivityOfASequenceDoesNotStartBeforeThePreviousOneFinishes() {
+        Sequence sequence = runningSequence();
         clock.set(at(2));
 
-        assertThrows(InvalidActivityExecution.class, () -> tracking.startActivity(expeditionId, downstream));
+        assertThrows(InvalidActivityExecution.class, () -> tracking.startActivity(sequence.expeditionId(), sequence.downstream()));
 
+        assertFalse(run(sequence.expeditionId()).hasStarted(sequence.downstream()));
+    }
+
+    @Test
+    void anActivityOfASequenceStartsOnceThePreviousOneFinishes() {
+        Sequence sequence = runningSequence();
         clock.set(at(0));
-        tracking.startActivity(expeditionId, upstream);
+        tracking.startActivity(sequence.expeditionId(), sequence.upstream());
         clock.set(at(2));
-        tracking.finishActivity(expeditionId, upstream, "upstream sampled");
-        tracking.startActivity(expeditionId, downstream);
+        tracking.finishActivity(sequence.expeditionId(), sequence.upstream(), "upstream sampled");
 
-        assertTrue(run(expeditionId).hasStarted(downstream));
+        tracking.startActivity(sequence.expeditionId(), sequence.downstream());
+
+        assertTrue(run(sequence.expeditionId()).hasStarted(sequence.downstream()));
     }
 
     @Test
@@ -246,6 +239,25 @@ class TrackingUseCasesTest extends UseCaseFixture {
         assertFalse(hasOverlap(other.expeditionId()));
     }
 
+    private Sequence runningSequence() {
+        CertificationId certificationId = certification();
+        PersonId ada = certifiedPerson("Ada", certificationId);
+        ExpeditionId expeditionId = draftResponsibleFor(ada);
+        ActivityId upstream = itinerary.nextActivityId();
+        ActivityId downstream = itinerary.nextActivityId();
+        itinerary.addBlock(expeditionId, ActivityBlock.sequential(
+                sampling(certificationId, upstream, hours(0, 2)),
+                sampling(certificationId, downstream, hours(2, 4))
+        ));
+        assignments.addAssignment(expeditionId, new PersonAssignment(upstream, ada));
+        assignments.addAssignment(expeditionId, new PersonAssignment(downstream, ada));
+        assignments.addPermit(expeditionId, permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
+        review.submit(expeditionId);
+        approval.approve(expeditionId);
+        tracking.start(expeditionId);
+        return new Sequence(expeditionId, upstream, downstream);
+    }
+
     private TwoSamplings approvedTwoSamplingsConsuming(ConsumableId vials) {
         TwoSamplings plan = twoSamplings();
         assignments.addAssignment(plan.expeditionId(), new ConsumableAssignment(plan.first(), vials, new Stock(5)));
@@ -268,5 +280,8 @@ class TrackingUseCasesTest extends UseCaseFixture {
 
     private ExpeditionExecution run(ExpeditionId expeditionId) {
         return runs.find(expeditionId).orElseThrow();
+    }
+
+    private record Sequence(ExpeditionId expeditionId, ActivityId upstream, ActivityId downstream) {
     }
 }

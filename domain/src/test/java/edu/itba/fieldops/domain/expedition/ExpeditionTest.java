@@ -11,11 +11,15 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
+import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.shared.DomainException;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -32,6 +36,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -66,14 +71,129 @@ class ExpeditionTest {
     }
 
     @Test
+    void draftRejectsAResponsibleWhoIsNotAmongThePeople() {
+        PersonId stranger = new PersonId(UUID.randomUUID());
+        ExpeditionCharter charter = new ExpeditionCharter(
+                List.of(new Objective("Map wetland biodiversity")),
+                new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
+                List.of(DELTA),
+                List.of(stranger),
+                List.of(new Restriction("No night work"))
+        );
+
+        UnknownResource rejected = assertThrows(
+                UnknownResource.class,
+                () -> Expedition.draft(new ExpeditionId(UUID.randomUUID()), charter, List.of())
+        );
+
+        assertEquals("unknown responsible: " + stranger.value(), rejected.getMessage());
+    }
+
+    @Test
+    void onlyAnApprovedPlanStarts() {
+        Expedition expedition = inReview();
+
+        InvalidExpeditionTransition rejected = assertThrows(
+                InvalidExpeditionTransition.class,
+                () -> expedition.start(DAY, List.of(expedition), List.of())
+        );
+
+        assertEquals("cannot start while expedition is IN_REVIEW", rejected.getMessage());
+        assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
+    }
+
+    @Test
+    void startRejectsAnInstantOutsideThePeriod() {
+        Expedition expedition = approvedWithSampling();
+
+        InvalidActivityExecution rejected = assertThrows(
+                InvalidActivityExecution.class,
+                () -> expedition.start(DAY.minus(Duration.ofHours(1)), List.of(expedition), List.of())
+        );
+
+        assertEquals("start is outside the expedition period", rejected.getMessage());
+        assertEquals(ExpeditionStatus.APPROVED, expedition.status());
+    }
+
+    @Test
+    void aLineageHasOneRun() {
+        Expedition expedition = approvedWithSampling();
+        ExpeditionExecution run = expedition.start(DAY, List.of(expedition), List.of());
+
+        InvalidExpeditionTransition rejected = assertThrows(
+                InvalidExpeditionTransition.class,
+                () -> expedition.start(DAY, List.of(expedition), List.of(run))
+        );
+
+        assertEquals("cannot start while expedition is IN_PROGRESS", rejected.getMessage());
+        assertEquals(ExpeditionExecution.Status.IN_PROGRESS, run.status());
+    }
+
+    @Test
+    void aRevisionDoesNotStartAnotherRunOfTheLineage() {
+        Expedition original = approvedWithSampling();
+        ExpeditionExecution run = original.start(DAY, List.of(original), List.of());
+        Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        revision.submitForReview();
+        Expedition approvedRevision = StoredPlans.approved(revision);
+
+        InvalidExpeditionTransition rejected = assertThrows(
+                InvalidExpeditionTransition.class,
+                () -> approvedRevision.start(DAY, List.of(original, approvedRevision), List.of(run))
+        );
+
+        assertEquals("cannot start while expedition is IN_PROGRESS", rejected.getMessage());
+        assertEquals(ExpeditionExecution.Status.IN_PROGRESS, run.status());
+    }
+
+    @Test
+    void anActivityDoesNotStartOutsideItsWindow() {
+        Expedition expedition = approvedWithSampling();
+        Activity activity = expedition.activities().getFirst();
+
+        InvalidActivityExecution rejected = assertThrows(
+                InvalidActivityExecution.class,
+                () -> expedition.startOf(activity.id(), DAY.plus(Duration.ofHours(10)), List.of(expedition))
+        );
+
+        assertEquals("activity instant is outside the planned window", rejected.getMessage());
+    }
+
+    @Test
+    void aStrangerCannotAcceptAWarning() {
+        Expedition expedition = inReview();
+        ValidationIssue issue = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle near capacity");
+        AcceptedWarning warning = new AcceptedWarning(issue, "extra trailer available", new PersonId(UUID.randomUUID()));
+
+        InvalidValue rejected = assertThrows(InvalidValue.class, () -> accept(expedition, warning));
+
+        assertEquals("warning must be accepted by a responsible", rejected.getMessage());
+        assertTrue(expedition.acceptedWarnings().isEmpty());
+    }
+
+    @Test
+    void acceptWarningRejectsAnIssueTheValidationDoesNotRaise() {
+        Expedition expedition = inReview();
+        AcceptedWarning warning = acceptedCapacityWarning(expedition);
+
+        InvalidValue rejected = assertThrows(
+                InvalidValue.class,
+                () -> expedition.acceptWarning(result(), context(expedition), warning)
+        );
+
+        assertEquals("not a current warning: CAPACITY", rejected.getMessage());
+        assertTrue(expedition.acceptedWarnings().isEmpty());
+    }
+
+    @Test
     void rejectsDuplicateAcceptedWarning() {
         Expedition expedition = wetlandDraft();
         expedition.addActivity(sampling());
         expedition.submitForReview();
         AcceptedWarning warning = acceptedCapacityWarning(expedition);
-        expedition.acceptWarning(warning);
+        accept(expedition, warning);
 
-        assertThrows(InvalidValue.class, () -> expedition.acceptWarning(warning));
+        assertThrows(InvalidValue.class, () -> accept(expedition, warning));
     }
 
     @Test
@@ -81,7 +201,7 @@ class ExpeditionTest {
         Expedition expedition = wetlandDraft();
         expedition.addActivity(sampling());
         expedition.submitForReview();
-        expedition.acceptWarning(acceptedCapacityWarning(expedition));
+        accept(expedition, acceptedCapacityWarning(expedition));
 
         expedition.returnToDraft();
 
@@ -134,7 +254,7 @@ class ExpeditionTest {
     void approveAcceptsAJustifiedWarning() {
         Expedition expedition = inReview();
         AcceptedWarning warning = acceptedCapacityWarning(expedition);
-        expedition.acceptWarning(warning);
+        accept(expedition, warning);
 
         expedition.approve(result(warning.issue()), context(expedition), Optional.empty());
 
@@ -246,7 +366,7 @@ class ExpeditionTest {
         Expedition expedition = wetlandDraft();
         expedition.addActivity(sampling());
         expedition.submitForReview();
-        expedition.acceptWarning(acceptedCapacityWarning(expedition));
+        accept(expedition, acceptedCapacityWarning(expedition));
         Expedition approved = StoredPlans.approved(expedition);
 
         Expedition restored = Expedition.restore(approved.state());
@@ -362,16 +482,22 @@ class ExpeditionTest {
         return StoredPlans.approved(expedition);
     }
 
+    private static void accept(Expedition expedition, AcceptedWarning warning) {
+        expedition.acceptWarning(result(warning.issue()), context(expedition), warning);
+    }
+
     private static Expedition wetlandDraft() {
+        PersonId lead = new PersonId(UUID.randomUUID());
         return Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 new ExpeditionCharter(
                         List.of(new Objective("Map wetland biodiversity")),
                         new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
                         List.of(DELTA),
-                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(lead),
                         List.of(new Restriction("No night work"))
-                )
+                ),
+                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
     }
 

@@ -64,11 +64,9 @@ public class ProposalEntity {
 
     ReplanProposal toDomain(Expedition suggested) {
         ReplanProposal proposal = new ReplanProposal(new ProposalId(id), incident.toDomain(), suggested);
-        switch (ReplanProposal.Decision.valueOf(decision)) {
-            case ACCEPTED -> proposal.accept(new PersonId(decidedBy), decidedAt);
-            case REJECTED -> proposal.reject(new PersonId(decidedBy), decidedAt);
-            case PENDING -> {
-            }
+        ReplanProposal.Decision recorded = ReplanProposal.Decision.valueOf(decision);
+        if (recorded != ReplanProposal.Decision.PENDING) {
+            proposal.restoreDecision(recorded, new PersonId(decidedBy), decidedAt);
         }
         return proposal;
     }

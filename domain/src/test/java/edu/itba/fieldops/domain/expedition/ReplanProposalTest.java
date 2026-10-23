@@ -6,6 +6,8 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -27,36 +29,86 @@ class ReplanProposalTest {
 
     @Test
     void acceptRecordsTheResponsible() {
-        PersonId ada = new PersonId(UUID.randomUUID());
-        ReplanProposal proposal = pending();
+        Expedition original = approved();
+        PersonId ada = original.charter().responsibles().getFirst();
+        ReplanProposal proposal = proposalFor(original);
 
-        proposal.accept(ada, DAY);
+        proposal.accept(original, original.forReplan(ada), DAY);
 
         assertEquals(ReplanProposal.Decision.ACCEPTED, proposal.decision());
         assertEquals(Optional.of(ada), proposal.decidedBy());
         assertEquals(Optional.of(DAY), proposal.decidedAt());
+        assertEquals(ExpeditionStatus.APPROVED, original.status());
     }
 
     @Test
     void rejectRecordsTheResponsible() {
-        PersonId ada = new PersonId(UUID.randomUUID());
-        ReplanProposal proposal = pending();
+        Expedition original = approved();
+        PersonId ada = original.charter().responsibles().getFirst();
+        ReplanProposal proposal = proposalFor(original);
 
-        proposal.reject(ada, DAY);
+        proposal.reject(original, original.forReplan(ada), DAY);
 
         assertEquals(ReplanProposal.Decision.REJECTED, proposal.decision());
         assertEquals(Optional.of(ada), proposal.decidedBy());
+        assertEquals(ExpeditionStatus.APPROVED, original.status());
     }
 
     @Test
     void cannotAcceptTwice() {
-        ReplanProposal proposal = pending();
-        proposal.accept(new PersonId(UUID.randomUUID()), DAY);
+        Expedition original = approved();
+        ReplanProposal proposal = proposalFor(original);
+        Responsible ada = original.forReplan(original.charter().responsibles().getFirst());
+        proposal.accept(original, ada, DAY);
 
         assertThrows(
                 InvalidValue.class,
-                () -> proposal.accept(new PersonId(UUID.randomUUID()), DAY.plus(Duration.ofHours(1)))
+                () -> proposal.accept(original, ada, DAY.plus(Duration.ofHours(1)))
         );
+    }
+
+    @Test
+    void aStrangerCannotDecideAProposal() {
+        Expedition original = approved();
+
+        InvalidValue rejected = assertThrows(
+                InvalidValue.class,
+                () -> original.forReplan(new PersonId(UUID.randomUUID()))
+        );
+
+        assertEquals("replan must be decided by a responsible", rejected.getMessage());
+    }
+
+    @Test
+    void aResponsibleOfAnotherPlanCannotAccept() {
+        PersonId lead = new PersonId(UUID.randomUUID());
+        Expedition original = approved(lead);
+        Expedition other = approved(lead);
+        ReplanProposal proposal = proposalFor(original);
+
+        InvalidValue rejected = assertThrows(
+                InvalidValue.class,
+                () -> proposal.accept(original, other.forReplan(lead), DAY)
+        );
+
+        assertEquals("replan must be decided by a responsible", rejected.getMessage());
+        assertEquals(ReplanProposal.Decision.PENDING, proposal.decision());
+    }
+
+    @Test
+    void cannotAcceptWhenTheOriginalIsNoLongerApproved() {
+        Expedition original = approved();
+        ReplanProposal proposal = proposalFor(original);
+        Responsible ada = original.forReplan(original.charter().responsibles().getFirst());
+        original.markSuperseded();
+
+        InvalidExpeditionTransition rejected = assertThrows(
+                InvalidExpeditionTransition.class,
+                () -> proposal.accept(original, ada, DAY)
+        );
+
+        assertEquals("cannot accept replan while expedition is SUPERSEDED", rejected.getMessage());
+        assertEquals(ReplanProposal.Decision.PENDING, proposal.decision());
     }
 
     @Test
@@ -83,8 +135,8 @@ class ReplanProposalTest {
         assertEquals(revision.supersedes().orElseThrow(), proposal.originalId());
     }
 
-    private static ReplanProposal pending() {
-        return new ReplanProposal(new ProposalId(UUID.randomUUID()), incident(), revision());
+    private static ReplanProposal proposalFor(Expedition original) {
+        return new ReplanProposal(new ProposalId(UUID.randomUUID()), incident(), original.reviseAsDraft(new ExpeditionId(UUID.randomUUID())));
     }
 
     private static Incident incident() {
@@ -92,26 +144,39 @@ class ReplanProposalTest {
     }
 
     private static Expedition revision() {
-        Expedition approved = draft();
-        approved.addActivity(Activity.transit()
+        return approved().reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+    }
+
+    private static Expedition approved() {
+        return approved(new PersonId(UUID.randomUUID()));
+    }
+
+    private static Expedition approved(PersonId lead) {
+        Expedition expedition = draft(lead);
+        expedition.addActivity(Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "Approach")
                 .estimated(Duration.ofHours(2), RiskLevel.LOW)
                 .in(new WorkZone("Delta"), new TimePeriod(DAY, DAY.plus(Duration.ofHours(2))))
                 .build());
-        approved.submitForReview();
-        return StoredPlans.approved(approved).reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        expedition.submitForReview();
+        return StoredPlans.approved(expedition);
     }
 
     private static Expedition draft() {
+        return draft(new PersonId(UUID.randomUUID()));
+    }
+
+    private static Expedition draft(PersonId lead) {
         return Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 new ExpeditionCharter(
                         List.of(new Objective("Map wetland")),
                         new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
                         List.of(new WorkZone("Delta")),
-                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(lead),
                         List.of(new Restriction("Daylight only"))
-                )
+                ),
+                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
     }
 }

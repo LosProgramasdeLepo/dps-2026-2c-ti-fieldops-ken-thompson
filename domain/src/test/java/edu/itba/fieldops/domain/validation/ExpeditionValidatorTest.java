@@ -13,6 +13,7 @@ import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
+import edu.itba.fieldops.domain.expedition.ExecutionState;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
@@ -38,13 +39,13 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -529,15 +530,17 @@ class ExpeditionValidatorTest {
                 .in(coast, window(0, 4))
                 .build();
         Permit deltaPermit = new Permit(new PermitId(UUID.randomUUID()), DELTA, activity.window(), PermitKind.ZONE);
+        PersonId lead = new PersonId(UUID.randomUUID());
         Expedition expedition = Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 new ExpeditionCharter(
                         List.of(new Objective("Map wetland biodiversity")),
                         week(),
                         List.of(DELTA, coast),
-                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(lead),
                         List.of(new Restriction("No night work"))
-                )
+                ),
+                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), person.id()));
@@ -601,12 +604,15 @@ class ExpeditionValidatorTest {
     }
 
     private static ExpeditionExecution finish(Expedition expedition, Activity activity) {
-        expedition.submitForReview();
-        ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
-        execution.startActivity(activity.id(), DAY, expedition.activityOf(activity.id()).predecessors());
-        execution.finishActivity(activity.id(), DAY.plusSeconds(4 * 3600L), "samples stored");
-        execution.finish(Set.of(activity.id()));
-        return execution;
+        ActivityExecution done = new ActivityExecution(activity.id(), DAY)
+                .finish(DAY.plusSeconds(4 * 3600L), "samples stored");
+        return ExpeditionExecution.restore(new ExecutionState(
+                expedition.id(),
+                ExpeditionExecution.Status.FINISHED,
+                List.of(done),
+                List.of(),
+                List.of()
+        ));
     }
 
     private static OccupyingExpeditions occupying(Expedition plan, Expedition other) {
@@ -675,15 +681,17 @@ class ExpeditionValidatorTest {
     }
 
     private static Expedition draft() {
+        PersonId lead = new PersonId(UUID.randomUUID());
         return Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 new ExpeditionCharter(
                         List.of(new Objective("Map wetland biodiversity")),
                         week(),
                         List.of(DELTA),
-                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(lead),
                         List.of(new Restriction("No night work"))
-                )
+                ),
+                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
     }
 

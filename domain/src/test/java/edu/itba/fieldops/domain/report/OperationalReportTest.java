@@ -1,6 +1,9 @@
 package edu.itba.fieldops.domain.report;
 
+import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
+import edu.itba.fieldops.domain.expedition.ExecutionState;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
@@ -16,6 +19,7 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +27,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -33,17 +36,19 @@ class OperationalReportTest {
     private static final Instant START = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
 
+    private final PersonId lead = new PersonId(UUID.randomUUID());
     private final Expedition expedition = Expedition.draft(
             new ExpeditionId(UUID.randomUUID()),
             new ExpeditionCharter(
                     List.of(new Objective("Survey the delta")),
                     new TimePeriod(START, START.plus(Duration.ofDays(2))),
                     List.of(DELTA),
-                    List.of(new PersonId(UUID.randomUUID())),
+                    List.of(lead),
                     List.of(new Restriction("Stay on the water"))
-            )
+            ),
+            List.of(new Person(lead, "Ada", List.of(), Availability.always()))
     );
-    private final ExpeditionExecution execution = ExpeditionExecution.started(expedition.id());
+    private final ExpeditionExecution execution = open();
 
     @Test
     void aPlanWithoutARunReportsTheEstimateAndTheAssignedConsumption() {
@@ -87,8 +92,10 @@ class OperationalReportTest {
         Activity left = activity(0, 4, RiskLevel.LOW);
         Activity right = activity(0, 3, RiskLevel.LOW);
         expedition.addBlock(ActivityBlock.parallel(left, right));
-        execution.startActivity(left.id(), START, Set.of());
-        execution.startActivity(right.id(), START, Set.of());
+        ExpeditionExecution execution = open(
+                new ActivityExecution(left.id(), START),
+                new ActivityExecution(right.id(), START)
+        );
         execution.finishActivity(left.id(), START.plus(Duration.ofHours(5)), "left bank surveyed");
         execution.finishActivity(right.id(), START.plus(Duration.ofHours(2)), "right bank surveyed");
 
@@ -101,7 +108,7 @@ class OperationalReportTest {
     void includesTheResultsOfFinishedActivities() {
         Activity measure = activity(0, 3, RiskLevel.LOW);
         expedition.addActivity(measure);
-        execution.startActivity(measure.id(), START, Set.of());
+        ExpeditionExecution execution = open(new ActivityExecution(measure.id(), START));
         execution.finishActivity(measure.id(), START.plus(Duration.ofHours(3)), "samples stored");
 
         OperationalReport report = OperationalReport.of(expedition, execution);
@@ -129,13 +136,23 @@ class OperationalReportTest {
     void reportsFinishedWhenTheRunIsFinished() {
         Activity measure = activity(0, 3, RiskLevel.LOW);
         expedition.addActivity(measure);
-        execution.startActivity(measure.id(), START, Set.of());
+        ExpeditionExecution execution = open(new ActivityExecution(measure.id(), START));
         execution.finishActivity(measure.id(), START.plus(Duration.ofHours(3)), "samples stored");
-        execution.finish(Set.of(measure.id()));
+        execution.finish(expedition);
 
         OperationalReport report = OperationalReport.of(expedition, execution);
 
         assertEquals(OperationalStatus.FINISHED, report.status());
+    }
+
+    private ExpeditionExecution open(ActivityExecution... activities) {
+        return ExpeditionExecution.restore(new ExecutionState(
+                expedition.id(),
+                ExpeditionExecution.Status.IN_PROGRESS,
+                List.of(activities),
+                List.of(),
+                List.of()
+        ));
     }
 
     private static Activity activity(int fromHour, int toHour, RiskLevel risk) {
