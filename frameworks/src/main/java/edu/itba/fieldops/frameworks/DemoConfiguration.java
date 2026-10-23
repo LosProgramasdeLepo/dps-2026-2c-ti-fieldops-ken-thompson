@@ -1,6 +1,6 @@
 package edu.itba.fieldops.frameworks;
 
-import edu.itba.fieldops.usecase.shared.Clock;
+import edu.itba.fieldops.domain.shared.Clock;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

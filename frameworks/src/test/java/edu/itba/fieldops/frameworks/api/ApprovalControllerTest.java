@@ -3,7 +3,7 @@ package edu.itba.fieldops.frameworks.api;
 import edu.itba.fieldops.api.expedition.ApprovalController;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.usecase.expedition.ApproveExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.ApproveExpedition;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;

@@ -1,4 +1,8 @@
 package edu.itba.fieldops.usecase.catalog;
+import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
+import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
+import edu.itba.fieldops.domain.catalog.VehicleRegistry;
+import edu.itba.fieldops.domain.usecase.catalog.ConsultEquipment;
 
 import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.Instrument;
@@ -6,8 +10,8 @@ import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 
 import java.util.Objects;
 

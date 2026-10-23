@@ -1,4 +1,8 @@
 package edu.itba.fieldops.usecase.expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
+import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.ReviewReplanProposal;
 
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
@@ -7,9 +11,9 @@ import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
-import edu.itba.fieldops.usecase.shared.Clock;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.Clock;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 

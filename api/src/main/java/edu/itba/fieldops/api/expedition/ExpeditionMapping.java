@@ -73,9 +73,9 @@ import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.Observation;
-import edu.itba.fieldops.usecase.expedition.PlanSnapshot;
-import edu.itba.fieldops.usecase.expedition.ProposalSnapshot;
-import edu.itba.fieldops.usecase.expedition.RunSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 
 import java.util.LinkedHashMap;
 import java.util.List;

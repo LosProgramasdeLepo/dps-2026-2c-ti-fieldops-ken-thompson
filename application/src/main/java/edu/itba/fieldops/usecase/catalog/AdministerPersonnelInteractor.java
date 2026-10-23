@@ -1,4 +1,7 @@
 package edu.itba.fieldops.usecase.catalog;
+import edu.itba.fieldops.domain.catalog.CertificationRegistry;
+import edu.itba.fieldops.domain.catalog.PersonRegistry;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;

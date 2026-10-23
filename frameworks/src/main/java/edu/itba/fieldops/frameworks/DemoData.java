@@ -26,10 +26,10 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.usecase.catalog.AdministerEquipment;
-import edu.itba.fieldops.usecase.catalog.AdministerPersonnel;
-import edu.itba.fieldops.usecase.shared.Clock;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
+import edu.itba.fieldops.domain.shared.Clock;
+import edu.itba.fieldops.domain.shared.PageRequest;
 
 import java.time.Duration;
 import java.time.Instant;

@@ -1,4 +1,6 @@
 package edu.itba.fieldops.usecase.expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.usecase.expedition.DraftExpedition;
 
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;

@@ -1,4 +1,6 @@
 package edu.itba.fieldops.usecase.catalog;
+import edu.itba.fieldops.domain.catalog.PermitRegistry;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerPermits;
 
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.identity.PermitId;

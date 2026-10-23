@@ -1,7 +1,8 @@
 package edu.itba.fieldops.usecase.report;
+import edu.itba.fieldops.domain.usecase.report.EstimateExpedition;
 
 import edu.itba.fieldops.domain.report.Estimate;
-import edu.itba.fieldops.usecase.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 
 import java.util.Objects;

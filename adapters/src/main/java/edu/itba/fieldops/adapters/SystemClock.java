@@ -1,6 +1,6 @@
 package edu.itba.fieldops.adapters;
 
-import edu.itba.fieldops.usecase.shared.Clock;
+import edu.itba.fieldops.domain.shared.Clock;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

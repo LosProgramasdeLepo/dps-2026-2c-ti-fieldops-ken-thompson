@@ -1,11 +1,14 @@
 package edu.itba.fieldops.usecase.expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.usecase.expedition.ConsultExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.shared.UnknownResource;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 
 import java.util.Objects;
 

@@ -1,4 +1,5 @@
 package edu.itba.fieldops.frameworks;
+import edu.itba.fieldops.domain.shared.Clock;
 
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
@@ -19,7 +20,7 @@ import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
-import edu.itba.fieldops.usecase.expedition.RunSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

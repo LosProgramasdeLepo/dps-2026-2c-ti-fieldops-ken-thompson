@@ -1,7 +1,7 @@
 package edu.itba.fieldops.adapters;
 
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 
 import java.util.Collection;
 import java.util.Objects;

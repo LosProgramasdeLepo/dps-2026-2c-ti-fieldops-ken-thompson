@@ -1,4 +1,8 @@
 package edu.itba.fieldops.usecase.catalog;
+import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
+import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
+import edu.itba.fieldops.domain.catalog.VehicleRegistry;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Consumable;

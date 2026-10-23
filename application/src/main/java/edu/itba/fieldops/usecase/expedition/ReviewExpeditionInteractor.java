@@ -1,4 +1,7 @@
 package edu.itba.fieldops.usecase.expedition;
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
 
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.expedition.Expedition;

@@ -1,4 +1,7 @@
 package edu.itba.fieldops.frameworks;
+import edu.itba.fieldops.domain.usecase.catalog.ConsultEquipment;
+import edu.itba.fieldops.domain.usecase.catalog.ConsultPermits;
+import edu.itba.fieldops.domain.usecase.catalog.ConsultPersonnel;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
@@ -16,8 +19,8 @@ import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

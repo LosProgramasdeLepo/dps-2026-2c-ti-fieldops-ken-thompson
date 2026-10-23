@@ -1,4 +1,8 @@
 package edu.itba.fieldops.usecase.expedition;
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
 
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
@@ -9,7 +13,7 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.shared.UnknownResource;
-import edu.itba.fieldops.usecase.shared.Clock;
+import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
 
