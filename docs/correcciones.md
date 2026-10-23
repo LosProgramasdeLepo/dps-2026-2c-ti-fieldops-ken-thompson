@@ -1,8 +1,10 @@
 # Correcciones
 
-## 1. Modelado del dominio
+## Entrega 1
 
-### Bien
+### 1. Modelado del dominio
+
+#### Bien
 
 Modelan las partes difíciles del enunciado: grafo de dependencias acíclico, ventanas dentro del período, reserva de recursos entre expediciones (`TemporalBooking`, `occupyingPeers`) y replanificación. Si el plan ya estaba aprobado, se genera una versión nueva (`reviseAsDraft`, con `supersedes`) y la aprobada no se modifica.
 
@@ -10,7 +12,7 @@ Modelan las partes difíciles del enunciado: grafo de dependencias acíclico, ve
 
 El comportamiento que cruza la expedición con el catálogo está en servicios del dominio (`ExpeditionValidator`, `AssignmentSuggester`, `Replanner`) y no en el agregado.
 
-### Falta
+#### Falta
 
 La regla central del enunciado ("no aprobar con errores críticos") no la protege el agregado, porque confía en un resultado que le pasa quien llama:
 
@@ -57,7 +59,7 @@ La duración de una actividad debería conocerla la misma actividad; no es respo
 
 Casi todas las reglas tiran `IllegalArgumentException`. Hay 3 excepciones propias, sin una jerarquía de dominio.
 
-## 1.2 Casos de uso
+### 1.2 Casos de uso
 
 No hay casos de uso: quien llama (en la práctica, los tests) usa directamente `Expedition`, `ExpeditionValidator`, `AssignmentSuggester`, `Replanner` y `OperationalReport`. Todo lo que hace ese código a mano (conseguir el catálogo, conseguir "las otras expediciones", guardar, validar antes de aprobar) es trabajo que tendría que coordinar un caso de uso.
 
@@ -65,21 +67,21 @@ La responsabilidad de orquestar las entidades y servicios del dominio para model
 
 Del mismo modo, declarar "qué" se hace incluye la declaración de puertos con el exterior, ya que el negocio quizás no conoce si tendrá que realizar un llamado a una base de datos SQL o un llamado a una API HTTP. Lo que sí conoce el dominio es dónde termina su responsabilidad, y esa barrera debe estar definida dentro del dominio, como se vio en la clase de arquitectura. Luego serán los detalles quienes implementen esas interfaces y provean una definición concreta para que en tiempo de ejecución el sistema pueda resolver los requerimientos end-to-end.
 
-### Draft
+#### Draft
 
 `Expedition.draft` recibe el id desde afuera y no hay `ExpeditionRepository`: la expedición existe solo mientras quien llama conserve la referencia. `responsibles` es una lista de `UUID` que no se verifica contra el catálogo, así que se puede crear una expedición con responsables que no existen.
 
-### AddActivity / AddDependency
+#### AddActivity / AddDependency
 
 Es la parte mejor protegida del modelo: `Itinerary` valida predecesores conocidos, ausencia de ciclos y orden temporal, y `Expedition` valida zona y período. `reorderActivities` cambia el orden de una lista que no tiene significado para el negocio (el orden real lo dan las dependencias y las ventanas).
 
-### AddAssignment / AddPermit
+#### AddAssignment / AddPermit
 
 El agregado solo verifica que la actividad exista y que la asignación no esté repetida. Ni el `personId` ni el `permitId` se verifican contra el catálogo al asignar: un id inexistente recién aparece cuando se valida, si se valida.
 
 Además se pueden editar asignaciones en `IN_REVIEW`, después de validar, así que el `ValidationResult` que después se le pasa a `approve` ya no describe la expedición.
 
-### SuggestAssignments
+#### SuggestAssignments
 
 Bien: `AssignmentSuggester` devuelve sugerencias y no modifica la expedición, así que la decisión queda en quien llama.
 
@@ -129,31 +131,31 @@ default Map<UUID, Quantity> consumption() { return Map.of(); }
 
 `ConsumableAssignment` es el único que sobreescribe este método: es una clara violación de ISP.
 
-### SubmitForReview
+#### SubmitForReview
 
 Transición simple sin validación: se puede enviar a revisión una expedición sin actividades, y como las reglas recorren las actividades, ninguna la rechaza.
 
-### Validate
+#### Validate
 
 Buen Strategy + composición de `ValidationRule`. El problema no está acá sino en cómo se usa el resultado: es un valor suelto que no guarda a qué versión ni a qué momento de la expedición corresponde.
 
-### AcceptWarning
+#### AcceptWarning
 
 `AcceptedWarning` rechaza críticos y exige justificación, pero `acceptedBy` es cualquier `UUID`: no se compara con `responsibles`, cuando el enunciado dice "aceptadas por un responsable".
 
-### Approve
+#### Approve
 
 Ver punto 1: validar y aprobar son dos pasos sin nada que los ate. El agregado nunca ejecuta al validador, solo lee el objeto que le entregan.
 
-### Start / Suspend / Resume / Finish
+#### Start / Suspend / Resume / Finish
 
 `suspend()` también vale desde `APPROVED`, y `resume()` siempre vuelve a `IN_PROGRESS`: una expedición que nunca se inició queda en ejecución sin pasar por `start()`. `SUSPENDED` no recuerda desde qué estado se suspendió.
 
-### StartActivity / FinishActivity
+#### StartActivity / FinishActivity
 
 Buen uso de un objeto inmutable (`ActivityExecution`) y respeta los predecesores. Pero el instante lo pasa quien llama (no hay `Clock` inyectado) y no se compara con la ventana ni con el período: se puede registrar un inicio en 1990 o en 2090.
 
-### Replanner (Cancel / Delay / ReplaceUnavailable)
+#### Replanner (Cancel / Delay / ReplaceUnavailable)
 
 Bien: una expedición aprobada no se edita, se versiona, y `delay` calcula, valida y después aplica. Sin embargo:
 
@@ -161,15 +163,15 @@ Bien: una expedición aprobada no se edita, se versiona, y `delay` calcula, vali
 - Doble semántica: según el estado, modifica el argumento o devuelve otra instancia (`revisionOrSelf`).
 - `replaceUnavailable` no vuelve a `DRAFT` como `cancel` y `delay`: en `IN_REVIEW` cambia asignaciones y conserva las advertencias aceptadas, y un `ValidationResult` previo sigue sirviendo para `approve`.
 
-### ReturnToDraft
+#### ReturnToDraft
 
 Desde `IN_PROGRESS` hace `executions.clear()` y borra el registro de lo ejecutado. `Replanner` usa `reviseAsDraft` y evita el problema, pero el método público del agregado deja el camino destructivo abierto.
 
-### OperationalReport
+#### OperationalReport
 
 "Duración" y "consumo" salen del plan, no de lo ejecutado: el informe de una expedición terminada no dice cuánto duró ni qué consumió, aunque `ActivityExecution` tiene `startedAt` / `finishedAt`.
 
-## 2. Separación negocio-detalles
+### 2. Separación negocio-detalles
 
 Java puro y sin frameworks. `Catalog` es un puerto, pero su implementación en memoria `ResourceCatalog` (5 `Map<UUID, …>`) vive en `domain.catalog`: es un detalle dentro del dominio.
 
@@ -177,7 +179,7 @@ Java puro y sin frameworks. `Catalog` es un puerto, pero su implementación en m
 
 La responsabilidad de persistir las entidades dentro de un bounded context se puede atribuir generalmente a un repositorio por bounded context, extensible según se requiera. El código tiene una buena separación de subdominios. La pregunta sería por qué decidieron ignorar esta separación para el repositorio y hacer una God class como lo es `ResourceCatalog`.
 
-## 3. SOLID
+### 3. SOLID
 
 - **OCP bien:** el validador es una lista de `ValidationRule` con un solo método, y `ValidationExtensionTest` lo demuestra.
 - **OCP mal:** `ActivityPolicy` y `Assignment` son `sealed`, y hay 7 `switch` / `instanceof` por tipo (`TemporalBooking` x2, `CapacityRule` x2, `MissingResourceRule`, `CertificationRule`, `AssignmentSuggester`). Un nuevo `Assignment` obliga a tocarlos todos, y el `DESIGN.md` no justifica `sealed` frente a OCP. Lo polimórfico sería que cada `Assignment` sepa producir su `booking(window)` y verificarse.
@@ -185,14 +187,42 @@ La responsabilidad de persistir las entidades dentro de un bounded context se pu
 - **DIP:** bien.
 - **ISP:** se encontraron violaciones como se vio con el método default `consumption()` en `Assignment.java`.
 
-## 4. Patrones
+### 4. Patrones
 
 Strategy + lista inyectada en `ExpeditionValidator`, con `ValidationContext` para unificar las firmas: bien.
 
 State descartado: se justifica, pero `ExpeditionStatus` tiene 6 predicados del tipo `this == A || this == B || ...`, y cada estado nuevo toca todos.
 
-## 5. Arquitectura
+### 5. Arquitectura
 
 Como se vio en clase, el dominio contiene modelos, servicios, excepciones y las interfaces (puertos de salida y casos de uso), y las implementaciones concretas viven afuera. Acá hay un único módulo `domain` sin casos de uso (interactors) ni puertos driving, y con un adaptador (`ResourceCatalog`) adentro.
 
 Falta uso de aggregates y modelar IDs de las entidades de cada subdominio. A pesar de esto, los subdominios están bien identificados: se puede ver una clara composición del negocio con los módulos propuestos. Solo restaría dentro de ellos hacer la separación en modelos, interfaces, repositorios, use cases, etc.
+
+## Entrega 2
+
+### 1. Arquitectura
+
+Corrigieron algunos puertos, pero los repositorios de escritura (`ExpeditionRepository`, `*Registry`), el `Clock` y las interfaces de caso de uso siguen en `application`. Las interfaces van en el dominio, las implementaciones son detalles.
+
+### 2. Modelado del dominio
+
+El flujo de aprobación que no reflejaba la regla del dominio quedó arreglado, sin embargo, se introdujo un error similar:
+
+```java
+ReplanProposal.accept(anyPerson)
+
+ExpeditionExecution.started(anyId)
+
+startActivity(id, anyInstant, anyPredecessor)
+```
+
+`ExpeditionExecution` confía en quien la llama. "Solo un plan aprobado arranca", "dentro del período", "una corrida por linaje" y "una actividad arranca dentro de su ventana" se verifican en `TrackExpeditionInteractor`, y `startActivity` recibe los predecesores que el caller elige.
+
+### 3. Validación de los inputs
+
+Las reglas del negocio que requieren validaciones de los inputs no se encuentran explicitadas ni reflejadas en el modelado. Lo ideal sería que el value object que se va a utilizar como parámetro de los métodos sea válido desde el momento de su creación, es decir, se debería impedir la creación de instancias con valores que no pueden existir en el dominio.
+
+### 4. Correcciones anteriores
+
+Revisar lo que habían sido las correcciones de la Entrega 1.
