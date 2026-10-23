@@ -4,7 +4,7 @@ import edu.itba.fieldops.adapters.InMemoryExecutionRepository;
 import edu.itba.fieldops.adapters.InMemoryExpeditionRepository;
 import edu.itba.fieldops.adapters.InMemoryReplanProposalRepository;
 import edu.itba.fieldops.adapters.ResourceCatalog;
-import edu.itba.fieldops.usecase.shared.Clock;
+import edu.itba.fieldops.domain.shared.Clock;
 
 public final class InMemoryFieldOps {
     private final ResourceCatalog catalog = new ResourceCatalog();

@@ -7,9 +7,9 @@ import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.shared.PermitKind;
-import edu.itba.fieldops.usecase.expedition.PlanSnapshot;
-import edu.itba.fieldops.usecase.expedition.ProposalSnapshot;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

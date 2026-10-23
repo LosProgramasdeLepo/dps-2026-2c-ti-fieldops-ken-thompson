@@ -1,6 +1,6 @@
 package edu.itba.fieldops.adapters;
 
-import edu.itba.fieldops.usecase.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 

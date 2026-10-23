@@ -4,9 +4,9 @@ import edu.itba.fieldops.adapters.jpa.JpaPages;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.ProposalId;
-import edu.itba.fieldops.usecase.expedition.ReplanProposalRepository;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import org.springframework.transaction.support.TransactionOperations;
 
 import java.util.Objects;

@@ -4,7 +4,7 @@ import edu.itba.fieldops.api.expedition.IncidentsController;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
-import edu.itba.fieldops.usecase.expedition.RecordIncident;
+import edu.itba.fieldops.domain.usecase.expedition.RecordIncident;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
