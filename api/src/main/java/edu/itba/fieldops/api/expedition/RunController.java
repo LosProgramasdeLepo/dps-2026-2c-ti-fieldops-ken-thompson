@@ -6,7 +6,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionResponses.RunResponse;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.usecase.expedition.TrackExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -67,7 +67,7 @@ public final class RunController {
             @PathVariable UUID activityId,
             @Valid @RequestBody FinishActivityRequest request
     ) {
-        tracking.finishActivity(new ExpeditionId(id), new ActivityId(activityId), request.result());
+        tracking.finishActivity(new ExpeditionId(id), new ActivityId(activityId), ExpeditionMapping.activityReport(request));
         return Responses.noContent();
     }
 

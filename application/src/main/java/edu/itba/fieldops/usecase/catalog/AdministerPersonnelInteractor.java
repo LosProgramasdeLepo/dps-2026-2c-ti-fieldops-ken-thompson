@@ -2,9 +2,12 @@ package edu.itba.fieldops.usecase.catalog;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationRegistry;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.PersonId;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
 
 import java.util.List;
 import java.util.Objects;

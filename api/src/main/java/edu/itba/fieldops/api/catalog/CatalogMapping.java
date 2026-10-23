@@ -32,7 +32,7 @@ public final class CatalogMapping {
     }
 
     public static VehicleResponse vehicle(Vehicle vehicle) {
-        return new VehicleResponse(vehicle.id().value(), vehicle.capacity().count(), Periods.toResponse(vehicle.availability()));
+        return new VehicleResponse(vehicle.id().value(), vehicle.capacity().seats(), Periods.toResponse(vehicle.availability()));
     }
 
     public static InstrumentResponse instrument(Instrument instrument) {

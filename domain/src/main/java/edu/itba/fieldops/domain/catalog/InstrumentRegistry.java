@@ -1,0 +1,21 @@
+package edu.itba.fieldops.domain.catalog;
+
+import edu.itba.fieldops.domain.identity.InstrumentId;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.UnknownResource;
+
+import java.util.Objects;
+
+public interface InstrumentRegistry extends Instruments {
+    InstrumentId nextInstrumentId();
+
+    void save(Instrument instrument);
+
+    Page<Instrument> instruments(PageRequest request);
+
+    default Instrument require(InstrumentId id) {
+        return instrument(Objects.requireNonNull(id, "instrument id"))
+                .orElseThrow(() -> new UnknownResource("instrument", id.value().toString()));
+    }
+}

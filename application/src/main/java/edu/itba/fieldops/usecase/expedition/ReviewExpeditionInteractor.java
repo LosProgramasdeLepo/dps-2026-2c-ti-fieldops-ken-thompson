@@ -1,13 +1,15 @@
 package edu.itba.fieldops.usecase.expedition;
 
-import edu.itba.fieldops.domain.expedition.AcceptedWarning;
-import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
-import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.expedition.AcceptedWarning;
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
+import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
 
 import java.util.Objects;
 
@@ -30,10 +32,7 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
     @Override
     public void submit(ExpeditionId expeditionId) {
         Expedition expedition = plans.require(expeditionId);
-        if (validationOf(expedition).hasCritical()) {
-            throw new ExpeditionNotApprovable("critical validation issues remain");
-        }
-        expedition.submitForReview();
+        expedition.submitForReview(validator, contexts);
         plans.save(expedition);
     }
 
@@ -44,12 +43,8 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
 
     @Override
     public void acceptWarning(ExpeditionId expeditionId, AcceptedWarning warning) {
-        Objects.requireNonNull(warning, "warning");
         Expedition expedition = plans.require(expeditionId);
-        if (!validationOf(expedition).warnings().contains(warning.issue())) {
-            throw new InvalidValue("not a current warning: " + warning.issue().code());
-        }
-        expedition.acceptWarning(warning);
+        expedition.acceptWarning(validator, contexts, warning);
         plans.save(expedition);
     }
 

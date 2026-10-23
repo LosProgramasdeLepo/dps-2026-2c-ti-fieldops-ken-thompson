@@ -4,7 +4,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionRequests.AcceptWarningRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ValidationResponse;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.usecase.expedition.ReviewExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;

@@ -9,16 +9,17 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
+import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.Incident;
-import edu.itba.fieldops.usecase.expedition.PlanSnapshot;
-import edu.itba.fieldops.usecase.expedition.ProposalSnapshot;
-import edu.itba.fieldops.usecase.expedition.ReplanExpedition;
-import edu.itba.fieldops.usecase.expedition.ReviewReplanProposal;
-import edu.itba.fieldops.usecase.shared.Page;
-import edu.itba.fieldops.usecase.shared.PageRequest;
+import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.ReplanExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.ReviewReplanProposal;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -83,7 +84,7 @@ class ReplanControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"delay\":\"PT1H\"}"))
                 .andExpect(status().isNoContent());
-        verify(replan).delay(new ExpeditionId(id), new ActivityId(activityId), Duration.ofHours(1));
+        verify(replan).delay(new ExpeditionId(id), new ActivityId(activityId), new Delay(Duration.ofHours(1)));
     }
 
     @Test

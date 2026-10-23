@@ -1,13 +1,15 @@
 package edu.itba.fieldops.usecase.expedition;
 
+import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.InvalidAssignment;
-import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
-import edu.itba.fieldops.domain.shared.UnknownResource;
+import edu.itba.fieldops.domain.usecase.expedition.AssignResources;
 
 import java.util.List;
 import java.util.Objects;
@@ -32,12 +34,8 @@ public final class AssignResourcesInteractor implements AssignResources {
 
     @Override
     public void addAssignment(ExpeditionId expeditionId, Assignment assignment) {
-        Objects.requireNonNull(assignment, "assignment");
-        assignment.unknownIn(catalogs).ifPresent(label -> {
-            throw new InvalidAssignment("unknown " + label);
-        });
         Expedition expedition = plans.require(expeditionId);
-        expedition.addAssignment(assignment);
+        expedition.addAssignment(assignment, catalogs);
         plans.save(expedition);
     }
 
@@ -48,10 +46,7 @@ public final class AssignResourcesInteractor implements AssignResources {
         if (expedition.permits().contains(permitId)) {
             return;
         }
-        if (catalogs.permits().permit(permitId).isEmpty()) {
-            throw new UnknownResource("permit", permitId.value().toString());
-        }
-        expedition.addPermit(permitId);
+        expedition.addPermit(permitId, catalogs.permits());
         plans.save(expedition);
     }
 

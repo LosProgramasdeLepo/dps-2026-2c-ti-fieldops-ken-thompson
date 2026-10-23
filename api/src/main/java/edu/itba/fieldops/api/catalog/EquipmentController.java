@@ -17,11 +17,11 @@ import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
+import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
-import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.Stock;
-import edu.itba.fieldops.usecase.catalog.AdministerEquipment;
-import edu.itba.fieldops.usecase.catalog.ConsultEquipment;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
+import edu.itba.fieldops.domain.usecase.catalog.ConsultEquipment;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,7 +45,7 @@ public final class EquipmentController {
 
     @PostMapping("/v1/vehicles")
     public ResponseEntity<ResourceIdResponse> registerVehicle(@Valid @RequestBody RegisterVehicleRequest request) {
-        VehicleId id = equipment.registerVehicle(new Passengers(request.capacity()), Periods.toAvailability(request.availability()));
+        VehicleId id = equipment.registerVehicle(new Capacity(request.capacity()), Periods.toAvailability(request.availability()));
         return Responses.created("/v1/vehicles", id.value());
     }
 

@@ -4,6 +4,7 @@ import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
+import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -42,8 +43,8 @@ class CatalogResourcesTest {
         Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(20));
 
         assertAll(
-                () -> assertTrue(vials.hasAtLeast(new Stock(20))),
-                () -> assertFalse(vials.hasAtLeast(new Stock(21)))
+                () -> assertTrue(vials.covers(new Consumption(20))),
+                () -> assertFalse(vials.covers(new Consumption(21)))
         );
     }
 

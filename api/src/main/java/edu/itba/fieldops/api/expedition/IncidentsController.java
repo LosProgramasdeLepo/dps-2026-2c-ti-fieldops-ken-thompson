@@ -4,7 +4,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionRequests.IncidentRequest;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.usecase.expedition.RecordIncident;
+import edu.itba.fieldops.domain.usecase.expedition.RecordIncident;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;

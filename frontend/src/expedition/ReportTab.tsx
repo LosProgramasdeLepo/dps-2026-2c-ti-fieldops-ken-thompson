@@ -1,4 +1,5 @@
 import { expeditionsApi } from '../api/expeditions';
+import type { OperationalStatus } from '../api/types';
 import { Empty } from '../components/Empty';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Panel } from '../components/Panel';
@@ -7,6 +8,8 @@ import { useLoad } from '../hooks/useLoad';
 import { RISK_LABELS } from '../labels';
 import { formatDuration, formatInstant } from '../time';
 import { activityName, consumptionOf, type PlanTabProps } from './describe';
+
+const RUN_STATUSES: OperationalStatus[] = ['IN_PROGRESS', 'SUSPENDED', 'FINISHED'];
 
 export function ReportTab({ plan, catalog }: PlanTabProps) {
   const report = useLoad(() => expeditionsApi.report(plan.id), [plan]);
@@ -47,7 +50,7 @@ export function ReportTab({ plan, catalog }: PlanTabProps) {
           <thead>
             <tr>
               <th>Estimado por el plan</th>
-              <th>{summary.startedActivities > 0 ? 'Consumido en lo finalizado' : 'Asignado'}</th>
+              <th>{RUN_STATUSES.includes(summary.status) ? 'Registrado al finalizar actividades' : 'Asignado'}</th>
             </tr>
           </thead>
           <tbody>
