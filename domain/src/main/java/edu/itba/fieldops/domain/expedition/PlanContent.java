@@ -5,6 +5,7 @@ import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.itinerary.Itinerary;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
@@ -73,17 +74,14 @@ final class PlanContent {
         itinerary.addDependency(activityId, predecessorId);
     }
 
-    void delay(ActivityId activityId, Duration delay) {
-        if (Objects.requireNonNull(delay, "delay").isNegative()) {
-            throw new InvalidValue("delay must not be negative");
-        }
+    void delay(ActivityId activityId, Delay delay) {
         if (!delayFits(activityId, delay)) {
             throw new InvalidItinerary("activity window is outside the expedition period");
         }
         itinerary.delay(activityId, delay);
     }
 
-    boolean delayFits(ActivityId activityId, Duration delay) {
+    boolean delayFits(ActivityId activityId, Delay delay) {
         return itinerary.delayed(activityId, delay).stream()
                 .allMatch(activity -> charter.period().contains(activity.window()));
     }

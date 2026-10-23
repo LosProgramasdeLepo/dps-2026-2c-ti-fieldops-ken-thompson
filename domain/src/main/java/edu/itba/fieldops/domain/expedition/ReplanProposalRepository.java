@@ -1,6 +1,5 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.shared.Page;

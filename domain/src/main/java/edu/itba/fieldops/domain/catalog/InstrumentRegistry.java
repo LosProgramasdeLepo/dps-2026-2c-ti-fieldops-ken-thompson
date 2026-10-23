@@ -1,11 +1,9 @@
 package edu.itba.fieldops.domain.catalog;
 
-import edu.itba.fieldops.domain.catalog.Instrument;
-import edu.itba.fieldops.domain.catalog.Instruments;
 import edu.itba.fieldops.domain.identity.InstrumentId;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.Objects;
 

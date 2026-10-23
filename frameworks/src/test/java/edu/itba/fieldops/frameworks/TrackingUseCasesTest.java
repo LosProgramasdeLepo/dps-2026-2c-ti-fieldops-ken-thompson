@@ -1,5 +1,4 @@
 package edu.itba.fieldops.frameworks;
-import edu.itba.fieldops.domain.shared.Clock;
 
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
@@ -12,14 +11,16 @@ import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.report.OperationalReport;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.Outcome;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 import org.junit.jupiter.api.Test;
 
@@ -59,7 +60,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         tracking.startActivity(sampling.expeditionId(), sampling.activityId());
         clock.set(at(5));
 
-        tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), "samples stored late");
+        tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), new Outcome("samples stored late"));
 
         assertTrue(run(sampling.expeditionId()).activities().getFirst().isFinished());
     }
@@ -80,7 +81,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         clock.set(at(0));
         tracking.startActivity(sequence.expeditionId(), sequence.upstream());
         clock.set(at(2));
-        tracking.finishActivity(sequence.expeditionId(), sequence.upstream(), "upstream sampled");
+        tracking.finishActivity(sequence.expeditionId(), sequence.upstream(), new Outcome("upstream sampled"));
 
         tracking.startActivity(sequence.expeditionId(), sequence.downstream());
 
@@ -94,7 +95,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         tracking.suspend(sampling.expeditionId());
         tracking.resume(sampling.expeditionId());
         clock.set(at(4));
-        tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), "samples stored");
+        tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), new Outcome("samples stored"));
 
         tracking.finish(sampling.expeditionId());
 
@@ -105,7 +106,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
     void consultsTheRunWithWhatHasStartedAndFinished() {
         TwoSamplings plan = startedTwoSamplings();
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), "samples stored");
+        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
         tracking.startActivity(plan.expeditionId(), plan.later());
 
         RunSnapshot snapshot = tracking.run(plan.expeditionId());
@@ -151,7 +152,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         tracking.start(plan.expeditionId());
         tracking.startActivity(plan.expeditionId(), plan.first());
         clock.set(at(2));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), "samples stored");
+        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
 
         OperationalReport report = reports.of(plan.expeditionId());
 
@@ -164,7 +165,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         TwoSamplings plan = startedTwoSamplings();
         revisionWithout(plan.expeditionId(), plan.later());
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), "samples stored");
+        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
 
         tracking.startActivity(plan.expeditionId(), plan.later());
 
@@ -179,7 +180,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         approval.approve(revision);
         assertThrows(InvalidItinerary.class, () -> tracking.startActivity(plan.expeditionId(), plan.later()));
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), "samples stored");
+        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
 
         tracking.finish(plan.expeditionId());
 
@@ -194,7 +195,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         review.submit(approvedRevision);
         approval.approve(approvedRevision);
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), "samples stored");
+        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
 
         tracking.finish(plan.expeditionId());
 
@@ -208,7 +209,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         review.submit(first);
         approval.approve(first);
         ExpeditionId second = replan.revise(first);
-        replan.delay(second, plan.later(), Duration.ofHours(1));
+        replan.delay(second, plan.later(), new Delay(Duration.ofHours(1)));
         review.submit(second);
 
         approval.approve(second);
@@ -230,10 +231,10 @@ class TrackingUseCasesTest extends UseCaseFixture {
         assertTrue(hasOverlap(other.expeditionId()));
 
         clock.set(at(4));
-        tracking.finishActivity(plan.expeditionId(), plan.first(), "samples stored");
+        tracking.finishActivity(plan.expeditionId(), plan.first(), new Outcome("samples stored"));
         tracking.startActivity(plan.expeditionId(), plan.later());
         clock.set(at(6));
-        tracking.finishActivity(plan.expeditionId(), plan.later(), "samples stored");
+        tracking.finishActivity(plan.expeditionId(), plan.later(), new Outcome("samples stored"));
         tracking.finish(plan.expeditionId());
 
         assertFalse(hasOverlap(other.expeditionId()));

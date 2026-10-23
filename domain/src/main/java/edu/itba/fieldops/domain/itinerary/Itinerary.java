@@ -70,18 +70,18 @@ public final class Itinerary {
         replace(updated);
     }
 
-    public void delay(ActivityId activityId, Duration delay) {
+    public void delay(ActivityId activityId, Delay delay) {
         for (Activity activity : delayed(activityId, delay)) {
             replace(activity);
         }
     }
 
-    public List<Activity> delayed(ActivityId activityId, Duration delay) {
+    public List<Activity> delayed(ActivityId activityId, Delay delay) {
         Objects.requireNonNull(delay, "delay");
         List<Activity> schedule = new ArrayList<>(activities());
         int index = indexOf(schedule, activityId);
         Activity target = schedule.get(index);
-        schedule.set(index, target.withWindow(target.window().shifted(delay)));
+        schedule.set(index, target.withWindow(target.window().shifted(delay.duration())));
         pushDependents(schedule, Precedence.of(items));
         return List.copyOf(schedule);
     }

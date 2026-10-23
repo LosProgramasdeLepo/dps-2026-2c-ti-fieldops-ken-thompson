@@ -1,11 +1,11 @@
 package edu.itba.fieldops.usecase.report;
-import edu.itba.fieldops.domain.usecase.report.ReportExpedition;
 
-import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.report.OperationalReport;
+import edu.itba.fieldops.domain.usecase.report.ReportExpedition;
 
 import java.util.Objects;
 

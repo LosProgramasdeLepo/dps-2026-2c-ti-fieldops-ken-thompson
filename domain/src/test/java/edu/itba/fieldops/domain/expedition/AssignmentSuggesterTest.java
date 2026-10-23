@@ -1,6 +1,5 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.support.ResourceCatalog;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Instrument;
@@ -18,6 +17,8 @@ import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.ResourceCatalog;
+import edu.itba.fieldops.domain.support.StoredPeople;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -195,7 +196,7 @@ class AssignmentSuggesterTest {
                         List.of(lead),
                         List.of(new Restriction("No night work"))
                 ),
-                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
         expedition.addActivity(activity);
         return expedition;

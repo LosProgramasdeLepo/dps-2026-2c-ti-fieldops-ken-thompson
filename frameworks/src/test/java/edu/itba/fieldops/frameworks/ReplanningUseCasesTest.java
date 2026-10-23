@@ -1,21 +1,21 @@
 package edu.itba.fieldops.frameworks;
-import edu.itba.fieldops.domain.shared.Clock;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
-import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
-import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.identity.VehicleId;
+import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
+import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -105,7 +105,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
 
         assertThrows(
                 InvalidExpeditionTransition.class,
-                () -> replan.delay(sampling.expeditionId(), sampling.activityId(), Duration.ofHours(1))
+                () -> replan.delay(sampling.expeditionId(), sampling.activityId(), new Delay(Duration.ofHours(1)))
         );
     }
 
@@ -113,7 +113,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
     void delayingADraftShiftsItInPlace() {
         Sampling sampling = samplingPlan();
 
-        replan.delay(sampling.expeditionId(), sampling.activityId(), Duration.ofHours(1));
+        replan.delay(sampling.expeditionId(), sampling.activityId(), new Delay(Duration.ofHours(1)));
 
         PlanSnapshot plan = consult.of(sampling.expeditionId());
         assertAll(

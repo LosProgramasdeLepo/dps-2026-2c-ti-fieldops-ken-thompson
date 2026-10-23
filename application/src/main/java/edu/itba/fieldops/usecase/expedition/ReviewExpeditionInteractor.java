@@ -1,15 +1,16 @@
 package edu.itba.fieldops.usecase.expedition;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
-import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
-import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
 
-import edu.itba.fieldops.domain.expedition.AcceptedWarning;
-import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
-import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.expedition.AcceptedWarning;
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
+import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
 
 import java.util.Objects;
 
@@ -47,7 +48,7 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
     @Override
     public void acceptWarning(ExpeditionId expeditionId, AcceptedWarning warning) {
         Expedition expedition = plans.require(expeditionId);
-        expedition.acceptWarning(validator, contexts.around(expedition), warning);
+        expedition.acceptWarning(validator, contexts, warning);
         plans.save(expedition);
     }
 

@@ -47,9 +47,7 @@ public final class ReplanProposal {
             throw new InvalidValue("suggested plan does not revise the recorded original");
         }
         if (state.decision() != Decision.PENDING) {
-            proposal.decidedBy = state.decidedBy().orElseThrow();
-            proposal.decidedAt = state.decidedAt().orElseThrow();
-            proposal.decision = state.decision();
+            proposal.decide(state.decision(), state.decidedBy().orElseThrow(), state.decidedAt().orElseThrow());
         }
         return proposal;
     }
@@ -99,8 +97,11 @@ public final class ReplanProposal {
         return Optional.ofNullable(decidedAt);
     }
 
-    private static void requireResponsible(Expedition original, Responsible responsible) {
-        if (!Objects.requireNonNull(responsible, "responsible").belongsTo(Objects.requireNonNull(original, "original"))) {
+    private void requireResponsible(Expedition original, Responsible responsible) {
+        if (!Objects.requireNonNull(original, "original").id().equals(originalId)) {
+            throw new InvalidValue("replan must be decided on the plan it revises");
+        }
+        if (!Objects.requireNonNull(responsible, "responsible").belongsTo(original)) {
             throw new InvalidValue("replan must be decided by a responsible");
         }
     }
@@ -109,8 +110,11 @@ public final class ReplanProposal {
         if (decision != Decision.PENDING) {
             throw new InvalidValue("proposal already decided");
         }
+        if (Objects.requireNonNull(at, "decision time").isBefore(incident.at())) {
+            throw new InvalidValue("replan must be decided after its incident");
+        }
         this.decidedBy = Objects.requireNonNull(responsible, "responsible");
-        this.decidedAt = Objects.requireNonNull(at, "decision time");
+        this.decidedAt = at;
         this.decision = next;
     }
 }

@@ -1,7 +1,5 @@
 package edu.itba.fieldops.domain.shared;
 
-import edu.itba.fieldops.domain.shared.InvalidValue;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;

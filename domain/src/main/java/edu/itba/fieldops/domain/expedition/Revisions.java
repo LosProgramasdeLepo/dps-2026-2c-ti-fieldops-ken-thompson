@@ -1,6 +1,7 @@
 package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.HashSet;
 import java.util.List;
@@ -35,7 +36,7 @@ public final class Revisions {
                 .filter(candidate -> candidate.status() == ExpeditionStatus.APPROVED
                         || candidate.status() == ExpeditionStatus.SUPERSEDED)
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("superseded plan without an approved revision: " + plan.id()));
+                .orElseThrow(() -> new UnknownResource("approved revision of expedition", plan.id().value().toString()));
     }
 
     private static Optional<Expedition> find(List<Expedition> all, ExpeditionId id) {

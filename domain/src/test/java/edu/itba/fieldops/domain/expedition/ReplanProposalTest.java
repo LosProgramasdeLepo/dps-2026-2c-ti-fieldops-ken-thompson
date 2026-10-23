@@ -1,17 +1,18 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.support.StoredPlans;
+import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.catalog.Availability;
-import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.StoredPeople;
+import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.tracking.Incident;
 import org.junit.jupiter.api.Test;
 
@@ -92,6 +93,36 @@ class ReplanProposalTest {
         );
 
         assertEquals("replan must be decided by a responsible", rejected.getMessage());
+        assertEquals(ReplanProposal.Decision.PENDING, proposal.decision());
+    }
+
+    @Test
+    void anotherPlanCannotStandInForTheOriginal() {
+        PersonId lead = new PersonId(UUID.randomUUID());
+        ReplanProposal proposal = proposalFor(approved(lead));
+        Expedition other = approved(lead);
+
+        InvalidValue rejected = assertThrows(
+                InvalidValue.class,
+                () -> proposal.accept(other, other.forReplan(lead), DAY)
+        );
+
+        assertEquals("replan must be decided on the plan it revises", rejected.getMessage());
+        assertEquals(ReplanProposal.Decision.PENDING, proposal.decision());
+    }
+
+    @Test
+    void cannotDecideBeforeTheIncident() {
+        Expedition original = approved();
+        ReplanProposal proposal = proposalFor(original);
+        Responsible ada = original.forReplan(original.charter().responsibles().getFirst());
+
+        InvalidValue rejected = assertThrows(
+                InvalidValue.class,
+                () -> proposal.reject(original, ada, DAY.minus(Duration.ofHours(1)))
+        );
+
+        assertEquals("replan must be decided after its incident", rejected.getMessage());
         assertEquals(ReplanProposal.Decision.PENDING, proposal.decision());
     }
 
@@ -232,7 +263,7 @@ class ReplanProposalTest {
                         List.of(lead),
                         List.of(new Restriction("Daylight only"))
                 ),
-                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
     }
 }

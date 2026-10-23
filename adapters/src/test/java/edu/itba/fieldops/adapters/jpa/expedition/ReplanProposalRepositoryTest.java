@@ -17,12 +17,13 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.Incident;
-import edu.itba.fieldops.domain.shared.Page;
-import edu.itba.fieldops.domain.shared.PageRequest;
 import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,7 +83,7 @@ class ReplanProposalRepositoryTest {
                 List.of(DELTA),
                 List.of(ada.id()),
                 List.of()
-        ), List.of(ada));
+        ), people);
         soil = Activity.transit()
                 .named(plans.nextActivityId(), "Soil")
                 .estimated(Duration.ofHours(4), RiskLevel.LOW)
@@ -210,7 +211,7 @@ class ReplanProposalRepositoryTest {
 
     private ReplanProposal proposal(String description) {
         Expedition suggestion = approved.reviseAsDraft(plans.nextId());
-        suggestion.delay(soil.id(), Duration.ofHours(2));
+        suggestion.delay(soil.id(), new Delay(Duration.ofHours(2)));
         Incident incident = Incident.affecting(soil.id(), description, DAY.plus(Duration.ofHours(1)));
         return new ReplanProposal(proposals.nextId(), incident, suggestion);
     }

@@ -1,12 +1,13 @@
 package edu.itba.fieldops.usecase.expedition;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
-import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
-import edu.itba.fieldops.domain.usecase.expedition.ApproveExpedition;
 
-import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
+import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.usecase.expedition.ApproveExpedition;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -31,7 +32,7 @@ public final class ApproveExpeditionInteractor implements ApproveExpedition {
     public void approve(ExpeditionId expeditionId) {
         Expedition plan = plans.require(expeditionId);
         Optional<Expedition> previous = plan.supersedes().map(plans::require);
-        plan.approve(validator, contexts.around(plan), previous);
+        plan.approve(validator, contexts, previous);
         previous.ifPresent(plans::save);
         plans.save(plan);
     }

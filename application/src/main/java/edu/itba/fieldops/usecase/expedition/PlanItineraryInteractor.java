@@ -1,12 +1,12 @@
 package edu.itba.fieldops.usecase.expedition;
-import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
-import edu.itba.fieldops.domain.usecase.expedition.PlanItinerary;
 
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.usecase.expedition.PlanItinerary;
 
 import java.util.Objects;
 

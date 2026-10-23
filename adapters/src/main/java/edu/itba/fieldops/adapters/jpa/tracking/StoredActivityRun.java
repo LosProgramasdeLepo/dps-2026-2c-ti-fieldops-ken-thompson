@@ -2,6 +2,7 @@ package edu.itba.fieldops.adapters.jpa.tracking;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.Outcome;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
@@ -21,14 +22,14 @@ public record StoredActivityRun(
                 execution.activityId().value(),
                 execution.startedAt(),
                 execution.finishedAt().orElse(null),
-                execution.result().orElse(null)
+                execution.result().map(Outcome::text).orElse(null)
         );
     }
 
     ActivityExecution toDomain() {
         ActivityExecution started = new ActivityExecution(new ActivityId(activityId), startedAt);
         return Optional.ofNullable(finishedAt)
-                .map(finished -> started.finish(finished, result))
+                .map(finished -> started.finish(finished, new Outcome(result)))
                 .orElse(started);
     }
 }

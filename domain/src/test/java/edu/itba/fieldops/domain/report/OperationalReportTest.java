@@ -19,8 +19,10 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.Outcome;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -46,7 +48,7 @@ class OperationalReportTest {
                     List.of(lead),
                     List.of(new Restriction("Stay on the water"))
             ),
-            List.of(new Person(lead, "Ada", List.of(), Availability.always()))
+            StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
     );
     private final ExpeditionExecution execution = open();
 
@@ -93,11 +95,9 @@ class OperationalReportTest {
         Activity right = activity(0, 3, RiskLevel.LOW);
         expedition.addBlock(ActivityBlock.parallel(left, right));
         ExpeditionExecution execution = open(
-                new ActivityExecution(left.id(), START),
-                new ActivityExecution(right.id(), START)
+                finished(left, 5, "left bank surveyed"),
+                finished(right, 2, "right bank surveyed")
         );
-        execution.finishActivity(left.id(), START.plus(Duration.ofHours(5)), "left bank surveyed");
-        execution.finishActivity(right.id(), START.plus(Duration.ofHours(2)), "right bank surveyed");
 
         OperationalReport report = OperationalReport.of(expedition, execution);
 
@@ -108,8 +108,7 @@ class OperationalReportTest {
     void includesTheResultsOfFinishedActivities() {
         Activity measure = activity(0, 3, RiskLevel.LOW);
         expedition.addActivity(measure);
-        ExpeditionExecution execution = open(new ActivityExecution(measure.id(), START));
-        execution.finishActivity(measure.id(), START.plus(Duration.ofHours(3)), "samples stored");
+        ExpeditionExecution execution = open(finished(measure, 3, "samples stored"));
 
         OperationalReport report = OperationalReport.of(expedition, execution);
 
@@ -117,7 +116,7 @@ class OperationalReportTest {
                 () -> assertEquals(OperationalStatus.IN_PROGRESS, report.status()),
                 () -> assertEquals(1, report.startedActivities()),
                 () -> assertEquals(1, report.finishedActivities()),
-                () -> assertEquals(List.of(new ActivityResult(measure.id(), "samples stored")), report.activityResults())
+                () -> assertEquals(List.of(new ActivityResult(measure.id(), new Outcome("samples stored"))), report.activityResults())
         );
     }
 
@@ -136,9 +135,7 @@ class OperationalReportTest {
     void reportsFinishedWhenTheRunIsFinished() {
         Activity measure = activity(0, 3, RiskLevel.LOW);
         expedition.addActivity(measure);
-        ExpeditionExecution execution = open(new ActivityExecution(measure.id(), START));
-        execution.finishActivity(measure.id(), START.plus(Duration.ofHours(3)), "samples stored");
-        execution.finish(expedition);
+        ExpeditionExecution execution = restored(ExpeditionExecution.Status.FINISHED, finished(measure, 3, "samples stored"));
 
         OperationalReport report = OperationalReport.of(expedition, execution);
 
@@ -146,13 +143,21 @@ class OperationalReportTest {
     }
 
     private ExpeditionExecution open(ActivityExecution... activities) {
+        return restored(ExpeditionExecution.Status.IN_PROGRESS, activities);
+    }
+
+    private ExpeditionExecution restored(ExpeditionExecution.Status status, ActivityExecution... activities) {
         return ExpeditionExecution.restore(new ExecutionState(
                 expedition.id(),
-                ExpeditionExecution.Status.IN_PROGRESS,
+                status,
                 List.of(activities),
                 List.of(),
                 List.of()
         ));
+    }
+
+    private static ActivityExecution finished(Activity activity, int hours, String result) {
+        return new ActivityExecution(activity.id(), START).finish(START.plus(Duration.ofHours(hours)), new Outcome(result));
     }
 
     private static Activity activity(int fromHour, int toHour, RiskLevel risk) {
