@@ -96,6 +96,6 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 
 ### Incidentes y replanificación
 
-`POST /expeditions/{id}/incidents` recibe `{description, activityId}`. `activityId` es opcional; si viene, queda una propuesta. `POST /expeditions/{id}/revisions` responde 201, `{id}` y `Location` del borrador. En ese borrador, `DELETE /expeditions/{id}/activities/{activityId}` cancela, `POST .../activities/{activityId}/delays` recibe `{delay}` y `POST /expeditions/{id}/replacements` reemplaza lo que no está disponible.
+`POST /expeditions/{id}/incidents` recibe `{description, activityId}`. `activityId` es opcional; si viene, queda una propuesta. `POST /expeditions/{id}/revisions` responde 201, `{id}` y `Location` del borrador. En ese borrador, `DELETE /expeditions/{id}/activities/{activityId}` cancela, `POST .../activities/{activityId}/delays` recibe `{delay}`, una duración ISO-8601 positiva (cero o negativa: 422) y `POST /expeditions/{id}/replacements` reemplaza lo que no está disponible.
 
 `GET /expeditions/{id}/replan-proposals` pagina; 404 si el plan no existe. `GET /replan-proposals/{id}` trae el incidente, la decisión (`PENDING`, `ACCEPTED`, `REJECTED`), quién decidió, cuándo y el plan sugerido. `POST /replan-proposals/{id}/acceptance` y `POST .../rejection` reciben `{responsible}`.

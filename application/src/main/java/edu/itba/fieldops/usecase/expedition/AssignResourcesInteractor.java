@@ -1,16 +1,17 @@
 package edu.itba.fieldops.usecase.expedition;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
-import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
-import edu.itba.fieldops.domain.usecase.expedition.AssignResources;
 
+import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.InvalidAssignment;
-import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.shared.UnknownResource;
+import edu.itba.fieldops.domain.usecase.expedition.AssignResources;
 
 import java.util.List;
 import java.util.Objects;

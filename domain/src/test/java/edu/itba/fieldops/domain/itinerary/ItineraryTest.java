@@ -150,7 +150,7 @@ class ItineraryTest {
         Itinerary itinerary = new Itinerary();
         itinerary.add(ActivityBlock.sequential(first, second));
 
-        itinerary.delay(first.id(), Duration.ofHours(1));
+        itinerary.delay(first.id(), new Delay(Duration.ofHours(1)));
 
         assertAll(
                 () -> assertEquals(window(1, 3), itinerary.activityOf(first.id()).window()),

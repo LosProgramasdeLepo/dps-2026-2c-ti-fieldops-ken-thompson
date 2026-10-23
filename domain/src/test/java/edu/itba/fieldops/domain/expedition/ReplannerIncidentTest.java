@@ -1,7 +1,5 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.support.ResourceCatalog;
-import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.Person;
@@ -14,6 +12,9 @@ import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.ResourceCatalog;
+import edu.itba.fieldops.domain.support.StoredPeople;
+import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.tracking.Incident;
 import org.junit.jupiter.api.Test;
 
@@ -122,7 +123,7 @@ class ReplannerIncidentTest {
                         List.of(assignee.id()),
                         List.of(new Restriction("Daylight only"))
                 ),
-                List.of(assignee)
+                StoredPeople.of(assignee)
         );
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), assignee.id()));
@@ -133,7 +134,7 @@ class ReplannerIncidentTest {
         for (Person other : others) {
             catalog.save(other);
         }
-        return new Prepared(expedition, activity, assignee, expedition.start(DAY, List.of(expedition), List.of()), catalog);
+        return new Prepared(expedition, activity, assignee, expedition.start(DAY), catalog);
     }
 
     private static TimePeriod window(int fromHour, int toHour) {

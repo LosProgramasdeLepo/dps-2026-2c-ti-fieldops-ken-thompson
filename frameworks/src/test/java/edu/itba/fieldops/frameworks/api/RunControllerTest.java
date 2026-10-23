@@ -2,13 +2,14 @@ package edu.itba.fieldops.frameworks.api;
 
 import edu.itba.fieldops.api.expedition.RunController;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
-import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
+import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.Outcome;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
 import org.junit.jupiter.api.Test;
@@ -78,7 +79,7 @@ class RunControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"result\":\"sample stored\"}"))
                 .andExpect(status().isNoContent());
-        verify(tracking).finishActivity(new ExpeditionId(id), new ActivityId(activityId), "sample stored");
+        verify(tracking).finishActivity(new ExpeditionId(id), new ActivityId(activityId), new Outcome("sample stored"));
     }
 
     @Test

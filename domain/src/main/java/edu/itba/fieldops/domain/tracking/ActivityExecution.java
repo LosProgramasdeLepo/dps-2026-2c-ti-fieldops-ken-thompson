@@ -1,7 +1,6 @@
 package edu.itba.fieldops.domain.tracking;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
-import edu.itba.fieldops.domain.shared.Texts;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -24,7 +23,7 @@ public final class ActivityExecution {
         this.completion = Optional.of(completion);
     }
 
-    public ActivityExecution finish(Instant finishedAt, String result) {
+    public ActivityExecution finish(Instant finishedAt, Outcome result) {
         if (completion.isPresent()) {
             throw new InvalidActivityExecution("activity already finished: " + activityId);
         }
@@ -47,7 +46,7 @@ public final class ActivityExecution {
         return completion.map(Completion::finishedAt);
     }
 
-    public Optional<String> result() {
+    public Optional<Outcome> result() {
         return completion.map(Completion::result);
     }
 
@@ -55,10 +54,10 @@ public final class ActivityExecution {
         return completion.isPresent();
     }
 
-    private record Completion(Instant finishedAt, String result) {
+    private record Completion(Instant finishedAt, Outcome result) {
         private Completion {
             Objects.requireNonNull(finishedAt, "finished at");
-            result = Texts.required(result, "result");
+            Objects.requireNonNull(result, "result");
         }
     }
 }

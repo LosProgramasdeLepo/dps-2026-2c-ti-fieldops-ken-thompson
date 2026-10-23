@@ -1,7 +1,10 @@
 package edu.itba.fieldops.adapters.jpa.expedition;
 
+import edu.itba.fieldops.adapters.InMemoryExecutionRepository;
+import edu.itba.fieldops.adapters.InMemoryExpeditionRepository;
 import edu.itba.fieldops.adapters.ResourceCatalog;
 import edu.itba.fieldops.adapters.jpa.JpaRepositoryTest;
+import edu.itba.fieldops.adapters.jpa.catalog.CertificationJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.ConsumableJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.InstrumentJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.JpaConsumableRegistry;
@@ -11,7 +14,6 @@ import edu.itba.fieldops.adapters.jpa.catalog.JpaPersonRegistry;
 import edu.itba.fieldops.adapters.jpa.catalog.JpaVehicleRegistry;
 import edu.itba.fieldops.adapters.jpa.catalog.PermitJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.PersonJpaRepository;
-import edu.itba.fieldops.adapters.jpa.catalog.CertificationJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.VehicleJpaRepository;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
@@ -30,9 +32,8 @@ import edu.itba.fieldops.domain.expedition.ExpeditionState;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
-import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
-import edu.itba.fieldops.domain.expedition.PlanningContext;
+import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
@@ -41,7 +42,10 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
+import edu.itba.fieldops.domain.shared.Page;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -49,8 +53,6 @@ import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.WorkZone;
-import edu.itba.fieldops.domain.shared.Page;
-import edu.itba.fieldops.domain.shared.PageRequest;
 import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -102,6 +104,7 @@ class ExpeditionRepositoryTest {
     private PermitJpaRepository permitRows;
 
     private JpaExpeditionRepository plans;
+    private JpaPersonRegistry people;
     private Person ada;
     private Vehicle truck;
     private Instrument lamp;
@@ -113,7 +116,7 @@ class ExpeditionRepositoryTest {
     void registerTheCatalog() {
         TransactionTemplate transactions = new TransactionTemplate(transactionManager);
         plans = new JpaExpeditionRepository(expeditionRows, registrationRows, transactions);
-        JpaPersonRegistry people = new JpaPersonRegistry(personRows, certificationRows, transactions);
+        people = new JpaPersonRegistry(personRows, certificationRows, transactions);
         JpaVehicleRegistry vehicles = new JpaVehicleRegistry(vehicleRows, transactions);
         JpaInstrumentRegistry instruments = new JpaInstrumentRegistry(instrumentRows, transactions);
         JpaConsumableRegistry consumables = new JpaConsumableRegistry(consumableRows, transactions);
@@ -158,7 +161,7 @@ class ExpeditionRepositoryTest {
     void aRevisionKeepsItsLineageAndPlansAreListedInTheOrderTheyWereSaved() {
         Expedition approved = approvedPlan();
         Expedition revision = approved.reviseAsDraft(plans.nextId());
-        revision.delay(revision.activities().getFirst().id(), Duration.ofHours(1));
+        revision.delay(revision.activities().getFirst().id(), new Delay(Duration.ofHours(1)));
 
         plans.save(approved);
         plans.save(revision);
@@ -270,7 +273,7 @@ class ExpeditionRepositoryTest {
         ValidationIssue capacity = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "truck near capacity");
         expedition.acceptWarning(
                 planning -> new ValidationResult(planning.plan().id(), planning.plan().version(), List.of(capacity)),
-                new PlanningContext(expedition, new ResourceCatalog().catalogs(), OccupyingExpeditions.of(expedition, List.of(), Map.of())),
+                new PlanningContexts(new InMemoryExpeditionRepository(), new InMemoryExecutionRepository(), new ResourceCatalog().catalogs()),
                 new AcceptedWarning(capacity, "a second truck follows", ada.id())
         );
         return approved(expedition);
@@ -298,7 +301,7 @@ class ExpeditionRepositoryTest {
                 List.of(DELTA),
                 List.of(ada.id()),
                 List.of(new Restriction("Leave no trace"))
-        ), List.of(ada));
+        ), people);
     }
 
     private Activity sampling(String name, int fromHour, int toHour, Set<ActivityId> predecessors) {

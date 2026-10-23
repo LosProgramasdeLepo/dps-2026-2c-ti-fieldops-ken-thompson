@@ -11,11 +11,13 @@ import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.Outcome;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -33,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExpeditionExecutionTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
+    private static final TimePeriod PERIOD = new TimePeriod(DAY, DAY.plus(Duration.ofDays(5)));
     private static final WorkZone DELTA = new WorkZone("Delta");
 
     private final ExpeditionId expeditionId = new ExpeditionId(UUID.randomUUID());
@@ -55,7 +58,7 @@ class ExpeditionExecutionTest {
     void startsAnActivityOnceItsPredecessorFinished() {
         RunOnPlan started = running(activity(first, 0, 4), activity(second, 4, 8).after(Set.of(first)));
         started.run.startActivity(started.plan.startOf(first, DAY, List.of(started.plan)));
-        started.run.finishActivity(first, hours(4), "site reached");
+        started.run.finishActivity(first, PERIOD.at(hours(4)), new Outcome("site reached"));
 
         started.run.startActivity(started.plan.startOf(second, hours(4), List.of(started.plan)));
 
@@ -66,28 +69,28 @@ class ExpeditionExecutionTest {
     void finishingAnActivityRecordsWhenAndWithWhatResult() {
         ExpeditionExecution running = open(expeditionId, new ActivityExecution(first, DAY));
 
-        running.finishActivity(first, hours(1), "samples stored");
+        running.finishActivity(first, PERIOD.at(hours(1)), new Outcome("samples stored"));
 
         ActivityExecution finished = running.activities().getFirst();
         assertAll(
                 () -> assertEquals(Optional.of(hours(1)), finished.finishedAt()),
-                () -> assertEquals(Optional.of("samples stored"), finished.result())
+                () -> assertEquals(Optional.of(new Outcome("samples stored")), finished.result())
         );
     }
 
     @Test
     void cannotFinishAnActivityTwice() {
         ExpeditionExecution running = open(expeditionId, new ActivityExecution(first, DAY));
-        running.finishActivity(first, hours(1), "samples stored");
+        running.finishActivity(first, PERIOD.at(hours(1)), new Outcome("samples stored"));
 
-        assertThrows(InvalidActivityExecution.class, () -> running.finishActivity(first, hours(2), "samples stored again"));
+        assertThrows(InvalidActivityExecution.class, () -> running.finishActivity(first, PERIOD.at(hours(2)), new Outcome("samples stored again")));
     }
 
     @Test
     void theRecordedActivitiesCannotBeChangedFromOutside() {
         ExpeditionExecution running = open(expeditionId, new ActivityExecution(first, DAY));
 
-        running.activities().getFirst().finish(hours(1), "samples stored");
+        running.activities().getFirst().finish(hours(1), new Outcome("samples stored"));
 
         assertFalse(running.activities().getFirst().isFinished());
     }
@@ -96,7 +99,7 @@ class ExpeditionExecutionTest {
     void finishesOnceEveryPlannedActivityFinished() {
         RunOnPlan started = running(activity(first, 0, 4));
         started.run.startActivity(started.plan.startOf(first, DAY, List.of(started.plan)));
-        started.run.finishActivity(first, hours(1), "samples stored");
+        started.run.finishActivity(first, PERIOD.at(hours(1)), new Outcome("samples stored"));
 
         started.run.finish(started.plan);
 
@@ -126,7 +129,7 @@ class ExpeditionExecutionTest {
         plan.addBlock(ActivityBlock.sequential(earlier, later));
         plan.submitForReview();
         Expedition approved = StoredPlans.approved(plan);
-        ExpeditionExecution run = approved.start(DAY, List.of(approved), List.of());
+        ExpeditionExecution run = approved.start(DAY);
 
         assertThrows(
                 InvalidActivityExecution.class,
@@ -190,7 +193,7 @@ class ExpeditionExecutionTest {
     void aRestoredRunHasTheStateItWasStoredWith() {
         ExpeditionExecution withActivities = open(
                 expeditionId,
-                new ActivityExecution(first, DAY).finish(hours(4), "site reached"),
+                new ActivityExecution(first, DAY).finish(hours(4), new Outcome("site reached")),
                 new ActivityExecution(second, hours(4))
         );
         withActivities.addIncident(Incident.affecting(second, "flooded trail", hours(5)));
@@ -250,19 +253,19 @@ class ExpeditionExecutionTest {
                 new ExpeditionId(UUID.randomUUID()),
                 new ExpeditionCharter(
                         List.of(new Objective("Map wetland")),
-                        new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
+                        PERIOD,
                         List.of(DELTA),
                         List.of(lead),
                         List.of(new Restriction("Daylight only"))
                 ),
-                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
         for (Activity.Builder activity : activities) {
             plan.addActivity(activity.build());
         }
         plan.submitForReview();
         Expedition approved = StoredPlans.approved(plan);
-        return new RunOnPlan(approved, approved.start(DAY, List.of(approved), List.of()));
+        return new RunOnPlan(approved, approved.start(DAY));
     }
 
     private static Activity.Builder activity(ActivityId id, int fromHour, int toHour) {
@@ -282,12 +285,12 @@ class ExpeditionExecutionTest {
                 id,
                 new ExpeditionCharter(
                         List.of(new Objective("Map wetland")),
-                        new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
+                        PERIOD,
                         List.of(DELTA),
                         List.of(lead),
                         List.of(new Restriction("Daylight only"))
                 ),
-                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
     }
 

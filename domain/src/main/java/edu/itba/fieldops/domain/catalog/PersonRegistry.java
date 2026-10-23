@@ -1,11 +1,9 @@
 package edu.itba.fieldops.domain.catalog;
 
-import edu.itba.fieldops.domain.catalog.People;
-import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
+import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.Objects;
 

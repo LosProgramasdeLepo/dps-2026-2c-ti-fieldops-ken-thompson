@@ -1,12 +1,5 @@
 package edu.itba.fieldops.domain.expedition;
 
-import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
-import edu.itba.fieldops.domain.identity.ExpeditionId;
-
-import java.util.Optional;
-
-public interface ExecutionRepository {
+public interface ExecutionRepository extends Runs {
     void save(ExpeditionExecution execution);
-
-    Optional<ExpeditionExecution> find(ExpeditionId expeditionId);
 }

@@ -1,16 +1,17 @@
 package edu.itba.fieldops.usecase.expedition;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
-import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
-import edu.itba.fieldops.domain.usecase.expedition.ReplanExpedition;
 
-import edu.itba.fieldops.domain.expedition.Expedition;
-import edu.itba.fieldops.domain.expedition.PlanningContext;
-import edu.itba.fieldops.domain.expedition.Replanner;
 import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.PlanningContext;
+import edu.itba.fieldops.domain.expedition.PlanningContexts;
+import edu.itba.fieldops.domain.expedition.Replanner;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.itinerary.Delay;
+import edu.itba.fieldops.domain.usecase.expedition.ReplanExpedition;
 
-import java.time.Duration;
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -43,7 +44,7 @@ public final class ReplanExpeditionInteractor implements ReplanExpedition {
     }
 
     @Override
-    public void delay(ExpeditionId draftId, ActivityId activityId, Duration delay) {
+    public void delay(ExpeditionId draftId, ActivityId activityId, Delay delay) {
         replan(draftId, context -> replanner.delay(context, activityId, delay));
     }
 

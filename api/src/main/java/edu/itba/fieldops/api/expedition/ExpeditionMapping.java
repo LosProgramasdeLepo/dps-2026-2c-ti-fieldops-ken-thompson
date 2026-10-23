@@ -73,6 +73,7 @@ import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.Outcome;
 import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
@@ -327,12 +328,12 @@ public final class ExpeditionMapping {
                 execution.activityId().value(),
                 execution.startedAt(),
                 execution.finishedAt().orElse(null),
-                execution.result().orElse(null)
+                execution.result().map(Outcome::text).orElse(null)
         );
     }
 
     private static ActivityResultResponse result(ActivityResult result) {
-        return new ActivityResultResponse(result.activityId().value(), result.result());
+        return new ActivityResultResponse(result.activityId().value(), result.result().text());
     }
 
     private static IssueResponse issue(ValidationIssue issue) {

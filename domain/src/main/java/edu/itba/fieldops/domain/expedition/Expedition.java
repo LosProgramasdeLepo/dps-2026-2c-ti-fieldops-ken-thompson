@@ -2,17 +2,19 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
-import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.identity.ActivityId;
-import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
+import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.shared.InvalidValue;
+import edu.itba.fieldops.domain.shared.Occurrence;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.UnknownResource;
@@ -35,11 +37,11 @@ public final class Expedition {
     private final AcceptedWarnings acceptedWarnings = new AcceptedWarnings();
     private ExpeditionStatus status = ExpeditionStatus.DRAFT;
 
-    public static Expedition draft(ExpeditionId id, ExpeditionCharter charter, List<Person> people) {
+    public static Expedition draft(ExpeditionId id, ExpeditionCharter charter, People people) {
         Objects.requireNonNull(charter, "charter");
         Objects.requireNonNull(people, "people");
         for (PersonId responsible : charter.responsibles()) {
-            if (people.stream().noneMatch(person -> person.id().equals(responsible))) {
+            if (people.person(responsible).isEmpty()) {
                 throw new UnknownResource("responsible", responsible.value().toString());
             }
         }
@@ -76,6 +78,9 @@ public final class Expedition {
 
     public Expedition reviseAsDraft(ExpeditionId revisionId) {
         requireStatus(ExpeditionStatus.APPROVED, "revise");
+        if (id.equals(revisionId)) {
+            throw new InvalidValue("a revision needs its own id");
+        }
         return new Expedition(revisionId, this);
     }
 
@@ -109,12 +114,12 @@ public final class Expedition {
         content.removeAssignment(assignment);
     }
 
-    public void delay(ActivityId activityId, Duration delay) {
+    public void delay(ActivityId activityId, Delay delay) {
         requireStatus(ExpeditionStatus.DRAFT, "delay activity");
         content.delay(activityId, delay);
     }
 
-    public boolean delayFits(ActivityId activityId, Duration delay) {
+    public boolean delayFits(ActivityId activityId, Delay delay) {
         return content.delayFits(activityId, delay);
     }
 
@@ -123,25 +128,15 @@ public final class Expedition {
         content.addPermit(permitId);
     }
 
-    public ExpeditionExecution start(Instant at, List<Expedition> plans, List<ExpeditionExecution> runs) {
-        Objects.requireNonNull(plans, "plans");
-        Objects.requireNonNull(runs, "runs");
-        Set<ExpeditionId> lineage = Revisions.lineage(this, plans);
-        for (ExpeditionExecution run : runs) {
-            if (lineage.contains(run.expeditionId())) {
-                throw new InvalidExpeditionTransition(run.status(), "start");
-            }
-        }
+    ExpeditionExecution start(Instant at) {
         if (status != ExpeditionStatus.APPROVED) {
             throw new InvalidExpeditionTransition(status, "start");
         }
-        if (!charter().period().contains(Objects.requireNonNull(at, "start"))) {
-            throw new InvalidActivityExecution("start is outside the expedition period");
-        }
-        return ExpeditionExecution.begin(id, charter().period().at(at));
+        requireWithinPeriod(at, "start");
+        return ExpeditionExecution.begin(id);
     }
 
-    public ActivityStart startOf(ActivityId activityId, Instant at, List<Expedition> plans) {
+    ActivityStart startOf(ActivityId activityId, Instant at, List<Expedition> plans) {
         Expedition current = Revisions.inForce(this, Objects.requireNonNull(plans, "plans"));
         Activity activity = current.activityOf(activityId);
         if (!activity.window().contains(Objects.requireNonNull(at, "activity instant"))) {
@@ -155,17 +150,19 @@ public final class Expedition {
         );
     }
 
+    Occurrence finishAt(Instant at) {
+        requireWithinPeriod(at, "finish");
+        return charter().period().at(at);
+    }
+
     public Responsible forReplan(PersonId personId) {
         return responsible(personId, "replan must be decided by a responsible");
     }
 
-    public void acceptWarning(ExpeditionValidator validator, PlanningContext context, AcceptedWarning warning) {
+    public void acceptWarning(ExpeditionValidator validator, PlanningContexts contexts, AcceptedWarning warning) {
         requireStatus(ExpeditionStatus.IN_REVIEW, "accept warning");
-        if (Objects.requireNonNull(context, "context").plan() != this) {
-            throw new InvalidValue("context is for another expedition");
-        }
         Objects.requireNonNull(warning, "warning");
-        ValidationResult result = Objects.requireNonNull(validator, "validator").validate(context);
+        ValidationResult result = Objects.requireNonNull(validator, "validator").validate(contexts.around(this));
         if (!result.warnings().contains(warning.issue())) {
             throw new InvalidValue("not a current warning: " + warning.issue().code());
         }
@@ -184,18 +181,17 @@ public final class Expedition {
         acceptedWarnings.clear();
     }
 
-    public void approve(ExpeditionValidator validator, PlanningContext context, Optional<Expedition> predecessor) {
+    public void approve(ExpeditionValidator validator, PlanningContexts contexts, Optional<Expedition> predecessor) {
         requireStatus(ExpeditionStatus.IN_REVIEW, "approve");
-        if (Objects.requireNonNull(context, "context").plan() != this) {
-            throw new InvalidValue("approval context is for another expedition");
+        if (!Objects.requireNonNull(predecessor, "predecessor").map(Expedition::id).equals(supersedes())) {
+            throw new InvalidValue("approval must supersede the plan this one revises");
         }
-        Objects.requireNonNull(predecessor, "predecessor");
-        requireApprovable(Objects.requireNonNull(validator, "validator").validate(context));
+        requireApprovable(Objects.requireNonNull(validator, "validator").validate(contexts.around(this)));
         predecessor.ifPresent(Expedition::markSuperseded);
         status = ExpeditionStatus.APPROVED;
     }
 
-    public void markSuperseded() {
+    void markSuperseded() {
         transition(ExpeditionStatus.APPROVED, ExpeditionStatus.SUPERSEDED, "supersede");
     }
 
@@ -322,6 +318,12 @@ public final class Expedition {
     private void transition(ExpeditionStatus from, ExpeditionStatus to, String action) {
         requireStatus(from, action);
         status = to;
+    }
+
+    private void requireWithinPeriod(Instant at, String event) {
+        if (!charter().period().contains(Objects.requireNonNull(at, event))) {
+            throw new InvalidActivityExecution(event + " is outside the expedition period");
+        }
     }
 
     private void requireStatus(ExpeditionStatus expected, String action) {

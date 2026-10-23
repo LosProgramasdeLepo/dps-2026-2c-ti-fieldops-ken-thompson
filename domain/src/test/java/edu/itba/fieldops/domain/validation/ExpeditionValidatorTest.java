@@ -1,6 +1,5 @@
 package edu.itba.fieldops.domain.validation;
 
-import edu.itba.fieldops.domain.support.ResourceCatalog;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Availability;
@@ -11,9 +10,9 @@ import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
+import edu.itba.fieldops.domain.expedition.ExecutionState;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
-import edu.itba.fieldops.domain.expedition.ExecutionState;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
@@ -39,7 +38,10 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.ResourceCatalog;
+import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
+import edu.itba.fieldops.domain.tracking.Outcome;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -540,7 +542,7 @@ class ExpeditionValidatorTest {
                         List.of(lead),
                         List.of(new Restriction("No night work"))
                 ),
-                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
         expedition.addActivity(activity);
         expedition.addAssignment(new PersonAssignment(activity.id(), person.id()));
@@ -605,7 +607,7 @@ class ExpeditionValidatorTest {
 
     private static ExpeditionExecution finish(Expedition expedition, Activity activity) {
         ActivityExecution done = new ActivityExecution(activity.id(), DAY)
-                .finish(DAY.plusSeconds(4 * 3600L), "samples stored");
+                .finish(DAY.plusSeconds(4 * 3600L), new Outcome("samples stored"));
         return ExpeditionExecution.restore(new ExecutionState(
                 expedition.id(),
                 ExpeditionExecution.Status.FINISHED,
@@ -691,7 +693,7 @@ class ExpeditionValidatorTest {
                         List.of(lead),
                         List.of(new Restriction("No night work"))
                 ),
-                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
     }
 

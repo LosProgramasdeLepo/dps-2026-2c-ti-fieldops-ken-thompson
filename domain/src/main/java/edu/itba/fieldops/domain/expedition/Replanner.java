@@ -2,6 +2,7 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.tracking.Incident;
 
@@ -22,7 +23,7 @@ public final class Replanner {
         refill(context);
     }
 
-    public void delay(PlanningContext context, ActivityId activityId, Duration delay) {
+    public void delay(PlanningContext context, ActivityId activityId, Delay delay) {
         requireDraft(context.plan()).delay(activityId, delay);
         dropInvalid(context);
         refill(context);
@@ -41,13 +42,13 @@ public final class Replanner {
         if (execution.hasStarted(activityId)) {
             cancel(context, activityId);
         } else if (incident.at().isAfter(activity.window().start())) {
-            delayOrCancel(context, activityId, Duration.between(activity.window().start(), incident.at()));
+            delayOrCancel(context, activityId, new Delay(Duration.between(activity.window().start(), incident.at())));
         } else {
             replaceUnavailable(context);
         }
     }
 
-    private void delayOrCancel(PlanningContext context, ActivityId activityId, Duration delay) {
+    private void delayOrCancel(PlanningContext context, ActivityId activityId, Delay delay) {
         if (context.plan().delayFits(activityId, delay)) {
             delay(context, activityId, delay);
         } else {

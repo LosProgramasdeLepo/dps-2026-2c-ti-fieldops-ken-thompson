@@ -12,6 +12,7 @@ import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionTracker;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.shared.Clock;
 
@@ -63,10 +64,20 @@ class ArchitectureTest {
                             InstrumentRegistry.class,
                             ConsumableRegistry.class,
                             PermitRegistry.class,
-                            CertificationRegistry.class,
-                            Clock.class
+                            CertificationRegistry.class
                     ))
             );
+
+    @ArchTest
+    static final ArchRule onlyTheTrackerReadsTheClockInTheDomain = noClasses()
+            .that().resideInAPackage("edu.itba.fieldops.domain..")
+            .and().doNotBelongToAnyOf(ExpeditionTracker.class)
+            .should().dependOnClassesThat().belongToAnyOf(Clock.class);
+
+    @ArchTest
+    static final ArchRule useCaseInterfacesAndPortsLiveInTheDomain = noClasses()
+            .that().resideInAPackage("edu.itba.fieldops.usecase..")
+            .should().beInterfaces();
 
     @ArchTest
     static final ArchRule apiDoesNotDependOnAdapters = noClasses()

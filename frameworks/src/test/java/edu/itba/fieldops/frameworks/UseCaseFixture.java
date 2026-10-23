@@ -1,5 +1,4 @@
 package edu.itba.fieldops.frameworks;
-import edu.itba.fieldops.domain.shared.Clock;
 
 import edu.itba.fieldops.adapters.FixedClock;
 import edu.itba.fieldops.adapters.InMemoryExecutionRepository;
@@ -19,6 +18,7 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -43,7 +43,6 @@ import edu.itba.fieldops.domain.usecase.expedition.ReviewReplanProposal;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
 import edu.itba.fieldops.domain.usecase.report.EstimateExpedition;
 import edu.itba.fieldops.domain.usecase.report.ReportExpedition;
-import edu.itba.fieldops.domain.shared.PageRequest;
 
 import java.time.Duration;
 import java.time.Instant;

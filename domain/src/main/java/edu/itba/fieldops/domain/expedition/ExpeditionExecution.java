@@ -9,6 +9,7 @@ import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.Outcome;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,8 +37,7 @@ public final class ExpeditionExecution {
         this.status = status;
     }
 
-    static ExpeditionExecution begin(ExpeditionId expeditionId, Occurrence at) {
-        Objects.requireNonNull(at, "start");
+    static ExpeditionExecution begin(ExpeditionId expeditionId) {
         return new ExpeditionExecution(expeditionId, Status.IN_PROGRESS);
     }
 
@@ -69,14 +69,14 @@ public final class ExpeditionExecution {
         status = Status.IN_PROGRESS;
     }
 
-    public void finish(Expedition plan) {
+    void finish(Expedition plan) {
         requireStatus(Status.IN_PROGRESS, "finish");
         requireStartedFinished();
         requireFinished(activityIds(plan));
         status = Status.FINISHED;
     }
 
-    public void startActivity(ActivityStart start) {
+    void startActivity(ActivityStart start) {
         requireStatus(Status.IN_PROGRESS, "start activity");
         Objects.requireNonNull(start, "activity start");
         if (!start.covers(expeditionId)) {
@@ -89,12 +89,12 @@ public final class ExpeditionExecution {
         activities.add(new ActivityExecution(start.activityId(), start.at().instant()));
     }
 
-    public void finishActivity(ActivityId activityId, Instant at, String result) {
+    void finishActivity(ActivityId activityId, Occurrence at, Outcome result) {
         requireStatus(Status.IN_PROGRESS, "finish activity");
         for (int index = 0; index < activities.size(); index++) {
             ActivityExecution execution = activities.get(index);
             if (execution.activityId().equals(activityId)) {
-                activities.set(index, execution.finish(at, result));
+                activities.set(index, execution.finish(at.instant(), result));
                 return;
             }
         }

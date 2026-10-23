@@ -5,6 +5,7 @@ import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.InvalidValue;
@@ -154,7 +155,7 @@ class PlanContentTest {
         plan.addDependency(second.id(), first.id());
         plan.addDependency(third.id(), second.id());
 
-        plan.delay(first.id(), Duration.ofHours(2));
+        plan.delay(first.id(), new Delay(Duration.ofHours(2)));
 
         assertAll(
                 () -> assertEquals(window(2, 6), plan.activityOf(first.id()).window()),
@@ -172,7 +173,7 @@ class PlanContentTest {
         plan.addActivity(second);
         plan.addDependency(second.id(), first.id());
 
-        assertThrows(InvalidItinerary.class, () -> plan.delay(first.id(), Duration.ofHours(6)));
+        assertThrows(InvalidItinerary.class, () -> plan.delay(first.id(), new Delay(Duration.ofHours(6))));
         assertAll(
                 () -> assertEquals(window(0, 4), plan.activityOf(first.id()).window()),
                 () -> assertEquals(window(4, 6), plan.activityOf(second.id()).window())

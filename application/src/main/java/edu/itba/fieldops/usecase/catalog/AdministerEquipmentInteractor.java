@@ -1,19 +1,19 @@
 package edu.itba.fieldops.usecase.catalog;
-import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
-import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
-import edu.itba.fieldops.domain.catalog.VehicleRegistry;
-import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
 import edu.itba.fieldops.domain.catalog.Instrument;
+import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
 import edu.itba.fieldops.domain.catalog.Vehicle;
+import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Passengers;
 import edu.itba.fieldops.domain.shared.Stock;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 
 import java.util.Objects;
 

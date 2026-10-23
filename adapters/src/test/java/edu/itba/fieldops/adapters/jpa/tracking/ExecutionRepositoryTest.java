@@ -21,6 +21,7 @@ import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.Outcome;
 import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +78,7 @@ class ExecutionRepositoryTest {
                 List.of(new WorkZone("Delta")),
                 List.of(ada.id()),
                 List.of()
-        ), List.of(ada));
+        ), people);
         plans.save(plan);
         expeditionId = plan.id();
         reload();
@@ -89,7 +90,7 @@ class ExecutionRepositoryTest {
                 expeditionId,
                 ExpeditionExecution.Status.IN_PROGRESS,
                 List.of(
-                        new ActivityExecution(soil, DAY).finish(hours(4), "twelve samples"),
+                        new ActivityExecution(soil, DAY).finish(hours(4), new Outcome("twelve samples")),
                         new ActivityExecution(ride, hours(4))
                 ),
                 List.of(),
@@ -108,7 +109,7 @@ class ExecutionRepositoryTest {
                 () -> assertEquals(ExpeditionExecution.Status.SUSPENDED, stored.status()),
                 () -> assertEquals(List.of(soil, ride), stored.activities().stream().map(ActivityExecution::activityId).toList()),
                 () -> assertEquals(Optional.of(hours(4)), stored.activities().getFirst().finishedAt()),
-                () -> assertEquals(Optional.of("twelve samples"), stored.activities().getFirst().result()),
+                () -> assertEquals(Optional.of(new Outcome("twelve samples")), stored.activities().getFirst().result()),
                 () -> assertEquals(Optional.empty(), stored.activities().get(1).finishedAt()),
                 () -> assertEquals(run.incidents(), stored.incidents()),
                 () -> assertEquals(run.observations(), stored.observations())
@@ -131,7 +132,7 @@ class ExecutionRepositoryTest {
         ExpeditionExecution finishedRun = ExpeditionExecution.restore(new ExecutionState(
                 expeditionId,
                 ExpeditionExecution.Status.FINISHED,
-                List.of(stored.activities().getFirst().finish(hours(3), "done")),
+                List.of(stored.activities().getFirst().finish(hours(3), new Outcome("done"))),
                 stored.incidents(),
                 stored.observations()
         ));
@@ -142,7 +143,7 @@ class ExecutionRepositoryTest {
         assertAll(
                 () -> assertEquals(ExpeditionExecution.Status.FINISHED, finished.status()),
                 () -> assertEquals(1, finished.activities().size()),
-                () -> assertEquals(Optional.of("done"), finished.activities().getFirst().result())
+                () -> assertEquals(Optional.of(new Outcome("done")), finished.activities().getFirst().result())
         );
     }
 

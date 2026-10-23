@@ -3,6 +3,7 @@ package edu.itba.fieldops.domain.validation;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
+import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.Consumable;
@@ -12,7 +13,6 @@ import edu.itba.fieldops.domain.catalog.Instruments;
 import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Permits;
-import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.Vehicles;
@@ -34,6 +34,7 @@ import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.StoredPeople;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -116,7 +117,7 @@ class ValidationExtensionTest {
                         List.of(lead),
                         List.of(new Restriction("sin vuelos nocturnos"))
                 ),
-                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
         expedition.addActivity(Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "Traslado al campamento")

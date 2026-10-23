@@ -1,7 +1,5 @@
 package edu.itba.fieldops.domain.shared;
 
-import edu.itba.fieldops.domain.shared.InvalidValue;
-
 public record PageRequest(int number, int size) {
     public static final int MAX_SIZE = 100;
 
