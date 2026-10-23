@@ -37,12 +37,26 @@ public final class ReplanProposal {
         this.decision = Decision.PENDING;
     }
 
-    public void accept(PersonId responsible, Instant at) {
-        decide(Decision.ACCEPTED, responsible, at);
+    public void accept(Expedition original, Responsible responsible, Instant at) {
+        requireResponsible(original, responsible);
+        if (original.status() != ExpeditionStatus.APPROVED) {
+            throw new InvalidExpeditionTransition(original.status(), "accept replan");
+        }
+        decide(Decision.ACCEPTED, responsible.personId(), at);
     }
 
-    public void reject(PersonId responsible, Instant at) {
-        decide(Decision.REJECTED, responsible, at);
+    public void reject(Expedition original, Responsible responsible, Instant at) {
+        requireResponsible(original, responsible);
+        decide(Decision.REJECTED, responsible.personId(), at);
+    }
+
+    public void restoreDecision(Decision decision, PersonId by, Instant at) {
+        if (decision == Decision.PENDING) {
+            return;
+        }
+        this.decidedBy = Objects.requireNonNull(by, "responsible");
+        this.decidedAt = Objects.requireNonNull(at, "decision time");
+        this.decision = decision;
     }
 
     public ProposalId id() {
@@ -71,6 +85,12 @@ public final class ReplanProposal {
 
     public Optional<Instant> decidedAt() {
         return Optional.ofNullable(decidedAt);
+    }
+
+    private static void requireResponsible(Expedition original, Responsible responsible) {
+        if (!Objects.requireNonNull(responsible, "responsible").belongsTo(Objects.requireNonNull(original, "original"))) {
+            throw new InvalidValue("replan must be decided by a responsible");
+        }
     }
 
     private void decide(Decision next, PersonId responsible, Instant at) {

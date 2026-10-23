@@ -81,7 +81,7 @@ class ReplanProposalRepositoryTest {
                 List.of(DELTA),
                 List.of(ada.id()),
                 List.of()
-        ));
+        ), List.of(ada));
         soil = Activity.transit()
                 .named(plans.nextActivityId(), "Soil")
                 .estimated(Duration.ofHours(4), RiskLevel.LOW)
@@ -169,7 +169,11 @@ class ReplanProposalRepositoryTest {
     @Test
     void rejectsADecisionByAPersonWhoIsNotRegistered() {
         ReplanProposal proposal = proposal("flooded trail");
-        proposal.reject(new PersonId(UUID.randomUUID()), DAY.plus(Duration.ofHours(6)));
+        proposal.restoreDecision(
+                ReplanProposal.Decision.REJECTED,
+                new PersonId(UUID.randomUUID()),
+                DAY.plus(Duration.ofHours(6))
+        );
 
         proposals.save(proposal);
 

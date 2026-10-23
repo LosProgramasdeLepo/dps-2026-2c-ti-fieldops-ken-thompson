@@ -191,15 +191,17 @@ class ReplannerTest {
     }
 
     private static Expedition draftWith(Activity activity) {
+        PersonId lead = new PersonId(UUID.randomUUID());
         Expedition expedition = Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 new ExpeditionCharter(
                         List.of(new Objective("Map wetland biodiversity")),
                         new TimePeriod(DAY, DAY.plus(Duration.ofDays(5))),
                         List.of(DELTA),
-                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(lead),
                         List.of(new Restriction("No night work"))
-                )
+                ),
+                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
         expedition.addActivity(activity);
         return expedition;

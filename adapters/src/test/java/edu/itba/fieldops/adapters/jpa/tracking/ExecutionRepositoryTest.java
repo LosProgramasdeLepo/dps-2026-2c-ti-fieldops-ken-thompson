@@ -9,6 +9,7 @@ import edu.itba.fieldops.adapters.jpa.expedition.ExpeditionRegistrationJpaReposi
 import edu.itba.fieldops.adapters.jpa.expedition.JpaExpeditionRepository;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.expedition.ExecutionState;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
@@ -32,7 +33,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -77,7 +77,7 @@ class ExecutionRepositoryTest {
                 List.of(new WorkZone("Delta")),
                 List.of(ada.id()),
                 List.of()
-        ));
+        ), List.of(ada));
         plans.save(plan);
         expeditionId = plan.id();
         reload();
@@ -85,10 +85,16 @@ class ExecutionRepositoryTest {
 
     @Test
     void aSuspendedRunKeepsItsActivitiesIncidentsAndObservations() {
-        ExpeditionExecution run = ExpeditionExecution.started(expeditionId);
-        run.startActivity(soil, DAY, Set.of());
-        run.finishActivity(soil, hours(4), "twelve samples");
-        run.startActivity(ride, hours(4), Set.of(soil));
+        ExpeditionExecution run = ExpeditionExecution.restore(new ExecutionState(
+                expeditionId,
+                ExpeditionExecution.Status.IN_PROGRESS,
+                List.of(
+                        new ActivityExecution(soil, DAY).finish(hours(4), "twelve samples"),
+                        new ActivityExecution(ride, hours(4))
+                ),
+                List.of(),
+                List.of()
+        ));
         run.addIncident(Incident.affecting(ride, "flooded trail", hours(5)));
         run.addIncident(Incident.of("radio down", hours(5)));
         run.addObservation(new Observation("heron colony", hours(5)));
@@ -111,15 +117,25 @@ class ExecutionRepositoryTest {
 
     @Test
     void savingARunAgainKeepsWhatItAlreadyRecorded() {
-        ExpeditionExecution run = ExpeditionExecution.started(expeditionId);
-        run.startActivity(soil, DAY, Set.of());
+        ExpeditionExecution run = ExpeditionExecution.restore(new ExecutionState(
+                expeditionId,
+                ExpeditionExecution.Status.IN_PROGRESS,
+                List.of(new ActivityExecution(soil, DAY)),
+                List.of(),
+                List.of()
+        ));
         runs.save(run);
         reload();
 
         ExpeditionExecution stored = runs.find(expeditionId).orElseThrow();
-        stored.finishActivity(soil, hours(3), "done");
-        stored.finish(Set.of(soil));
-        runs.save(stored);
+        ExpeditionExecution finishedRun = ExpeditionExecution.restore(new ExecutionState(
+                expeditionId,
+                ExpeditionExecution.Status.FINISHED,
+                List.of(stored.activities().getFirst().finish(hours(3), "done")),
+                stored.incidents(),
+                stored.observations()
+        ));
+        runs.save(finishedRun);
         reload();
 
         ExpeditionExecution finished = runs.find(expeditionId).orElseThrow();
@@ -132,7 +148,13 @@ class ExecutionRepositoryTest {
 
     @Test
     void rejectsARunOfAPlanThatIsNotStored() {
-        runs.save(ExpeditionExecution.started(new ExpeditionId(UUID.randomUUID())));
+        runs.save(ExpeditionExecution.restore(new ExecutionState(
+                new ExpeditionId(UUID.randomUUID()),
+                ExpeditionExecution.Status.IN_PROGRESS,
+                List.of(),
+                List.of(),
+                List.of()
+        )));
 
         assertThrows(PersistenceException.class, this::reload);
     }

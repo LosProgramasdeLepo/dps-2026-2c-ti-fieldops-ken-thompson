@@ -1,5 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.expedition;
 
+import edu.itba.fieldops.adapters.ResourceCatalog;
 import edu.itba.fieldops.adapters.jpa.JpaRepositoryTest;
 import edu.itba.fieldops.adapters.jpa.catalog.ConsumableJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.InstrumentJpaRepository;
@@ -14,6 +15,7 @@ import edu.itba.fieldops.adapters.jpa.catalog.CertificationJpaRepository;
 import edu.itba.fieldops.adapters.jpa.catalog.VehicleJpaRepository;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
+import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.Instrument;
@@ -28,7 +30,9 @@ import edu.itba.fieldops.domain.expedition.ExpeditionState;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.Objective;
+import edu.itba.fieldops.domain.expedition.OccupyingExpeditions;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
+import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
@@ -263,11 +267,12 @@ class ExpeditionRepositoryTest {
         expedition.addPermit(zonePermit.id());
         expedition.addPermit(nightPermit.id());
         expedition.submitForReview();
-        expedition.acceptWarning(new AcceptedWarning(
-                new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "truck near capacity"),
-                "a second truck follows",
-                ada.id()
-        ));
+        ValidationIssue capacity = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "truck near capacity");
+        expedition.acceptWarning(
+                planning -> new ValidationResult(planning.plan().id(), planning.plan().version(), List.of(capacity)),
+                new PlanningContext(expedition, new ResourceCatalog().catalogs(), OccupyingExpeditions.of(expedition, List.of(), Map.of())),
+                new AcceptedWarning(capacity, "a second truck follows", ada.id())
+        );
         return approved(expedition);
     }
 
@@ -293,7 +298,7 @@ class ExpeditionRepositoryTest {
                 List.of(DELTA),
                 List.of(ada.id()),
                 List.of(new Restriction("Leave no trace"))
-        ));
+        ), List.of(ada));
     }
 
     private Activity sampling(String name, int fromHour, int toHour, Set<ActivityId> predecessors) {

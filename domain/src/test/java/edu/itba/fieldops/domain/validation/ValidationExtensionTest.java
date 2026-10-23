@@ -12,6 +12,7 @@ import edu.itba.fieldops.domain.catalog.Instruments;
 import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Permits;
+import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.Vehicles;
@@ -105,15 +106,17 @@ class ValidationExtensionTest {
     }
 
     private static Expedition expeditionWithTransit() {
+        PersonId lead = new PersonId(UUID.randomUUID());
         Expedition expedition = Expedition.draft(
                 new ExpeditionId(UUID.randomUUID()),
                 new ExpeditionCharter(
                         List.of(new Objective("relevar el frente del glaciar")),
                         new TimePeriod(DAY, DAY.plusSeconds(24 * 3600L)),
                         List.of(ZONE),
-                        List.of(new PersonId(UUID.randomUUID())),
+                        List.of(lead),
                         List.of(new Restriction("sin vuelos nocturnos"))
-                )
+                ),
+                List.of(new Person(lead, "Ada", List.of(), Availability.always()))
         );
         expedition.addActivity(Activity.transit()
                 .named(new ActivityId(UUID.randomUUID()), "Traslado al campamento")

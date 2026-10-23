@@ -10,7 +10,6 @@ import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 
 import java.util.Objects;
 
@@ -47,12 +46,8 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
 
     @Override
     public void acceptWarning(ExpeditionId expeditionId, AcceptedWarning warning) {
-        Objects.requireNonNull(warning, "warning");
         Expedition expedition = plans.require(expeditionId);
-        if (!validationOf(expedition).warnings().contains(warning.issue())) {
-            throw new InvalidValue("not a current warning: " + warning.issue().code());
-        }
-        expedition.acceptWarning(warning);
+        expedition.acceptWarning(validator, contexts.around(expedition), warning);
         plans.save(expedition);
     }
 
