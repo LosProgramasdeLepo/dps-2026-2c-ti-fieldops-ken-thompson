@@ -152,12 +152,16 @@ public final class ExpeditionResponses {
             int finishedActivities,
             String duration,
             String risk,
+            List<ActivityRiskResponse> risks,
             Map<String, Integer> consumption,
             Map<String, Integer> estimatedConsumption,
             List<IncidentResponse> incidents,
             List<ObservationResponse> observations,
             List<ActivityResultResponse> activityResults
     ) {
+    }
+
+    public record ActivityRiskResponse(UUID activityId, String risk) {
     }
 
     public record ValidationResponse(UUID expeditionId, int version, List<IssueResponse> issues) {

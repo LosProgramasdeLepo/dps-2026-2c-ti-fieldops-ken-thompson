@@ -1,7 +1,9 @@
 package edu.itba.fieldops.frameworks.api;
 
 import edu.itba.fieldops.api.expedition.ReportsController;
+import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.report.ActivityRisk;
 import edu.itba.fieldops.domain.report.Estimate;
 import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.report.OperationalStatus;
@@ -49,13 +51,15 @@ class ReportsControllerTest {
     @Test
     void returnsTheReport() throws Exception {
         UUID id = UUID.randomUUID();
+        UUID night = UUID.randomUUID();
         org.mockito.Mockito.when(reports.of(new ExpeditionId(id))).thenReturn(new OperationalReport(
                 OperationalStatus.APPROVED,
                 1,
                 0,
                 0,
                 Duration.ofHours(4),
-                RiskLevel.LOW,
+                RiskLevel.HIGH,
+                List.of(new ActivityRisk(new ActivityId(night), RiskLevel.HIGH)),
                 Map.of(),
                 Map.of(),
                 List.of(),
@@ -66,6 +70,9 @@ class ReportsControllerTest {
         mvc.perform(get("/v1/expeditions/{id}/report", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"))
-                .andExpect(jsonPath("$.plannedActivities").value(1));
+                .andExpect(jsonPath("$.plannedActivities").value(1))
+                .andExpect(jsonPath("$.risk").value("HIGH"))
+                .andExpect(jsonPath("$.risks[0].activityId").value(night.toString()))
+                .andExpect(jsonPath("$.risks[0].risk").value("HIGH"));
     }
 }
