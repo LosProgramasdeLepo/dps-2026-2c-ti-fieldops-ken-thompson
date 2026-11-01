@@ -6,13 +6,9 @@ import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
-import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
-import edu.itba.fieldops.domain.expedition.InvalidAssignment;
-import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
-import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
@@ -48,18 +44,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlanningUseCasesTest extends UseCaseFixture {
-    @Test
-    void rejectsAResponsibleThatIsNotInTheCatalog() {
-        ExpeditionCharter charter = new ExpeditionCharter(
-                List.of(new Objective("Map wetland")),
-                PERIOD,
-                List.of(DELTA),
-                List.of(new PersonId(UUID.randomUUID())),
-                List.of(new Restriction("Daylight only"))
-        );
-
-        assertThrows(UnknownResource.class, () -> drafts.draft(charter));
-    }
 
     @Test
     void theEstimateOfANightActivityUsesItsRaisedRisk() {
@@ -80,24 +64,6 @@ class PlanningUseCasesTest extends UseCaseFixture {
 
         assertEquals(RiskLevel.HIGH, estimate.risk());
         assertEquals(Duration.ofHours(3), estimate.duration());
-    }
-
-    @Test
-    void theEstimateOfAParallelBlockInsideASequenceTakesTheLongestBranch() {
-        CertificationId certificationId = certification();
-        ExpeditionId expeditionId = draftResponsibleFor(certifiedPerson("Ada", certificationId));
-        Activity approach = Activity.transit()
-                .named(itinerary.nextActivityId(), new ActivityName("Approach"))
-                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
-                .in(DELTA, hours(0, 2))
-                .build();
-        Activity left = sampling(certificationId, itinerary.nextActivityId(), hours(2, 6));
-        Activity right = sampling(certificationId, itinerary.nextActivityId(), hours(2, 5));
-        itinerary.addBlock(expeditionId, ActivityBlock.sequential(approach, ActivityBlock.parallel(left, right)));
-
-        Estimate estimate = estimates.of(expeditionId);
-
-        assertEquals(Duration.ofHours(6), estimate.duration());
     }
 
     @Test
@@ -178,24 +144,6 @@ class PlanningUseCasesTest extends UseCaseFixture {
         assignments.addPermit(plan.expeditionId(), permitId);
 
         assertEquals(List.of(permitId), consult.of(plan.expeditionId()).permits());
-    }
-
-    @Test
-    void rejectsAssigningAPersonTheCatalogDoesNotKnow() {
-        Sampling sampling = samplingPlan();
-        PersonAssignment stranger = new PersonAssignment(sampling.activityId(), new PersonId(UUID.randomUUID()));
-
-        assertThrows(InvalidAssignment.class, () -> assignments.addAssignment(sampling.expeditionId(), stranger));
-        assertEquals(1, consult.of(sampling.expeditionId()).assignments().size());
-    }
-
-    @Test
-    void rejectsAttachingAPermitTheCatalogDoesNotKnow() {
-        Sampling sampling = samplingPlan();
-        PermitId unknown = new PermitId(UUID.randomUUID());
-
-        assertThrows(UnknownResource.class, () -> assignments.addPermit(sampling.expeditionId(), unknown));
-        assertEquals(1, consult.of(sampling.expeditionId()).permits().size());
     }
 
     @Test

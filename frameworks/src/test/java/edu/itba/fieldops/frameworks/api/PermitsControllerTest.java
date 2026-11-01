@@ -76,7 +76,7 @@ class PermitsControllerTest {
         mvc.perform(post("/v1/permits").contentType(MediaType.APPLICATION_JSON).content("""
                 {"kind":"zone","zone":"Delta","validity":{"start":"2026-11-06T00:00:00Z","end":"2026-11-01T00:00:00Z"}}
                 """))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableContent());
         verifyNoInteractions(permits);
     }
 }

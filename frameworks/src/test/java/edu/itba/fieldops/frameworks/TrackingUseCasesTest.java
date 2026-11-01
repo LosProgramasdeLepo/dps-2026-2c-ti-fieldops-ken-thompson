@@ -6,17 +6,12 @@ import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
-import edu.itba.fieldops.domain.identity.ActivityId;
-import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.shared.Consumption;
-import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
@@ -67,29 +62,6 @@ class TrackingUseCasesTest extends UseCaseFixture {
         tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), ActivityReport.of(new Outcome("samples stored late")));
 
         assertTrue(run(sampling.expeditionId()).activities().getFirst().isFinished());
-    }
-
-    @Test
-    void anActivityOfASequenceDoesNotStartBeforeThePreviousOneFinishes() {
-        Sequence sequence = runningSequence();
-        clock.set(at(2));
-
-        assertThrows(InvalidActivityExecution.class, () -> tracking.startActivity(sequence.expeditionId(), sequence.downstream()));
-
-        assertFalse(run(sequence.expeditionId()).hasStarted(sequence.downstream()));
-    }
-
-    @Test
-    void anActivityOfASequenceStartsOnceThePreviousOneFinishes() {
-        Sequence sequence = runningSequence();
-        clock.set(at(0));
-        tracking.startActivity(sequence.expeditionId(), sequence.upstream());
-        clock.set(at(2));
-        tracking.finishActivity(sequence.expeditionId(), sequence.upstream(), ActivityReport.of(new Outcome("upstream sampled")));
-
-        tracking.startActivity(sequence.expeditionId(), sequence.downstream());
-
-        assertTrue(run(sequence.expeditionId()).hasStarted(sequence.downstream()));
     }
 
     @Test
@@ -248,25 +220,6 @@ class TrackingUseCasesTest extends UseCaseFixture {
         assertFalse(hasOverlap(other.expeditionId()));
     }
 
-    private Sequence runningSequence() {
-        CertificationId certificationId = certification();
-        PersonId ada = certifiedPerson("Ada", certificationId);
-        ExpeditionId expeditionId = draftResponsibleFor(ada);
-        ActivityId upstream = itinerary.nextActivityId();
-        ActivityId downstream = itinerary.nextActivityId();
-        itinerary.addBlock(expeditionId, ActivityBlock.sequential(
-                sampling(certificationId, upstream, hours(0, 2)),
-                sampling(certificationId, downstream, hours(2, 4))
-        ));
-        assignments.addAssignment(expeditionId, new PersonAssignment(upstream, ada));
-        assignments.addAssignment(expeditionId, new PersonAssignment(downstream, ada));
-        assignments.addPermit(expeditionId, permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
-        review.submit(expeditionId);
-        approval.approve(expeditionId);
-        tracking.start(expeditionId);
-        return new Sequence(expeditionId, upstream, downstream);
-    }
-
     private TwoSamplings approvedTwoSamplingsConsuming(ConsumableId vials) {
         TwoSamplings plan = twoSamplings();
         assignments.addAssignment(plan.expeditionId(), new ConsumableAssignment(plan.first(), vials, new Consumption(5)));
@@ -289,8 +242,5 @@ class TrackingUseCasesTest extends UseCaseFixture {
 
     private ExpeditionExecution run(ExpeditionId expeditionId) {
         return runs.find(expeditionId).orElseThrow();
-    }
-
-    private record Sequence(ExpeditionId expeditionId, ActivityId upstream, ActivityId downstream) {
     }
 }

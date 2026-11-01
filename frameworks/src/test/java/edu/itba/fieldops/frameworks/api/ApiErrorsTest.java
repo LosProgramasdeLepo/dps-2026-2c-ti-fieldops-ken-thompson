@@ -65,7 +65,7 @@ class ApiErrorsTest {
         when(consult.of(new ExpeditionId(pathId))).thenThrow(new UnknownResource("responsible", otherId.toString()));
 
         mvc.perform(get("/v1/expeditions/{id}", pathId))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("unknown responsible: " + otherId));
     }
 
