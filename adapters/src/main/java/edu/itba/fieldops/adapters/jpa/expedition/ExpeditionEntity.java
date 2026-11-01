@@ -190,8 +190,4 @@ public class ExpeditionEntity {
                 acceptedWarnings.stream().map(StoredWarning::toDomain).toList()
         ));
     }
-
-    UUID id() {
-        return id;
-    }
 }

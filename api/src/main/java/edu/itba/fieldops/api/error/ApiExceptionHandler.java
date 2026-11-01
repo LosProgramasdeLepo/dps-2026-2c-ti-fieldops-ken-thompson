@@ -1,21 +1,19 @@
 package edu.itba.fieldops.api.error;
 
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
-import edu.itba.fieldops.domain.expedition.InvalidAssignment;
 import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
-import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.shared.DomainException;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -23,8 +21,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-
-import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Map;
 
@@ -37,11 +33,6 @@ public final class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         if (pathContains(request, error.id())) {
             return problem(HttpStatus.NOT_FOUND, "Not Found", error.getMessage());
         }
-        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", error.getMessage());
-    }
-
-    @ExceptionHandler({InvalidValue.class, InvalidItinerary.class, InvalidAssignment.class})
-    ResponseEntity<ProblemDetail> rejected(DomainException error) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", error.getMessage());
     }
 

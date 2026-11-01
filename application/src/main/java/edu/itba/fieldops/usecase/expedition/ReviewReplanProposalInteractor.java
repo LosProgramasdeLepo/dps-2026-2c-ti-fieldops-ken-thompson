@@ -58,7 +58,7 @@ public final class ReviewReplanProposalInteractor implements ReviewReplanProposa
     }
 
     private ReplanProposal require(ProposalId proposalId) {
-        return proposals.find(Objects.requireNonNull(proposalId, "proposal id"))
+        return proposals.find(proposalId)
                 .orElseThrow(() -> new UnknownResource("proposal", proposalId.value().toString()));
     }
 }

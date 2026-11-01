@@ -1,8 +1,8 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
 import edu.itba.fieldops.domain.catalog.Instrument;
-import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
+import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import org.springframework.transaction.support.TransactionOperations;

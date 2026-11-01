@@ -95,7 +95,7 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     }
 
     private ExpeditionExecution requireRun(ExpeditionId expeditionId, String action) {
-        return executions.find(Objects.requireNonNull(expeditionId, "expedition id"))
+        return executions.find(expeditionId)
                 .orElseThrow(() -> new InvalidExpeditionTransition(plans.require(expeditionId).status(), action));
     }
 

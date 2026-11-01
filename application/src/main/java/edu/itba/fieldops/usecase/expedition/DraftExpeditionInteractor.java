@@ -20,7 +20,6 @@ public final class DraftExpeditionInteractor implements DraftExpedition {
 
     @Override
     public ExpeditionId draft(ExpeditionCharter charter) {
-        Objects.requireNonNull(charter, "charter");
         Expedition expedition = Expedition.draft(plans.nextId(), charter, people);
         plans.save(expedition);
         return expedition.id();
