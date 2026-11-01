@@ -38,7 +38,7 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
 
     @Override
     public ValidationResult validate(ExpeditionId expeditionId) {
-        return validationOf(plans.require(expeditionId));
+        return validator.validate(contexts.around(plans.require(expeditionId)));
     }
 
     @Override
@@ -53,9 +53,5 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
         Expedition expedition = plans.require(expeditionId);
         expedition.returnToDraft();
         plans.save(expedition);
-    }
-
-    private ValidationResult validationOf(Expedition expedition) {
-        return validator.validate(contexts.around(expedition));
     }
 }

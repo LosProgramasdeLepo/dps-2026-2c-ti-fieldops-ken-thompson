@@ -1,8 +1,8 @@
 package edu.itba.fieldops.adapters.jpa.tracking;
 
+import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import org.springframework.transaction.support.TransactionOperations;
 
 import java.util.Objects;

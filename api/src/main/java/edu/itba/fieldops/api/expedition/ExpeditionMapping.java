@@ -58,6 +58,7 @@ import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
@@ -85,6 +86,7 @@ import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -171,7 +173,7 @@ public final class ExpeditionMapping {
         return new ExpeditionResponse(
                 snapshot.id().value(),
                 snapshot.version(),
-                snapshot.supersedes().map(id -> id.value()).orElse(null),
+                snapshot.supersedes().map(ExpeditionId::value).orElse(null),
                 snapshot.status().name(),
                 charter(snapshot.charter()),
                 snapshot.itinerary().stream().map(ExpeditionMapping::item).toList(),
@@ -185,14 +187,14 @@ public final class ExpeditionMapping {
         return new ExpeditionSummaryResponse(
                 snapshot.id().value(),
                 snapshot.version(),
-                snapshot.supersedes().map(id -> id.value()).orElse(null),
+                snapshot.supersedes().map(ExpeditionId::value).orElse(null),
                 snapshot.status().name(),
                 charter(snapshot.charter())
         );
     }
 
     public static BlockResponse block(ActivityBlock block) {
-        return (BlockResponse) item(block);
+        return new BlockResponse(block.arrangement().name(), block.parts().stream().map(ExpeditionMapping::item).toList());
     }
 
     public static List<AssignmentResponse> assignments(List<Assignment> assignments) {
@@ -218,10 +220,6 @@ public final class ExpeditionMapping {
                 report.observations().stream().map(ExpeditionMapping::observation).toList(),
                 report.activityResults().stream().map(ExpeditionMapping::result).toList()
         );
-    }
-
-    private static ActivityRiskResponse risk(ActivityRisk risk) {
-        return new ActivityRiskResponse(risk.activityId().value(), risk.risk().name());
     }
 
     public static RunResponse run(RunSnapshot snapshot) {
@@ -265,10 +263,7 @@ public final class ExpeditionMapping {
     private static ItineraryItemResponse item(ItineraryItem item) {
         return switch (item) {
             case Activity activity -> activity(activity);
-            case ActivityBlock block -> new BlockResponse(
-                    block.arrangement().name(),
-                    block.parts().stream().map(ExpeditionMapping::item).toList()
-            );
+            case ActivityBlock block -> block(block);
         };
     }
 
@@ -352,6 +347,10 @@ public final class ExpeditionMapping {
         );
     }
 
+    private static ActivityRiskResponse risk(ActivityRisk risk) {
+        return new ActivityRiskResponse(risk.activityId().value(), risk.risk().name());
+    }
+
     private static ActivityResultResponse result(ActivityResult result) {
         return new ActivityResultResponse(result.activityId().value(), result.result().text());
     }
@@ -369,7 +368,7 @@ public final class ExpeditionMapping {
     private static Map<String, Integer> amounts(Map<ConsumableId, Consumption> consumption) {
         Map<String, Integer> amounts = new LinkedHashMap<>();
         consumption.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey(java.util.Comparator.comparing(ConsumableId::value)))
+                .sorted(Map.Entry.comparingByKey(Comparator.comparing(ConsumableId::value)))
                 .forEach(entry -> amounts.put(entry.getKey().value().toString(), entry.getValue().amount()));
         return amounts;
     }

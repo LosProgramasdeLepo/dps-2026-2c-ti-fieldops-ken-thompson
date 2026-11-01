@@ -66,15 +66,13 @@ public class ProposalEntity {
     }
 
     ReplanProposal toDomain(Expedition suggested) {
-        ReplanProposal.Decision recorded = ReplanProposal.Decision.valueOf(decision);
-        Optional<PersonId> by = decidedBy == null ? Optional.empty() : Optional.of(new PersonId(decidedBy));
         return ReplanProposal.restore(new ProposalState(
                 new ProposalId(id),
                 new ExpeditionId(originalId),
                 new ExpeditionId(suggestedId),
                 incident.toDomain(),
-                recorded,
-                by,
+                ReplanProposal.Decision.valueOf(decision),
+                Optional.ofNullable(decidedBy).map(PersonId::new),
                 Optional.ofNullable(decidedAt)
         ), suggested);
     }

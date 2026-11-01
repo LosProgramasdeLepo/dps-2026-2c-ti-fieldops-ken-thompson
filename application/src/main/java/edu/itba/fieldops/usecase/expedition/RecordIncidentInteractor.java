@@ -58,7 +58,7 @@ public final class RecordIncidentInteractor implements RecordIncident {
     }
 
     private ExpeditionExecution requireRun(ExpeditionId expeditionId) {
-        return executions.find(Objects.requireNonNull(expeditionId, "expedition id"))
+        return executions.find(expeditionId)
                 .orElseThrow(() -> new InvalidExpeditionTransition(plans.require(expeditionId).status(), "record incident"));
     }
 }

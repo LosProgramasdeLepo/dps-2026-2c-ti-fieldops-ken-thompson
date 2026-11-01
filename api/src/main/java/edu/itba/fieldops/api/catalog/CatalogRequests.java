@@ -1,6 +1,7 @@
 package edu.itba.fieldops.api.catalog;
 
 import edu.itba.fieldops.api.json.AvailabilityRequest;
+import edu.itba.fieldops.api.json.PeriodRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -45,7 +46,7 @@ public final class CatalogRequests {
     public record RegisterPermitRequest(
             @NotBlank @Size(max = 100) String kind,
             @NotBlank @Size(max = 200) String zone,
-            @NotNull @Valid edu.itba.fieldops.api.json.PeriodRequest validity
+            @NotNull @Valid PeriodRequest validity
     ) {
     }
 
