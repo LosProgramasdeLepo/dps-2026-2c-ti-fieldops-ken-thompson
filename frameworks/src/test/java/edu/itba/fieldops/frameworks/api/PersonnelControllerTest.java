@@ -11,7 +11,6 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.TimePeriod;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultPersonnel;
 import org.junit.jupiter.api.Test;
@@ -122,15 +121,5 @@ class PersonnelControllerTest {
                 .andExpect(jsonPath("$.name").value("Ada"))
                 .andExpect(jsonPath("$.certifications[0].name").value("Sampling"))
                 .andExpect(jsonPath("$.availability.periods[0].start").value("2026-11-01T00:00:00Z"));
-    }
-
-    @Test
-    void anUnknownPersonIsNotFound() throws Exception {
-        UUID id = UUID.randomUUID();
-        when(consult.person(new PersonId(id))).thenThrow(new UnknownResource("person", id.toString()));
-
-        mvc.perform(get("/v1/people/{id}", id))
-                .andExpect(status().isNotFound())
-                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
     }
 }

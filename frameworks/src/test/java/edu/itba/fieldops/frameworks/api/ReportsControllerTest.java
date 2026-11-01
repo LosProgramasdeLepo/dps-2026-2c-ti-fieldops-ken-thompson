@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -39,7 +40,7 @@ class ReportsControllerTest {
     @Test
     void returnsTheEstimate() throws Exception {
         UUID id = UUID.randomUUID();
-        org.mockito.Mockito.when(estimates.of(new ExpeditionId(id)))
+        when(estimates.of(new ExpeditionId(id)))
                 .thenReturn(new Estimate(Duration.ofHours(4), RiskLevel.MEDIUM, Map.of()));
 
         mvc.perform(get("/v1/expeditions/{id}/estimate", id))
@@ -52,7 +53,7 @@ class ReportsControllerTest {
     void returnsTheReport() throws Exception {
         UUID id = UUID.randomUUID();
         UUID night = UUID.randomUUID();
-        org.mockito.Mockito.when(reports.of(new ExpeditionId(id))).thenReturn(new OperationalReport(
+        when(reports.of(new ExpeditionId(id))).thenReturn(new OperationalReport(
                 OperationalStatus.APPROVED,
                 1,
                 0,

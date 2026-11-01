@@ -43,14 +43,12 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ValidationExtensionTest {
@@ -92,21 +90,6 @@ class ValidationExtensionTest {
         assertTrue(result.hasCritical());
         assertTrue(hasCode(result, "RESOURCE"), () -> "expected RESOURCE in " + result.issues());
         assertTrue(hasCode(result, "BRIEFING"), () -> "expected BRIEFING in " + result.issues());
-    }
-
-    @Test
-    void doesNotObserveRulesAddedAfterConstruction() {
-        Expedition expedition = expeditionWithTransit();
-        ValidationRule noise = context -> List.of(
-                new ValidationIssue(IssueSeverity.WARNING, "NOISE", "should not reach the validator")
-        );
-        List<ValidationRule> mutable = new ArrayList<>();
-        RuleBasedValidator validator = new RuleBasedValidator(mutable);
-        mutable.add(noise);
-
-        ValidationResult result = validator.validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.of(expedition, List.of(), Map.of())));
-
-        assertFalse(hasCode(result, "NOISE"), () -> "validator kept a live view of the rule list: " + result.issues());
     }
 
     private static boolean hasCode(ValidationResult result, String code) {

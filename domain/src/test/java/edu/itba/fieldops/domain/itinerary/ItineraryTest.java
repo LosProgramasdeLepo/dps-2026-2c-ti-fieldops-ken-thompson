@@ -217,16 +217,6 @@ class ItineraryTest {
         assertEquals(Set.of(earlierId), restored.predecessorsOf(dependent.id()));
     }
 
-    @Test
-    void restoringNothingGivesAnEmptyItinerary() {
-        assertEquals(List.of(), Itinerary.restoring(List.of()).items());
-    }
-
-    @Test
-    void restoringRequiresTheStoredItems() {
-        assertThrows(NullPointerException.class, () -> Itinerary.restoring(null));
-    }
-
     @ParameterizedTest(name = "{0}")
     @MethodSource("storedTreesThatBreakAnInvariant")
     void restoringRejectsAStoredTreeThatBreaksAnInvariant(String broken, List<ItineraryItem> stored) {

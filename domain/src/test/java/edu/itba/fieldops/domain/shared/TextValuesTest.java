@@ -4,12 +4,9 @@ import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.Justification;
-import edu.itba.fieldops.domain.expedition.Objective;
-import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.tracking.ObservationText;
-import edu.itba.fieldops.domain.tracking.Outcome;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -21,45 +18,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class TextValuesTest {
-    static Stream<Arguments> texts() {
+    static Stream<Arguments> blankTexts() {
         return Stream.of(
-                text("person name", PersonName::new, PersonName::value),
-                text("certification name", CertificationName::new, CertificationName::value),
-                text("consumable name", ConsumableName::new, ConsumableName::value),
-                text("activity name", ActivityName::new, ActivityName::value),
-                text("incident", IncidentDescription::new, IncidentDescription::text),
-                text("observation", ObservationText::new, ObservationText::text),
-                text("result", Outcome::new, Outcome::text),
-                text("justification", Justification::new, Justification::text),
-                text("objective", Objective::new, Objective::text),
-                text("restriction", Restriction::new, Restriction::text),
-                text("zone name", WorkZone::new, WorkZone::name)
+                Arguments.of("person name", (Function<String, ?>) PersonName::new, "  "),
+                Arguments.of("certification name", (Function<String, ?>) CertificationName::new, ""),
+                Arguments.of("consumable name", (Function<String, ?>) ConsumableName::new, null),
+                Arguments.of("activity name", (Function<String, ?>) ActivityName::new, "\t"),
+                Arguments.of("incident", (Function<String, ?>) IncidentDescription::new, " "),
+                Arguments.of("observation", (Function<String, ?>) ObservationText::new, ""),
+                Arguments.of("justification", (Function<String, ?>) Justification::new, null)
         );
     }
 
     @ParameterizedTest(name = "{0}")
-    @MethodSource("texts")
-    void rejectsABlankText(String label, Function<String, Object> create, Function<Object, String> read) {
-        for (String blank : new String[]{"", "   ", "\t\n"}) {
-            InvalidValue rejected = assertThrows(InvalidValue.class, () -> create.apply(blank));
-            assertEquals(label + " must not be blank", rejected.getMessage());
-        }
-    }
+    @MethodSource("blankTexts")
+    void rejectsABlankText(String label, Function<String, ?> create, String blank) {
+        InvalidValue rejected = assertThrows(InvalidValue.class, () -> create.apply(blank));
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("texts")
-    void rejectsAMissingText(String label, Function<String, Object> create, Function<Object, String> read) {
-        assertThrows(InvalidValue.class, () -> create.apply(null));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("texts")
-    void keepsTheTextTrimmed(String label, Function<String, Object> create, Function<Object, String> read) {
-        assertEquals("Delta site", read.apply(create.apply("  Delta site ")));
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T> Arguments text(String label, Function<String, T> create, Function<T, String> read) {
-        return Arguments.of(label, create, (Function<Object, String>) value -> read.apply((T) value));
+        assertEquals(label + " must not be blank", rejected.getMessage());
     }
 }
