@@ -18,15 +18,15 @@ public record PlanningContext(Expedition plan, Catalogs catalogs, OccupyingExped
     }
 
     public People people() {
-        return catalogs.people();
+        return catalogs.bookable().people();
     }
 
     public Vehicles vehicles() {
-        return catalogs.vehicles();
+        return catalogs.bookable().vehicles();
     }
 
     public Instruments instruments() {
-        return catalogs.instruments();
+        return catalogs.bookable().instruments();
     }
 
     public Consumables consumables() {
