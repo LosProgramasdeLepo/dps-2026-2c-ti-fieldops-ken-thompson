@@ -12,12 +12,10 @@ import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.itinerary.Itinerary;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.shared.Consumption;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,13 +26,13 @@ final class PlanContent {
     private final ExpeditionCharter charter;
     private final Itinerary itinerary;
     private final Assignments assignments;
-    private final List<PermitId> permits;
+    private final AttachedPermits permits;
 
     PlanContent(ExpeditionCharter charter) {
-        this(Objects.requireNonNull(charter, "charter"), new Itinerary(), new Assignments(), new ArrayList<>());
+        this(Objects.requireNonNull(charter, "charter"), new Itinerary(), new Assignments(), new AttachedPermits());
     }
 
-    private PlanContent(ExpeditionCharter charter, Itinerary itinerary, Assignments assignments, List<PermitId> permits) {
+    private PlanContent(ExpeditionCharter charter, Itinerary itinerary, Assignments assignments, AttachedPermits permits) {
         this.charter = charter;
         this.itinerary = itinerary;
         this.assignments = assignments;
@@ -46,16 +44,16 @@ final class PlanContent {
                 state.charter(),
                 Itinerary.restoring(state.items()),
                 new Assignments(),
-                new ArrayList<>()
+                new AttachedPermits()
         );
         content.activities().forEach(content::requirePlanned);
         state.assignments().forEach(content::file);
-        state.permits().forEach(content::attach);
+        state.permits().forEach(content.permits::attach);
         return content;
     }
 
     PlanContent copy() {
-        return new PlanContent(charter, itinerary.copy(), assignments.copy(), new ArrayList<>(permits));
+        return new PlanContent(charter, itinerary.copy(), assignments.copy(), permits.copy());
     }
 
     void addActivity(Activity activity) {
@@ -106,7 +104,7 @@ final class PlanContent {
         if (Objects.requireNonNull(known, "permits").permit(permitId).isEmpty()) {
             throw new UnknownResource("permit", permitId.value().toString());
         }
-        attach(permitId);
+        permits.attach(permitId);
     }
 
     ExpeditionCharter charter() {
@@ -158,19 +156,12 @@ final class PlanContent {
     }
 
     List<PermitId> permits() {
-        return List.copyOf(permits);
+        return permits.all();
     }
 
     private void file(Assignment assignment) {
         itinerary.activityOf(Objects.requireNonNull(assignment, "assignment").activityId());
         assignments.add(assignment);
-    }
-
-    private void attach(PermitId permitId) {
-        if (permits.contains(Objects.requireNonNull(permitId, "permit id"))) {
-            throw new InvalidValue("duplicate permit: " + permitId);
-        }
-        permits.add(permitId);
     }
 
     private void requirePlanned(Activity activity) {
