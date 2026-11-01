@@ -16,7 +16,7 @@ public final class IncidentResponder {
     }
 
     public Optional<ReplanProposal> respondTo(ExpeditionExecution run, Incident incident, ReplanIds ids) {
-        if (!run.incidents().contains(Objects.requireNonNull(incident, "incident"))) {
+        if (!run.incidents().contains(incident)) {
             throw new InvalidValue("incident is not recorded on the run");
         }
         Expedition inForce = Revisions.inForce(plans.require(run.expeditionId()), plans.all());
