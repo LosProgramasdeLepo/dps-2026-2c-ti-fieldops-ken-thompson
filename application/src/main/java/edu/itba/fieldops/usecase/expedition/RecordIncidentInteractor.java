@@ -1,13 +1,13 @@
 package edu.itba.fieldops.usecase.expedition;
 
-import edu.itba.fieldops.domain.catalog.Catalogs;
+import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
-import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionTracker;
+import edu.itba.fieldops.domain.expedition.IncidentResponder;
 import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
-import edu.itba.fieldops.domain.expedition.PlanningContexts;
+import edu.itba.fieldops.domain.expedition.ReplanIds;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.expedition.Replanner;
 import edu.itba.fieldops.domain.identity.ActivityId;
@@ -22,23 +22,21 @@ public final class RecordIncidentInteractor implements RecordIncident {
     private final ExpeditionRepository plans;
     private final ExecutionRepository executions;
     private final ExpeditionTracker tracker;
-    private final PlanningContexts contexts;
-    private final Replanner replanner;
+    private final IncidentResponder responder;
     private final ReplanProposalRepository proposals;
 
     public RecordIncidentInteractor(
             ExpeditionRepository plans,
             ExecutionRepository executions,
+            Consumables consumables,
             Clock clock,
-            Catalogs catalogs,
             Replanner replanner,
             ReplanProposalRepository proposals
     ) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.executions = Objects.requireNonNull(executions, "executions");
-        this.tracker = new ExpeditionTracker(plans, executions, catalogs.consumables(), clock);
-        this.contexts = new PlanningContexts(plans, executions, catalogs);
-        this.replanner = Objects.requireNonNull(replanner, "replanner");
+        this.tracker = new ExpeditionTracker(plans, executions, consumables, clock);
+        this.responder = new IncidentResponder(plans, replanner);
         this.proposals = Objects.requireNonNull(proposals, "proposals");
     }
 
@@ -54,12 +52,8 @@ public final class RecordIncidentInteractor implements RecordIncident {
         ExpeditionExecution execution = requireRun(expeditionId);
         Incident incident = tracker.reportIncident(execution, activityId, description);
         executions.save(execution);
-        tracker.planAffectedBy(execution, incident).ifPresent(plan -> propose(plan, incident, execution));
-    }
-
-    private void propose(Expedition plan, Incident incident, ExpeditionExecution execution) {
-        Expedition revision = plan.reviseAsDraft(plans.nextId());
-        proposals.save(replanner.propose(proposals.nextId(), contexts.around(revision), incident, execution));
+        responder.respondTo(execution, incident, new ReplanIds(proposals.nextId(), plans.nextId()))
+                .ifPresent(proposals::save);
     }
 
     private ExpeditionExecution requireRun(ExpeditionId expeditionId) {

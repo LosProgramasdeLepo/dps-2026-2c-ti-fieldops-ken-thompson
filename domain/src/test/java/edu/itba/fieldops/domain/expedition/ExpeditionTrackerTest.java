@@ -144,8 +144,8 @@ class ExpeditionTrackerTest {
         Incident incident = tracker.reportIncident(run, activity, "flooded trail");
 
         assertAll(
-                () -> assertEquals(List.of(Incident.affecting(activity, "flooded trail", DAY.plus(Duration.ofHours(1)))), run.incidents()),
-                () -> assertEquals(Optional.of(plan), tracker.planAffectedBy(run, incident))
+                () -> assertEquals(Incident.affecting(activity, "flooded trail", DAY.plus(Duration.ofHours(1))), incident),
+                () -> assertEquals(List.of(incident), run.incidents())
         );
     }
 
@@ -179,17 +179,6 @@ class ExpeditionTrackerTest {
 
         assertEquals("incident is outside the expedition period", rejected.getMessage());
         assertTrue(run.incidents().isEmpty());
-    }
-
-    @Test
-    void aGeneralIncidentDoesNotAffectThePlan() {
-        Expedition plan = approved();
-        ExpeditionTracker tracker = trackerOf(plan);
-        ExpeditionExecution run = tracker.start(plan.id());
-
-        Incident incident = tracker.reportIncident(run, "storm");
-
-        assertEquals(Optional.empty(), tracker.planAffectedBy(run, incident));
     }
 
     @Test
