@@ -1,6 +1,9 @@
 package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.CertificationName;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
@@ -19,6 +22,7 @@ import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.report.Estimate;
 import edu.itba.fieldops.domain.shared.Consumption;
@@ -59,13 +63,13 @@ class PlanningUseCasesTest extends UseCaseFixture {
 
     @Test
     void theEstimateOfANightActivityUsesItsRaisedRisk() {
-        CertificationId nightOperation = personnel.registerCertification("Night operation");
-        PersonId ada = personnel.registerPerson("Ada", List.of(nightOperation), Availability.always());
+        CertificationId nightOperation = personnel.registerCertification(new CertificationName("Night operation"));
+        PersonId ada = personnel.registerPerson(new PersonName("Ada"), List.of(nightOperation), Availability.always());
         InstrumentId lamp = equipment.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
         ExpeditionId expeditionId = draftResponsibleFor(ada);
         ActivityId activityId = itinerary.nextActivityId();
         itinerary.addActivity(expeditionId, Activity.night(nightOperation)
-                .named(activityId, "Night survey")
+                .named(activityId, new ActivityName("Night survey"))
                 .estimated(new EstimatedDuration(Duration.ofHours(3)), RiskLevel.MEDIUM)
                 .in(DELTA, hours(0, 3))
                 .build());
@@ -83,7 +87,7 @@ class PlanningUseCasesTest extends UseCaseFixture {
         CertificationId certificationId = certification();
         ExpeditionId expeditionId = draftResponsibleFor(certifiedPerson("Ada", certificationId));
         Activity approach = Activity.transit()
-                .named(itinerary.nextActivityId(), "Approach")
+                .named(itinerary.nextActivityId(), new ActivityName("Approach"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, hours(0, 2))
                 .build();
@@ -100,7 +104,7 @@ class PlanningUseCasesTest extends UseCaseFixture {
     void estimatesConsumptionFromRequirementsRatherThanAssignments() {
         ConsumableId fuel = new ConsumableId(UUID.randomUUID());
         Sampling sampling = samplingPlan(Map.of(fuel, new Consumption(3)));
-        ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
+        ConsumableId vials = equipment.registerConsumable(new ConsumableName("vials"), new Stock(20));
         assignments.addAssignment(sampling.expeditionId(), new ConsumableAssignment(sampling.activityId(), vials, new Consumption(7)));
 
         Estimate estimate = estimates.of(sampling.expeditionId());
@@ -154,7 +158,7 @@ class PlanningUseCasesTest extends UseCaseFixture {
         CertificationId certificationId = certification();
         ExpeditionId expeditionId = draftResponsibleFor(certifiedPerson("Ada", certificationId));
         Activity approach = Activity.transit()
-                .named(itinerary.nextActivityId(), "Approach")
+                .named(itinerary.nextActivityId(), new ActivityName("Approach"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, hours(0, 2))
                 .build();
@@ -210,7 +214,7 @@ class PlanningUseCasesTest extends UseCaseFixture {
 
         Activity activity = consult.activity(sampling.expeditionId(), sampling.activityId());
 
-        assertEquals("Soil sampling", activity.name());
+        assertEquals("Soil sampling", activity.name().value());
     }
 
     @Test

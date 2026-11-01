@@ -100,13 +100,13 @@ class ItineraryTest {
     @Test
     void rejectsABlockThatDependsOnAnUnknownActivity() {
         Activity first = Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "first")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("first"))
                 .estimated(new EstimatedDuration(Duration.ofHours(1)), RiskLevel.LOW)
                 .in(DELTA, window(0, 1))
                 .after(Set.of(new ActivityId(UUID.randomUUID())))
                 .build();
         Activity second = Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "second")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("second"))
                 .estimated(new EstimatedDuration(Duration.ofHours(1)), RiskLevel.LOW)
                 .in(DELTA, window(2, 3))
                 .after(Set.of(first.id()))
@@ -266,7 +266,7 @@ class ItineraryTest {
 
     private static Activity transit(String name, int fromHour, int toHour, Map<ConsumableId, Consumption> consumption) {
         return Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), name)
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName(name))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .consuming(consumption)
@@ -275,7 +275,7 @@ class ItineraryTest {
 
     private static Activity transitAfter(ActivityId id, int fromHour, int toHour, Set<ActivityId> predecessors) {
         return Activity.transit()
-                .named(id, "stored")
+                .named(id, new ActivityName("stored"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .after(predecessors)
@@ -284,7 +284,7 @@ class ItineraryTest {
 
     private static Activity sampling(String name, int fromHour, int toHour, RiskLevel risk) {
         return Activity.sampling(new CertificationId(UUID.randomUUID()))
-                .named(new ActivityId(UUID.randomUUID()), name)
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName(name))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), risk)
                 .in(DELTA, window(fromHour, toHour))
                 .build();

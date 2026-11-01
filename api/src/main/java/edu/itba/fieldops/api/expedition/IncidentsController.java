@@ -4,6 +4,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionRequests.IncidentRequest;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.usecase.expedition.RecordIncident;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -26,9 +27,9 @@ public final class IncidentsController {
     public ResponseEntity<Void> record(@PathVariable UUID id, @Valid @RequestBody IncidentRequest request) {
         ExpeditionId expeditionId = new ExpeditionId(id);
         if (request.activityId() == null) {
-            incidents.record(expeditionId, request.description());
+            incidents.record(expeditionId, new IncidentDescription(request.description()));
         } else {
-            incidents.record(expeditionId, request.description(), new ActivityId(request.activityId()));
+            incidents.record(expeditionId, new IncidentDescription(request.description()), new ActivityId(request.activityId()));
         }
         return Responses.noContent();
     }

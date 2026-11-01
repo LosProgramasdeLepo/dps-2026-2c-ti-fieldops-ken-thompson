@@ -16,6 +16,7 @@ import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ReplanExpedition;
@@ -169,7 +170,7 @@ class ReplanControllerTest {
         return new ProposalSnapshot(
                 new ProposalId(proposalId),
                 new ExpeditionId(expeditionId),
-                Incident.affecting(new ActivityId(UUID.randomUUID()), "gear flooded", Instant.parse("2026-11-01T09:00:00Z")),
+                Incident.affecting(new ActivityId(UUID.randomUUID()), new IncidentDescription("gear flooded"), Instant.parse("2026-11-01T09:00:00Z")),
                 ReplanProposal.Decision.PENDING,
                 Optional.empty(),
                 Optional.empty(),

@@ -52,7 +52,7 @@ class ItineraryControllerTest {
 
         ArgumentCaptor<Activity> activity = ArgumentCaptor.forClass(Activity.class);
         verify(itinerary).addActivity(any(), activity.capture());
-        assertEquals("Soil sampling", activity.getValue().name());
+        assertEquals("Soil sampling", activity.getValue().name().value());
         assertEquals(new CertificationId(certificationId), activity.getValue().requirements().certifications().iterator().next());
     }
 

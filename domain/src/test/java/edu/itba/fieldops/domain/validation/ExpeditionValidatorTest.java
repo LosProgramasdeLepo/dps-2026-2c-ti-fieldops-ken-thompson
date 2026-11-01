@@ -4,10 +4,13 @@ import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExecutionState;
@@ -32,6 +35,7 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.Consumption;
@@ -65,7 +69,7 @@ class ExpeditionValidatorTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
     private static final InstrumentKind PROBE = new InstrumentKind("probe");
-    private static final Certification NIGHT_OPERATION = new Certification(new CertificationId(UUID.randomUUID()), "Night operation");
+    private static final Certification NIGHT_OPERATION = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Night operation"));
 
     @Test
     void validSamplingPlanHasNoIssues() {
@@ -145,10 +149,10 @@ class ExpeditionValidatorTest {
 
     @Test
     void catalogUnavailabilityIsCritical() {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
         Person person = new Person(
                 new PersonId(UUID.randomUUID()),
-                "Ada",
+                new PersonName("Ada"),
                 List.of(certification),
                 new Availability(List.of(window(0, 4)))
         );
@@ -161,7 +165,7 @@ class ExpeditionValidatorTest {
 
     @Test
     void samplingWithoutPersonIsResourceNotCertification() {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
         Activity activity = sampling(certification.id(), 0, 4);
         Permit permit = permitFor(activity);
         Expedition expedition = draft();
@@ -193,8 +197,8 @@ class ExpeditionValidatorTest {
 
     @Test
     void measurementWithoutInstrumentIsCritical() {
-        Certification operator = new Certification(new CertificationId(UUID.randomUUID()), "Operator");
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(operator), Availability.always());
+        Certification operator = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Operator"));
+        Person person = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(operator), Availability.always());
         Activity activity = measurement(operator.id(), 0, 3);
         Permit permit = permitFor(activity);
         Expedition expedition = draft();
@@ -213,8 +217,8 @@ class ExpeditionValidatorTest {
 
     @Test
     void measurementWithTheWrongInstrumentKindIsCritical() {
-        Certification operator = new Certification(new CertificationId(UUID.randomUUID()), "Operator");
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(operator), Availability.always());
+        Certification operator = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Operator"));
+        Person person = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(operator), Availability.always());
         Instrument thermometer = new Instrument(new InstrumentId(UUID.randomUUID()), new InstrumentKind("thermometer"), Availability.always());
         Activity activity = measurement(operator.id(), 0, 3);
         Permit permit = permitFor(activity);
@@ -251,7 +255,7 @@ class ExpeditionValidatorTest {
     @Test
     void missingCertificationIsCritical() {
         SamplingPlan plan = samplingPlan(0, 4);
-        Person unqualified = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(), Availability.always());
+        Person unqualified = new Person(new PersonId(UUID.randomUUID()), new PersonName("Bob"), List.of(), Availability.always());
         plan.catalog.save(unqualified);
         Activity extra = sampling(plan.certification.id(), 4, 8);
         plan.expedition.addActivity(extra);
@@ -294,8 +298,8 @@ class ExpeditionValidatorTest {
 
     @Test
     void parallelBranchesSharingAPersonAreCriticalEvenWithDisjointWindows() {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
+        Person ada = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(certification), Availability.always());
         Activity left = sampling(certification.id(), 0, 4);
         Activity right = sampling(certification.id(), 4, 8);
         Permit leftPermit = permitFor(left);
@@ -319,8 +323,8 @@ class ExpeditionValidatorTest {
 
     @Test
     void sequentialBlockMayReuseAPerson() {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
+        Person ada = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(certification), Availability.always());
         Activity left = sampling(certification.id(), 0, 4);
         Activity right = sampling(certification.id(), 4, 8);
         Permit leftPermit = permitFor(left);
@@ -344,14 +348,14 @@ class ExpeditionValidatorTest {
 
     @Test
     void consumablesOnParallelBranchesAreNotAParallelConflict() {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
-        Person bob = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
+        Person ada = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(certification), Availability.always());
+        Person bob = new Person(new PersonId(UUID.randomUUID()), new PersonName("Bob"), List.of(certification), Availability.always());
         Activity first = sampling(certification.id(), 0, 4);
         Activity second = sampling(certification.id(), 0, 4);
         Permit firstPermit = permitFor(first);
         Permit secondPermit = permitFor(second);
-        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(20));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("vials"), new Stock(20));
         Expedition expedition = draft();
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.save(ada);
@@ -374,10 +378,10 @@ class ExpeditionValidatorTest {
 
     @Test
     void nightActivityInsideABlockStillRequiresANightPermit() {
-        Certification samplingCert = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Certification samplingCert = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
         Person ada = new Person(
                 new PersonId(UUID.randomUUID()),
-                "Ada",
+                new PersonName("Ada"),
                 List.of(NIGHT_OPERATION, samplingCert),
                 Availability.always()
         );
@@ -408,7 +412,7 @@ class ExpeditionValidatorTest {
     @Test
     void stockShortfallIsCritical() {
         SamplingPlan plan = samplingPlan(0, 4);
-        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("vials"), new Stock(10));
         plan.catalog.save(vials);
         plan.expedition.addAssignment(new ConsumableAssignment(plan.activity.id(), vials.id(), new Consumption(15)), plan.catalog.catalogs());
 
@@ -420,7 +424,7 @@ class ExpeditionValidatorTest {
     @Test
     void occupyingPeerConsumesStock() {
         SamplingPlan first = samplingPlan(0, 4);
-        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("vials"), new Stock(10));
         first.catalog.save(vials);
         first.expedition.addAssignment(new ConsumableAssignment(first.activity.id(), vials.id(), new Consumption(6)), first.catalog.catalogs());
         submit(first.expedition, first.catalog);
@@ -435,7 +439,7 @@ class ExpeditionValidatorTest {
     @Test
     void selfPassedInOthersDoesNotDoubleCountStock() {
         SamplingPlan plan = samplingPlan(0, 4);
-        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("vials"), new Stock(10));
         plan.catalog.save(vials);
         plan.expedition.addAssignment(new ConsumableAssignment(plan.activity.id(), vials.id(), new Consumption(8)), plan.catalog.catalogs());
 
@@ -447,7 +451,7 @@ class ExpeditionValidatorTest {
     @Test
     void finishedPeerDoesNotConsumeStock() {
         SamplingPlan first = samplingPlan(0, 4);
-        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("vials"), new Stock(10));
         first.catalog.save(vials);
         first.expedition.addAssignment(new ConsumableAssignment(first.activity.id(), vials.id(), new Consumption(10)), first.catalog.catalogs());
         ExpeditionExecution finished = finish(first.expedition, first.activity);
@@ -484,8 +488,8 @@ class ExpeditionValidatorTest {
 
     @Test
     void unknownPermitIsResourceNotCoverage() {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
+        Person person = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(certification), Availability.always());
         Activity activity = sampling(certification.id(), 0, 4);
         Expedition expedition = draft();
         ResourceCatalog catalog = new ResourceCatalog();
@@ -516,8 +520,8 @@ class ExpeditionValidatorTest {
 
     @Test
     void missingPermitIsCritical() {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
+        Person person = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(certification), Availability.always());
         Activity activity = sampling(certification.id(), 0, 4);
         Expedition expedition = draft();
         ResourceCatalog catalog = new ResourceCatalog();
@@ -533,10 +537,10 @@ class ExpeditionValidatorTest {
     @Test
     void permitDoesNotCoverADifferentZone() {
         WorkZone coast = new WorkZone("Coast");
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
+        Person person = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(certification), Availability.always());
         Activity activity = Activity.sampling(certification.id())
-                .named(new ActivityId(UUID.randomUUID()), "coast sample")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("coast sample"))
                 .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.MEDIUM)
                 .in(coast, window(0, 4))
                 .build();
@@ -551,7 +555,7 @@ class ExpeditionValidatorTest {
                         List.of(lead),
                         List.of(new Restriction("No night work"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.save(person);
@@ -567,8 +571,8 @@ class ExpeditionValidatorTest {
 
     @Test
     void permitThatDoesNotCoverTheWindowIsCritical() {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
+        Person person = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(certification), Availability.always());
         Activity activity = sampling(certification.id(), 4, 8);
         Permit morningOnly = new Permit(new PermitId(UUID.randomUUID()), DELTA, window(0, 4), PermitKind.ZONE);
         Expedition expedition = draft();
@@ -603,11 +607,11 @@ class ExpeditionValidatorTest {
     }
 
     private static Person nightOperator(String name) {
-        return new Person(new PersonId(UUID.randomUUID()), name, List.of(NIGHT_OPERATION), Availability.always());
+        return new Person(new PersonId(UUID.randomUUID()), new PersonName(name), List.of(NIGHT_OPERATION), Availability.always());
     }
 
     private static Person uncertified(String name) {
-        return new Person(new PersonId(UUID.randomUUID()), name, List.of(), Availability.always());
+        return new Person(new PersonId(UUID.randomUUID()), new PersonName(name), List.of(), Availability.always());
     }
 
     private void submit(Expedition plan, ResourceCatalog catalog) {
@@ -664,8 +668,8 @@ class ExpeditionValidatorTest {
     }
 
     private static SamplingPlan samplingPlan(int fromHour, int toHour) {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(certification), Availability.always());
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
+        Person person = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(certification), Availability.always());
         return samplingPlan(person, certification, fromHour, toHour);
     }
 
@@ -696,8 +700,8 @@ class ExpeditionValidatorTest {
     private static TransitPlan crowdedTransit() {
         Activity activity = transit(4, 6);
         Permit permit = permitFor(activity);
-        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(), Availability.always());
-        Person bob = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(), Availability.always());
+        Person ada = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(), Availability.always());
+        Person bob = new Person(new PersonId(UUID.randomUUID()), new PersonName("Bob"), List.of(), Availability.always());
         Vehicle vehicle = new Vehicle(new VehicleId(UUID.randomUUID()), new Capacity(1), Availability.always());
         Expedition expedition = draft();
         ResourceCatalog catalog = new ResourceCatalog();
@@ -724,13 +728,13 @@ class ExpeditionValidatorTest {
                         List.of(lead),
                         List.of(new Restriction("No night work"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
     }
 
     private static Activity night(int fromHour, int toHour) {
         return Activity.night(NIGHT_OPERATION.id())
-                .named(new ActivityId(UUID.randomUUID()), "night survey")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("night survey"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
@@ -738,7 +742,7 @@ class ExpeditionValidatorTest {
 
     private static Activity sampling(CertificationId certificationId, int fromHour, int toHour) {
         return Activity.sampling(certificationId)
-                .named(new ActivityId(UUID.randomUUID()), "sample")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("sample"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.MEDIUM)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
@@ -746,7 +750,7 @@ class ExpeditionValidatorTest {
 
     private static Activity transit(int fromHour, int toHour) {
         return Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "transit")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("transit"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
@@ -754,7 +758,7 @@ class ExpeditionValidatorTest {
 
     private static Activity measurement(CertificationId certificationId, int fromHour, int toHour) {
         return Activity.measurement(certificationId, PROBE)
-                .named(new ActivityId(UUID.randomUUID()), "measure")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("measure"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.HIGH)
                 .in(DELTA, window(fromHour, toHour))
                 .build();

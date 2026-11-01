@@ -5,11 +5,13 @@ import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
@@ -168,7 +170,7 @@ class ExpeditionTest {
     void aStrangerCannotAcceptAWarning() {
         Expedition expedition = inReview();
         ValidationIssue issue = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle near capacity");
-        AcceptedWarning warning = new AcceptedWarning(issue, "extra trailer available", new PersonId(UUID.randomUUID()));
+        AcceptedWarning warning = new AcceptedWarning(issue, new Justification("extra trailer available"), new PersonId(UUID.randomUUID()));
 
         InvalidValue rejected = assertThrows(InvalidValue.class, () -> accept(expedition, warning));
 
@@ -224,7 +226,7 @@ class ExpeditionTest {
         expedition.removeActivity(first.id());
         expedition.addActivity(transit());
 
-        assertEquals(List.of("Camp to site"), expedition.activities().stream().map(Activity::name).toList());
+        assertEquals(List.of("Camp to site"), expedition.activities().stream().map(activity -> activity.name().value()).toList());
     }
 
     @Test
@@ -435,11 +437,11 @@ class ExpeditionTest {
         ExpeditionState draft = wetlandDraft().state();
         AcceptedWarning byStranger = new AcceptedWarning(
                 new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle near capacity"),
-                "extra trailer available",
+                new Justification("extra trailer available"),
                 new PersonId(UUID.randomUUID())
         );
         Activity elsewhere = Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "Elsewhere")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("Elsewhere"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(new WorkZone("Andes"), window(0, 2))
                 .build();
@@ -506,7 +508,7 @@ class ExpeditionTest {
         Expedition expedition = wetlandDraft();
         Activity activity = sampling();
         expedition.addActivity(activity);
-        Person ada = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(), Availability.always());
+        Person ada = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(), Availability.always());
         ResourceCatalog catalog = new ResourceCatalog();
         catalog.save(ada);
         expedition.addAssignment(new PersonAssignment(activity.id(), ada.id()), catalog.catalogs());
@@ -533,7 +535,7 @@ class ExpeditionTest {
                         List.of(lead),
                         List.of(new Restriction("No night work"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
     }
 
@@ -558,12 +560,12 @@ class ExpeditionTest {
 
     private static AcceptedWarning acceptedCapacityWarning(Expedition expedition) {
         ValidationIssue issue = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle near capacity");
-        return new AcceptedWarning(issue, "extra trailer available", expedition.charter().responsibles().getFirst());
+        return new AcceptedWarning(issue, new Justification("extra trailer available"), expedition.charter().responsibles().getFirst());
     }
 
     private static Activity sampling() {
         return Activity.sampling(new CertificationId(UUID.randomUUID()))
-                .named(new ActivityId(UUID.randomUUID()), "Soil sampling")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("Soil sampling"))
                 .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.MEDIUM)
                 .in(DELTA, window(0, 4))
                 .build();
@@ -571,7 +573,7 @@ class ExpeditionTest {
 
     private static Activity transit() {
         return Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "Camp to site")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("Camp to site"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(4, 6))
                 .build();

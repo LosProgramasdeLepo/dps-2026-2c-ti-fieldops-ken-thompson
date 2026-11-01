@@ -6,6 +6,7 @@ import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
+import edu.itba.fieldops.domain.expedition.Justification;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
@@ -81,7 +82,7 @@ class ReviewControllerTest {
 
         verify(review).acceptWarning(new ExpeditionId(expeditionId), new AcceptedWarning(
                 new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle is over capacity"),
-                "One extra passenger walks",
+                new Justification("One extra passenger walks"),
                 new PersonId(acceptedBy)
         ));
     }

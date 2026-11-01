@@ -3,12 +3,14 @@ package edu.itba.fieldops.domain.expedition;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
@@ -37,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PlanContentTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
-    private static final Person ADA = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(), Availability.always());
+    private static final Person ADA = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(), Availability.always());
     private static final Permit ZONE_PERMIT = new Permit(
             new PermitId(UUID.randomUUID()),
             DELTA,
@@ -55,7 +57,7 @@ class PlanContentTest {
 
         assertEquals(
                 List.of("Soil sampling", "Camp to site", "Water measurement"),
-                plan.activities().stream().map(Activity::name).toList()
+                plan.activities().stream().map(activity -> activity.name().value()).toList()
         );
     }
 
@@ -79,7 +81,7 @@ class PlanContentTest {
     void rejectsUnknownPredecessor() {
         PlanContent plan = wetlandPlan();
         Activity orphan = Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "dependent")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("dependent"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(0, 2))
                 .after(Set.of(new ActivityId(UUID.randomUUID())))
@@ -133,7 +135,7 @@ class PlanContentTest {
         Activity first = sampling();
         plan.addActivity(first);
         Activity lateStart = Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "late start")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("late start"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(3, 5))
                 .after(Set.of(first.id()))
@@ -298,7 +300,7 @@ class PlanContentTest {
 
     private static Activity sampling() {
         return Activity.sampling(new CertificationId(UUID.randomUUID()))
-                .named(new ActivityId(UUID.randomUUID()), "Soil sampling")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("Soil sampling"))
                 .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.MEDIUM)
                 .in(DELTA, window(0, 4))
                 .build();
@@ -310,7 +312,7 @@ class PlanContentTest {
 
     private static Activity transit(String name, int fromHour, int toHour, WorkZone zone) {
         return Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), name)
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName(name))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(zone, window(fromHour, toHour))
                 .build();
@@ -318,7 +320,7 @@ class PlanContentTest {
 
     private static Activity measurement() {
         return Activity.measurement(new CertificationId(UUID.randomUUID()), new InstrumentKind("probe"))
-                .named(new ActivityId(UUID.randomUUID()), "Water measurement")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("Water measurement"))
                 .estimated(new EstimatedDuration(Duration.ofHours(3)), RiskLevel.HIGH)
                 .in(DELTA, window(6, 9))
                 .build();

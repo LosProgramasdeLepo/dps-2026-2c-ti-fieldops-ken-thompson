@@ -2,6 +2,7 @@ package edu.itba.fieldops.usecase.catalog;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
@@ -43,7 +44,7 @@ public final class AdministerEquipmentInteractor implements AdministerEquipment 
     }
 
     @Override
-    public ConsumableId registerConsumable(String name, Stock stock) {
+    public ConsumableId registerConsumable(ConsumableName name, Stock stock) {
         ConsumableId id = consumables.nextConsumableId();
         consumables.save(new Consumable(id, name, stock));
         return id;

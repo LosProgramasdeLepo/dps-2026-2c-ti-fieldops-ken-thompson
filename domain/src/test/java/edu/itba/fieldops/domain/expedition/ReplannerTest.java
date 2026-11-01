@@ -2,14 +2,18 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
@@ -39,7 +43,7 @@ class ReplannerTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
 
-    private final Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+    private final Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
     private final Person ada = person("Ada");
     private final Person bob = person("Bob");
     private final ResourceCatalog catalog = new ResourceCatalog();
@@ -119,7 +123,7 @@ class ReplannerTest {
 
     @Test
     void replaceUnavailableKeepsConsumable() {
-        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("vials"), new Stock(10));
         catalog.save(ada);
         catalog.save(bob);
         catalog.save(vials);
@@ -183,12 +187,12 @@ class ReplannerTest {
     }
 
     private Person person(String name) {
-        return new Person(new PersonId(UUID.randomUUID()), name, List.of(certification), Availability.always());
+        return new Person(new PersonId(UUID.randomUUID()), new PersonName(name), List.of(certification), Availability.always());
     }
 
     private Activity sampling(int fromHour, int toHour) {
         return Activity.sampling(certification.id())
-                .named(new ActivityId(UUID.randomUUID()), "sample")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("sample"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.MEDIUM)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
@@ -205,7 +209,7 @@ class ReplannerTest {
                         List.of(lead),
                         List.of(new Restriction("No night work"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
         expedition.addActivity(activity);
         return expedition;

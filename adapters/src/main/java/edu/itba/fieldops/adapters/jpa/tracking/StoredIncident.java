@@ -2,6 +2,7 @@ package edu.itba.fieldops.adapters.jpa.tracking;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
@@ -17,13 +18,13 @@ public record StoredIncident(
 ) {
     public static StoredIncident of(Incident incident) {
         return new StoredIncident(
-                incident.description(),
+                incident.description().text(),
                 incident.at(),
                 incident.activityId().map(ActivityId::value).orElse(null)
         );
     }
 
     public Incident toDomain() {
-        return new Incident(description, occurredAt, Optional.ofNullable(activityId).map(ActivityId::new));
+        return new Incident(new IncidentDescription(description), occurredAt, Optional.ofNullable(activityId).map(ActivityId::new));
     }
 }

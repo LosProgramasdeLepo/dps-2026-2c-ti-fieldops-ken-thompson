@@ -42,7 +42,7 @@ public final class StockRule implements ValidationRule {
         return new ValidationIssue(
                 IssueSeverity.CRITICAL,
                 "STOCK",
-                "consumable " + consumable.name()
+                "consumable " + consumable.name().value()
                         + " stock " + consumable.stock().amount()
                         + " is less than assigned " + needed.amount()
         );

@@ -1,6 +1,7 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,10 +27,10 @@ public class CertificationEntity {
 
     CertificationEntity(Certification certification) {
         this.id = certification.id().value();
-        this.name = certification.name();
+        this.name = certification.name().value();
     }
 
     public Certification toDomain() {
-        return new Certification(new CertificationId(id), name);
+        return new Certification(new CertificationId(id), new CertificationName(name));
     }
 }

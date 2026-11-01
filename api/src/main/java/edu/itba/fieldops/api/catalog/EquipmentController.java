@@ -14,6 +14,7 @@ import edu.itba.fieldops.api.json.Pages;
 import edu.itba.fieldops.api.json.Periods;
 import edu.itba.fieldops.api.json.ResourceIdResponse;
 import edu.itba.fieldops.api.json.Responses;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
@@ -77,7 +78,7 @@ public final class EquipmentController {
 
     @PostMapping("/v1/consumables")
     public ResponseEntity<ResourceIdResponse> registerConsumable(@Valid @RequestBody RegisterConsumableRequest request) {
-        ConsumableId id = equipment.registerConsumable(request.name(), new Stock(request.stock()));
+        ConsumableId id = equipment.registerConsumable(new ConsumableName(request.name()), new Stock(request.stock()));
         return Responses.created("/v1/consumables", id.value());
     }
 

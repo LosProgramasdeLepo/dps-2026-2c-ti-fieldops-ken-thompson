@@ -8,6 +8,7 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
@@ -98,7 +99,7 @@ class ExpeditionsControllerTest {
         UUID id = UUID.randomUUID();
         UUID activityId = UUID.randomUUID();
         when(consult.activity(new ExpeditionId(id), new ActivityId(activityId))).thenReturn(Activity.transit()
-                .named(new ActivityId(activityId), "Crossing")
+                .named(new ActivityId(activityId), new ActivityName("Crossing"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(new WorkZone("Delta"), new TimePeriod(Instant.parse("2026-11-01T08:00:00Z"), Instant.parse("2026-11-01T10:00:00Z")))
                 .build());

@@ -49,6 +49,7 @@ import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
+import edu.itba.fieldops.domain.expedition.Justification;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.Restriction;
@@ -62,6 +63,7 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.itinerary.ResourceRequirements;
@@ -116,7 +118,7 @@ public final class ExpeditionMapping {
             case CampActivity ignored -> Activity.camp();
         };
         return builder
-                .named(id, request.name())
+                .named(id, new ActivityName(request.name()))
                 .estimated(new EstimatedDuration(request.estimatedDuration()), request.risk())
                 .consuming(consumption(request.consumption()))
                 .in(new WorkZone(request.zone()), Periods.toPeriod(request.window()))
@@ -158,7 +160,7 @@ public final class ExpeditionMapping {
     public static AcceptedWarning warning(AcceptWarningRequest request) {
         return new AcceptedWarning(
                 new ValidationIssue(request.issue().severity(), request.issue().code(), request.issue().message()),
-                request.justification(),
+                new Justification(request.justification()),
                 new PersonId(request.acceptedBy())
         );
     }
@@ -266,7 +268,7 @@ public final class ExpeditionMapping {
     public static ActivityResponse activity(Activity activity) {
         return new ActivityResponse(
                 activity.id().value(),
-                activity.name(),
+                activity.name().value(),
                 activity.estimatedDuration().value().toString(),
                 activity.risk().name(),
                 amounts(activity.estimatedConsumption()),
@@ -316,21 +318,21 @@ public final class ExpeditionMapping {
                 warning.issue().severity().name(),
                 warning.issue().code(),
                 warning.issue().message(),
-                warning.justification(),
+                warning.justification().text(),
                 warning.acceptedBy().value()
         );
     }
 
     private static IncidentResponse incident(Incident incident) {
         return new IncidentResponse(
-                incident.description(),
+                incident.description().text(),
                 incident.at(),
                 incident.activityId().map(ActivityId::value).orElse(null)
         );
     }
 
     private static ObservationResponse observation(Observation observation) {
-        return new ObservationResponse(observation.text(), observation.at());
+        return new ObservationResponse(observation.text().text(), observation.at());
     }
 
     private static ActivityExecutionResponse execution(ActivityExecution execution) {

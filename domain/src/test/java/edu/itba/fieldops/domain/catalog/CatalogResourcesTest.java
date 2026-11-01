@@ -28,8 +28,8 @@ class CatalogResourcesTest {
 
     @Test
     void personHoldsCertificationAndAvailability() {
-        Certification sampling = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
-        Person person = new Person(new PersonId(UUID.randomUUID()), "Ada", List.of(sampling), Availability.always());
+        Certification sampling = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
+        Person person = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(sampling), Availability.always());
 
         assertAll(
                 () -> assertTrue(person.holds(sampling.id())),
@@ -40,7 +40,7 @@ class CatalogResourcesTest {
 
     @Test
     void consumableComparesAgainstStock() {
-        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(20));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("vials"), new Stock(20));
 
         assertAll(
                 () -> assertTrue(vials.covers(new Consumption(20))),
