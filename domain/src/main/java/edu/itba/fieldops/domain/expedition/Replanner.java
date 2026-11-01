@@ -43,7 +43,7 @@ public final class Replanner {
     }
 
     private PlanningContext contextOf(Expedition draft) {
-        return contexts.around(requireDraft(Objects.requireNonNull(draft, "draft")));
+        return contexts.around(requireDraft(draft));
     }
 
     private void cancel(PlanningContext context, ActivityId activityId) {
