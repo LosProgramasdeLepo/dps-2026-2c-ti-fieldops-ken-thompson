@@ -22,6 +22,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionResponses.AcceptedWarningRespo
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityExecutionResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityResultResponse;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityRiskResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.AssignmentResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.BlockResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.CharterResponse;
@@ -68,6 +69,7 @@ import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.itinerary.ResourceRequirements;
 import edu.itba.fieldops.domain.report.ActivityResult;
+import edu.itba.fieldops.domain.report.ActivityRisk;
 import edu.itba.fieldops.domain.report.Estimate;
 import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.shared.Consumption;
@@ -209,12 +211,17 @@ public final class ExpeditionMapping {
                 report.finishedActivities(),
                 report.duration().toString(),
                 report.risk().name(),
+                report.risks().stream().map(ExpeditionMapping::risk).toList(),
                 amounts(report.consumption()),
                 amounts(report.estimatedConsumption()),
                 report.incidents().stream().map(ExpeditionMapping::incident).toList(),
                 report.observations().stream().map(ExpeditionMapping::observation).toList(),
                 report.activityResults().stream().map(ExpeditionMapping::result).toList()
         );
+    }
+
+    private static ActivityRiskResponse risk(ActivityRisk risk) {
+        return new ActivityRiskResponse(risk.activityId().value(), risk.risk().name());
     }
 
     public static RunResponse run(RunSnapshot snapshot) {

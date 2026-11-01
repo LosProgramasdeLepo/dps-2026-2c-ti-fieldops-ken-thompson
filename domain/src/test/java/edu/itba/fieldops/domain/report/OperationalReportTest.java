@@ -13,6 +13,7 @@ import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
@@ -96,6 +97,28 @@ class OperationalReportTest {
                 () -> assertEquals(3, report.plannedActivities()),
                 () -> assertEquals(Duration.ofHours(6), report.duration()),
                 () -> assertEquals(RiskLevel.HIGH, report.risk())
+        );
+    }
+
+    @Test
+    void reportsTheRiskOfEachActivityHighestFirstWithTheNightFactor() {
+        Activity approach = activity(0, 2, RiskLevel.LOW);
+        Activity watch = Activity.night(new CertificationId(UUID.randomUUID()))
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("night watch"))
+                .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.MEDIUM)
+                .in(DELTA, new TimePeriod(START.plus(Duration.ofHours(20)), START.plus(Duration.ofHours(22))))
+                .build();
+        expedition.addActivity(approach);
+        expedition.addActivity(watch);
+
+        OperationalReport report = OperationalReport.of(expedition);
+
+        assertAll(
+                () -> assertEquals(RiskLevel.HIGH, report.risk()),
+                () -> assertEquals(
+                        List.of(new ActivityRisk(watch.id(), RiskLevel.HIGH), new ActivityRisk(approach.id(), RiskLevel.LOW)),
+                        report.risks()
+                )
         );
     }
 
