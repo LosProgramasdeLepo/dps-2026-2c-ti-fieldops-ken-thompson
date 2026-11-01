@@ -14,7 +14,6 @@ import edu.itba.fieldops.domain.tracking.Observation;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 public final class ExpeditionTracker {
@@ -73,13 +72,6 @@ public final class ExpeditionTracker {
 
     public void observe(ExpeditionExecution run, String text) {
         run.addObservation(new Observation(text, now(run, "observation").instant()));
-    }
-
-    public Optional<Expedition> planAffectedBy(ExpeditionExecution run, Incident incident) {
-        Expedition inForce = inForce(run);
-        return incident.activityId()
-                .filter(activityId -> inForce.status() == ExpeditionStatus.APPROVED && inForce.includes(activityId))
-                .map(activityId -> inForce);
     }
 
     private void requireInLineage(ExpeditionExecution run, ActivityId activityId) {

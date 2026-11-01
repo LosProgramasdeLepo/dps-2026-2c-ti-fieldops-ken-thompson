@@ -14,35 +14,52 @@ import java.util.Objects;
 
 public final class Replanner {
     private final AssignmentSuggester suggester;
+    private final PlanningContexts contexts;
 
-    public Replanner(AssignmentSuggester suggester) {
+    public Replanner(AssignmentSuggester suggester, PlanningContexts contexts) {
         this.suggester = Objects.requireNonNull(suggester, "assignment suggester");
+        this.contexts = Objects.requireNonNull(contexts, "planning contexts");
     }
 
-    public void cancel(PlanningContext context, ActivityId activityId) {
-        requireDraft(context.plan()).removeActivity(activityId);
-        refill(context);
+    public void cancel(Expedition draft, ActivityId activityId) {
+        cancel(contextOf(draft), activityId);
     }
 
-    public void delay(PlanningContext context, ActivityId activityId, Delay delay) {
-        requireDraft(context.plan()).delay(activityId, delay);
-        dropInvalid(context);
-        refill(context);
+    public void delay(Expedition draft, ActivityId activityId, Delay delay) {
+        delay(contextOf(draft), activityId, delay);
     }
 
-    public void replaceUnavailable(PlanningContext context) {
-        requireDraft(context.plan());
-        dropInvalid(context);
-        refill(context);
+    public void replaceUnavailable(Expedition draft) {
+        replaceUnavailable(contextOf(draft));
     }
 
-    public ReplanProposal propose(ProposalId id, PlanningContext revision, Incident incident, ExpeditionExecution execution) {
+    ReplanProposal propose(ProposalId id, Expedition revision, Incident incident, ExpeditionExecution execution) {
         if (!execution.incidents().contains(incident)) {
             throw new InvalidValue("incident is not recorded on the run");
         }
-        ReplanProposal proposal = new ReplanProposal(id, incident, revision.plan());
-        respondTo(revision, incident, execution);
+        ReplanProposal proposal = new ReplanProposal(id, incident, revision);
+        respondTo(contextOf(revision), incident, execution);
         return proposal;
+    }
+
+    private PlanningContext contextOf(Expedition draft) {
+        return contexts.around(requireDraft(Objects.requireNonNull(draft, "draft")));
+    }
+
+    private void cancel(PlanningContext context, ActivityId activityId) {
+        context.plan().removeActivity(activityId);
+        refill(context);
+    }
+
+    private void delay(PlanningContext context, ActivityId activityId, Delay delay) {
+        context.plan().delay(activityId, delay);
+        dropInvalid(context);
+        refill(context);
+    }
+
+    private void replaceUnavailable(PlanningContext context) {
+        dropInvalid(context);
+        refill(context);
     }
 
     private void respondTo(PlanningContext context, Incident incident, ExpeditionExecution execution) {

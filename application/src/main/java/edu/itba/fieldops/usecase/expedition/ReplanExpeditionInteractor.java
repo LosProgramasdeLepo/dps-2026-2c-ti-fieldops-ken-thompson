@@ -1,11 +1,7 @@
 package edu.itba.fieldops.usecase.expedition;
 
-import edu.itba.fieldops.domain.catalog.Catalogs;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
-import edu.itba.fieldops.domain.expedition.PlanningContext;
-import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.expedition.Replanner;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -17,17 +13,10 @@ import java.util.function.Consumer;
 
 public final class ReplanExpeditionInteractor implements ReplanExpedition {
     private final ExpeditionRepository plans;
-    private final PlanningContexts contexts;
     private final Replanner replanner;
 
-    public ReplanExpeditionInteractor(
-            ExpeditionRepository plans,
-            ExecutionRepository executions,
-            Catalogs catalogs,
-            Replanner replanner
-    ) {
+    public ReplanExpeditionInteractor(ExpeditionRepository plans, Replanner replanner) {
         this.plans = Objects.requireNonNull(plans, "plans");
-        this.contexts = new PlanningContexts(plans, executions, catalogs);
         this.replanner = Objects.requireNonNull(replanner, "replanner");
     }
 
@@ -40,12 +29,12 @@ public final class ReplanExpeditionInteractor implements ReplanExpedition {
 
     @Override
     public void cancel(ExpeditionId draftId, ActivityId activityId) {
-        replan(draftId, context -> replanner.cancel(context, activityId));
+        replan(draftId, draft -> replanner.cancel(draft, activityId));
     }
 
     @Override
     public void delay(ExpeditionId draftId, ActivityId activityId, Delay delay) {
-        replan(draftId, context -> replanner.delay(context, activityId, delay));
+        replan(draftId, draft -> replanner.delay(draft, activityId, delay));
     }
 
     @Override
@@ -53,9 +42,9 @@ public final class ReplanExpeditionInteractor implements ReplanExpedition {
         replan(draftId, replanner::replaceUnavailable);
     }
 
-    private void replan(ExpeditionId draftId, Consumer<PlanningContext> change) {
+    private void replan(ExpeditionId draftId, Consumer<Expedition> change) {
         Expedition draft = plans.require(draftId);
-        change.accept(contexts.around(draft));
+        change.accept(draft);
         plans.save(draft);
     }
 }
