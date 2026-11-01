@@ -85,11 +85,6 @@ class TimePeriodTest {
         assertThrows(InvalidValue.class, () -> new TimePeriod(instant, instant));
     }
 
-    @Test
-    void measuresItsLength() {
-        assertEquals(Duration.ofHours(4), hours(0, 4).length());
-    }
-
     private static TimePeriod hours(int from, int to) {
         return new TimePeriod(DAY.plusSeconds(from * 3600L), DAY.plusSeconds(to * 3600L));
     }

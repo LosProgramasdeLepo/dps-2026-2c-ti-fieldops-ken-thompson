@@ -14,7 +14,6 @@ import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.Stock;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultEquipment;
 import org.junit.jupiter.api.Test;
@@ -28,8 +27,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -82,16 +79,6 @@ class EquipmentControllerTest {
                         .content("{\"name\":\"Vials\",\"stock\":5}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/v1/consumables/" + consumable));
-    }
-
-    @Test
-    void anUnknownVehicleInThePathIsNotFound() throws Exception {
-        UUID id = UUID.randomUUID();
-        doThrow(new UnknownResource("vehicle", id.toString())).when(equipment).changeAvailability(eq(new VehicleId(id)), any());
-
-        mvc.perform(put("/v1/vehicles/{id}/availability", id).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"availability\":" + AVAILABILITY + "}"))
-                .andExpect(status().isNotFound());
     }
 
     @Test

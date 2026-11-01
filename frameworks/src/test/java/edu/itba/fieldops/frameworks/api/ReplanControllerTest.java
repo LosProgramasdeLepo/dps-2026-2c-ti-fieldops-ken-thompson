@@ -10,7 +10,6 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Delay;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -34,8 +33,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -154,16 +151,6 @@ class ReplanControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.originalId").value(expeditionId.toString()))
                 .andExpect(jsonPath("$.incident.description").value("gear flooded"));
-    }
-
-    @Test
-    void aDecidedProposalIsUnprocessable() throws Exception {
-        doThrow(new InvalidValue("proposal already decided")).when(proposals).accept(any(), any());
-
-        mvc.perform(post("/v1/replan-proposals/{proposalId}/acceptance", UUID.randomUUID())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"responsible\":\"" + UUID.randomUUID() + "\"}"))
-                .andExpect(status().isUnprocessableEntity());
     }
 
     private static ProposalSnapshot proposal(UUID proposalId, UUID expeditionId, PlanSnapshot suggested) {

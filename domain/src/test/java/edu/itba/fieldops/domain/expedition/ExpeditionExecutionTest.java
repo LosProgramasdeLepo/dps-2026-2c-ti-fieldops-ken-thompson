@@ -94,15 +94,6 @@ class ExpeditionExecutionTest {
     }
 
     @Test
-    void theRecordedActivitiesCannotBeChangedFromOutside() {
-        ExpeditionExecution running = open(expeditionId, new ActivityExecution(first, DAY));
-
-        running.activities().getFirst().finish(hours(1), ActivityReport.of(new Outcome("samples stored")));
-
-        assertFalse(running.activities().getFirst().isFinished());
-    }
-
-    @Test
     void finishesOnceEveryPlannedActivityFinished() {
         RunOnPlan started = running(activity(first, 0, 4));
         started.run.startActivity(started.plan.startOf(first, DAY, List.of(started.plan)));

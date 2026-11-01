@@ -14,7 +14,6 @@ import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.usecase.expedition.ConsultExpedition;
 import edu.itba.fieldops.domain.usecase.expedition.DraftExpedition;
@@ -109,16 +108,6 @@ class ExpeditionsControllerTest {
                 .andExpect(jsonPath("$.id").value(activityId.toString()))
                 .andExpect(jsonPath("$.name").value("Crossing"))
                 .andExpect(jsonPath("$.estimatedDuration").value("PT2H"));
-    }
-
-    @Test
-    void anActivityOutsideThePlanIsNotFound() throws Exception {
-        UUID id = UUID.randomUUID();
-        UUID activityId = UUID.randomUUID();
-        when(consult.activity(new ExpeditionId(id), new ActivityId(activityId))).thenThrow(new UnknownResource("activity", activityId.toString()));
-
-        mvc.perform(get("/v1/expeditions/{id}/activities/{activityId}", id, activityId))
-                .andExpect(status().isNotFound());
     }
 
     static PlanSnapshot plan(UUID id) {

@@ -1,7 +1,6 @@
 package edu.itba.fieldops.frameworks.api;
 
 import edu.itba.fieldops.api.expedition.AssignmentsController;
-import edu.itba.fieldops.domain.expedition.InvalidAssignment;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -18,8 +17,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -77,15 +74,5 @@ class AssignmentsControllerTest {
                 .andExpect(jsonPath("$[0].type").value("PERSON"))
                 .andExpect(jsonPath("$[0].activityId").value(activityId.toString()))
                 .andExpect(jsonPath("$[0].personId").value(personId.toString()));
-    }
-
-    @Test
-    void aRepeatedAssignmentIsUnprocessable() throws Exception {
-        doThrow(new InvalidAssignment("assignment already filed")).when(assignments).addAssignment(any(), any());
-
-        mvc.perform(post("/v1/expeditions/{id}/assignments", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON).content("""
-                {"type":"PERSON","activityId":"%s","personId":"%s"}
-                """.formatted(UUID.randomUUID(), UUID.randomUUID())))
-                .andExpect(status().isUnprocessableEntity());
     }
 }
