@@ -33,7 +33,7 @@ public final class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         if (pathContains(request, error.id())) {
             return problem(HttpStatus.NOT_FOUND, "Not Found", error.getMessage());
         }
-        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", error.getMessage());
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, "Unprocessable Content", error.getMessage());
     }
 
     @ExceptionHandler({InvalidExpeditionTransition.class, ExpeditionNotApprovable.class, InvalidActivityExecution.class})
@@ -43,7 +43,7 @@ public final class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DomainException.class)
     ResponseEntity<ProblemDetail> domain(DomainException error) {
-        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", error.getMessage());
+        return problem(HttpStatus.UNPROCESSABLE_CONTENT, "Unprocessable Content", error.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

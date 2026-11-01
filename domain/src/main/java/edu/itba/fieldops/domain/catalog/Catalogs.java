@@ -8,16 +8,4 @@ public record Catalogs(BookableResources bookable, Consumables consumables, Perm
         Objects.requireNonNull(consumables, "consumables");
         Objects.requireNonNull(permits, "permits");
     }
-
-    public People people() {
-        return bookable.people();
-    }
-
-    public Vehicles vehicles() {
-        return bookable.vehicles();
-    }
-
-    public Instruments instruments() {
-        return bookable.instruments();
-    }
 }

@@ -91,10 +91,6 @@ public final class Assignments {
         return ofActivity(instruments, activityId);
     }
 
-    public List<ConsumableAssignment> consumables() {
-        return List.copyOf(consumables);
-    }
-
     public Map<ConsumableId, Consumption> consumption() {
         Map<ConsumableId, Consumption> totals = new HashMap<>();
         for (ConsumableAssignment assignment : consumables) {
