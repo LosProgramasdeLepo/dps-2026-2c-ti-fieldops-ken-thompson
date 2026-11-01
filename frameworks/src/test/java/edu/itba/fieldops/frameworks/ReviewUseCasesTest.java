@@ -3,10 +3,12 @@ package edu.itba.fieldops.frameworks;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
+import edu.itba.fieldops.domain.expedition.Justification;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
@@ -24,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ReviewUseCasesTest extends UseCaseFixture {
     @Test
     void rejectsSubmittingAnEmptyItinerary() {
-        ExpeditionId expeditionId = draftResponsibleFor(personnel.registerPerson("Ada", List.of(), Availability.always()));
+        ExpeditionId expeditionId = draftResponsibleFor(personnel.registerPerson(new PersonName("Ada"), List.of(), Availability.always()));
 
         assertThrows(InvalidItinerary.class, () -> review.submit(expeditionId));
     }
@@ -53,7 +55,7 @@ class ReviewUseCasesTest extends UseCaseFixture {
     void onlyAResponsibleCanAcceptAWarning() {
         ExpeditionId expeditionId = crowdedCrossingInReview();
         ValidationIssue capacity = review.validate(expeditionId).warnings().getFirst();
-        AcceptedWarning byAStranger = new AcceptedWarning(capacity, "backup team", new PersonId(UUID.randomUUID()));
+        AcceptedWarning byAStranger = new AcceptedWarning(capacity, new Justification("backup team"), new PersonId(UUID.randomUUID()));
 
         InvalidValue rejected = assertThrows(InvalidValue.class, () -> review.acceptWarning(expeditionId, byAStranger));
 
@@ -65,7 +67,7 @@ class ReviewUseCasesTest extends UseCaseFixture {
         ExpeditionId expeditionId = crowdedCrossingInReview();
         PersonId responsible = consult.of(expeditionId).charter().responsibles().getFirst();
         ValidationIssue invented = new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle near capacity");
-        AcceptedWarning accepted = new AcceptedWarning(invented, "backup team", responsible);
+        AcceptedWarning accepted = new AcceptedWarning(invented, new Justification("backup team"), responsible);
 
         InvalidValue rejected = assertThrows(InvalidValue.class, () -> review.acceptWarning(expeditionId, accepted));
 
@@ -84,7 +86,7 @@ class ReviewUseCasesTest extends UseCaseFixture {
         ExpeditionId expeditionId = crowdedCrossingInReview();
         PersonId responsible = consult.of(expeditionId).charter().responsibles().getFirst();
         ValidationIssue capacity = review.validate(expeditionId).warnings().getFirst();
-        review.acceptWarning(expeditionId, new AcceptedWarning(capacity, "second trip planned", responsible));
+        review.acceptWarning(expeditionId, new AcceptedWarning(capacity, new Justification("second trip planned"), responsible));
 
         approval.approve(expeditionId);
 

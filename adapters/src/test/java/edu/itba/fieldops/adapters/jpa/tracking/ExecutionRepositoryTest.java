@@ -11,7 +11,9 @@ import edu.itba.fieldops.adapters.jpa.expedition.ExpeditionRegistrationJpaReposi
 import edu.itba.fieldops.adapters.jpa.expedition.JpaExpeditionRepository;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.ExecutionState;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
@@ -26,7 +28,9 @@ import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.ObservationText;
 import edu.itba.fieldops.domain.tracking.Outcome;
 import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,10 +84,10 @@ class ExecutionRepositoryTest {
         runs = new JpaExecutionRepository(runRows, transactions);
         JpaPersonRegistry people = new JpaPersonRegistry(personRows, certificationRows, transactions);
         JpaExpeditionRepository plans = new JpaExpeditionRepository(expeditionRows, registrationRows, transactions);
-        Person ada = new Person(people.nextPersonId(), "Ada", List.of(), Availability.always());
+        Person ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(), Availability.always());
         people.save(ada);
         JpaConsumableRegistry consumables = new JpaConsumableRegistry(consumableRows, transactions);
-        fuel = new Consumable(consumables.nextConsumableId(), "Fuel", new Stock(50));
+        fuel = new Consumable(consumables.nextConsumableId(), new ConsumableName("Fuel"), new Stock(50));
         consumables.save(fuel);
         Expedition plan = Expedition.draft(plans.nextId(), new ExpeditionCharter(
                 List.of(new Objective("Map the delta")),
@@ -109,8 +113,8 @@ class ExecutionRepositoryTest {
                         ),
                         new ActivityExecution(ride, hours(4))
                 ),
-                List.of(Incident.affecting(ride, "flooded trail", hours(5)), Incident.of("radio down", hours(5))),
-                List.of(new Observation("heron colony", hours(5)))
+                List.of(Incident.affecting(ride, new IncidentDescription("flooded trail"), hours(5)), Incident.of(new IncidentDescription("radio down"), hours(5))),
+                List.of(new Observation(new ObservationText("heron colony"), hours(5)))
         ));
         run.suspend();
 

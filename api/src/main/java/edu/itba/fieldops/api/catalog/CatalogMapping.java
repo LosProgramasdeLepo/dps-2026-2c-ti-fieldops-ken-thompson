@@ -19,13 +19,13 @@ public final class CatalogMapping {
     }
 
     public static CertificationResponse certification(Certification certification) {
-        return new CertificationResponse(certification.id().value(), certification.name());
+        return new CertificationResponse(certification.id().value(), certification.name().value());
     }
 
     public static PersonResponse person(Person person) {
         return new PersonResponse(
                 person.id().value(),
-                person.name(),
+                person.name().value(),
                 person.certifications().stream().map(CatalogMapping::certification).toList(),
                 Periods.toResponse(person.availability())
         );
@@ -40,7 +40,7 @@ public final class CatalogMapping {
     }
 
     public static ConsumableResponse consumable(Consumable consumable) {
-        return new ConsumableResponse(consumable.id().value(), consumable.name(), consumable.stock().amount());
+        return new ConsumableResponse(consumable.id().value(), consumable.name().value(), consumable.stock().amount());
     }
 
     public static PermitResponse permit(Permit permit) {

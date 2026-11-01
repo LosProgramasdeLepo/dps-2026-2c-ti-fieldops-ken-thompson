@@ -47,7 +47,7 @@ public final class CapacityRule implements ValidationRule {
         return Optional.of(new ValidationIssue(
                 IssueSeverity.WARNING,
                 "CAPACITY",
-                "activity " + activity.name()
+                "activity " + activity.name().value()
                         + " assigned " + passengers.count()
                         + " people but vehicles can carry " + capacity.seats()
         ));

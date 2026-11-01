@@ -53,7 +53,7 @@ public final class CertificationRule implements ValidationRule {
         return new ValidationIssue(
                 IssueSeverity.CRITICAL,
                 "CERTIFICATION",
-                "activity " + activity.name() + " requires certification " + certificationId + " " + detail
+                "activity " + activity.name().value() + " requires certification " + certificationId + " " + detail
         );
     }
 }

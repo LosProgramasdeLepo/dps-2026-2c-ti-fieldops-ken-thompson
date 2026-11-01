@@ -2,6 +2,7 @@ package edu.itba.fieldops.frameworks.api;
 
 import edu.itba.fieldops.api.catalog.PersonnelController;
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
@@ -81,6 +82,6 @@ class PaginationTest {
     }
 
     private static Certification certification(String name) {
-        return new Certification(new CertificationId(UUID.randomUUID()), name);
+        return new Certification(new CertificationId(UUID.randomUUID()), new CertificationName(name));
     }
 }

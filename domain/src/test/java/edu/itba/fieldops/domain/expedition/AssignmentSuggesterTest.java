@@ -2,8 +2,10 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
@@ -12,6 +14,7 @@ import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
@@ -121,7 +124,7 @@ class AssignmentSuggesterTest {
 
     @Test
     void proposesInstrumentAndOperatorForMeasurement() {
-        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Operator");
+        Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Operator"));
         Person ada = person("Ada", certification, Availability.always());
         Instrument meter = new Instrument(new InstrumentId(UUID.randomUUID()), PROBE, Availability.always());
         Activity activity = measurement(certification.id(), 0, 3);
@@ -158,10 +161,10 @@ class AssignmentSuggesterTest {
     @Test
     void suggestsOnlySomeoneWhoHoldsTheCertificationEveryoneNeeds() {
         Certification nightOperation = certification();
-        Person bob = new Person(new PersonId(UUID.randomUUID()), "Bob", List.of(), Availability.always());
+        Person bob = new Person(new PersonId(UUID.randomUUID()), new PersonName("Bob"), List.of(), Availability.always());
         Person ada = person("Ada", nightOperation, Availability.always());
         Activity watch = Activity.night(nightOperation.id())
-                .named(new ActivityId(UUID.randomUUID()), "night watch")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("night watch"))
                 .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.LOW)
                 .in(DELTA, window(0, 4))
                 .build();
@@ -180,11 +183,11 @@ class AssignmentSuggesterTest {
     }
 
     private static Certification certification() {
-        return new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        return new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
     }
 
     private static Person person(String name, Certification certification, Availability availability) {
-        return new Person(new PersonId(UUID.randomUUID()), name, List.of(certification), availability);
+        return new Person(new PersonId(UUID.randomUUID()), new PersonName(name), List.of(certification), availability);
     }
 
     private static Expedition draftWith(Activity activity) {
@@ -198,7 +201,7 @@ class AssignmentSuggesterTest {
                         List.of(lead),
                         List.of(new Restriction("No night work"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
         expedition.addActivity(activity);
         return expedition;
@@ -206,7 +209,7 @@ class AssignmentSuggesterTest {
 
     private static Activity sampling(CertificationId certificationId, int fromHour, int toHour) {
         return Activity.sampling(certificationId)
-                .named(new ActivityId(UUID.randomUUID()), "sample")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("sample"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.MEDIUM)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
@@ -214,7 +217,7 @@ class AssignmentSuggesterTest {
 
     private static Activity transit(int fromHour, int toHour) {
         return Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "transit")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("transit"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
@@ -222,7 +225,7 @@ class AssignmentSuggesterTest {
 
     private static Activity measurement(CertificationId certificationId, int fromHour, int toHour) {
         return Activity.measurement(certificationId, PROBE)
-                .named(new ActivityId(UUID.randomUUID()), "measure")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("measure"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.HIGH)
                 .in(DELTA, window(fromHour, toHour))
                 .build();

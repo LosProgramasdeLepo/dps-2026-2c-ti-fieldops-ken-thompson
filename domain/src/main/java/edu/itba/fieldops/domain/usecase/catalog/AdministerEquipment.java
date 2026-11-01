@@ -1,6 +1,7 @@
 package edu.itba.fieldops.domain.usecase.catalog;
 
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
@@ -13,7 +14,7 @@ public interface AdministerEquipment {
 
     InstrumentId registerInstrument(InstrumentKind kind, Availability availability);
 
-    ConsumableId registerConsumable(String name, Stock stock);
+    ConsumableId registerConsumable(ConsumableName name, Stock stock);
 
     void changeAvailability(VehicleId vehicleId, Availability availability);
 

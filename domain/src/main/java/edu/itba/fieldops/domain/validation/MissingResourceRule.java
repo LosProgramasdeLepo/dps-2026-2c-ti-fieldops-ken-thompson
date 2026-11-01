@@ -34,7 +34,7 @@ public final class MissingResourceRule implements ValidationRule {
     private static Optional<ValidationIssue> missingVehicle(Activity activity, Assignments assignments) {
         int required = activity.requirements().vehicles();
         if (assignments.vehiclesOf(activity.id()).size() < required) {
-            return Optional.of(critical("activity " + activity.name() + " requires " + required + " vehicles and has fewer assigned"));
+            return Optional.of(critical("activity " + activity.name().value() + " requires " + required + " vehicles and has fewer assigned"));
         }
         return Optional.empty();
     }
@@ -43,14 +43,14 @@ public final class MissingResourceRule implements ValidationRule {
         return activity.requirements().instruments().stream()
                 .filter(kind -> lacksInstrumentOf(kind, assignments.instrumentsOf(activity.id()), instruments))
                 .map(kind -> critical(
-                        "activity " + activity.name() + " requires an instrument of kind " + kind.name() + " and has none assigned"
+                        "activity " + activity.name().value() + " requires an instrument of kind " + kind.name() + " and has none assigned"
                 ))
                 .toList();
     }
 
     private static Optional<ValidationIssue> missingPersonnel(Activity activity, Assignments assignments) {
         if (activity.requirements().needsCertifiedPersonnel() && assignments.peopleOf(activity.id()).isEmpty()) {
-            return Optional.of(critical("activity " + activity.name() + " requires certified personnel and has none assigned"));
+            return Optional.of(critical("activity " + activity.name().value() + " requires certified personnel and has none assigned"));
         }
         return Optional.empty();
     }

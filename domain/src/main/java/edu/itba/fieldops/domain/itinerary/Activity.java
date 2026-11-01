@@ -7,7 +7,6 @@ import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Texts;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 
@@ -23,7 +22,7 @@ import java.util.function.UnaryOperator;
 
 public final class Activity implements ItineraryItem {
     private final ActivityId id;
-    private final String name;
+    private final ActivityName name;
     private final EstimatedDuration estimatedDuration;
     private final RiskLevel risk;
     private final Map<ConsumableId, Consumption> estimatedConsumption;
@@ -34,7 +33,7 @@ public final class Activity implements ItineraryItem {
 
     private Activity(Builder builder) {
         this.id = Objects.requireNonNull(builder.id, "activity id");
-        this.name = Texts.required(builder.name, "activity name");
+        this.name = Objects.requireNonNull(builder.name, "activity name");
         this.estimatedDuration = Objects.requireNonNull(builder.estimatedDuration, "estimated duration");
         this.risk = builder.riskFactor.apply(Objects.requireNonNull(builder.risk, "risk"));
         this.estimatedConsumption = Map.copyOf(builder.estimatedConsumption);
@@ -118,7 +117,7 @@ public final class Activity implements ItineraryItem {
         return id;
     }
 
-    public String name() {
+    public ActivityName name() {
         return name;
     }
 
@@ -204,7 +203,7 @@ public final class Activity implements ItineraryItem {
         private final ResourceRequirements requirements;
         private final UnaryOperator<RiskLevel> riskFactor;
         private ActivityId id;
-        private String name;
+        private ActivityName name;
         private EstimatedDuration estimatedDuration;
         private RiskLevel risk;
         private Map<ConsumableId, Consumption> estimatedConsumption = Map.of();
@@ -233,7 +232,7 @@ public final class Activity implements ItineraryItem {
             this.predecessors = source.predecessors;
         }
 
-        public Builder named(ActivityId id, String name) {
+        public Builder named(ActivityId id, ActivityName name) {
             this.id = id;
             this.name = name;
             return this;

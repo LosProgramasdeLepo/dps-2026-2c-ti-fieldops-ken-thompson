@@ -3,10 +3,13 @@ package edu.itba.fieldops.adapters.jpa.catalog;
 import edu.itba.fieldops.adapters.jpa.JpaRepositoryTest;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.shared.Capacity;
@@ -83,14 +86,14 @@ class CatalogRepositoriesTest {
     void aPersonKeepsTheCertificationsAndAvailabilityItWasSavedWith() {
         Certification diving = certification("Diving");
         Certification night = certification("Night operation");
-        Person ada = new Person(people.nextPersonId(), "Ada", List.of(diving, night), WEEK);
+        Person ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(diving, night), WEEK);
 
         people.save(ada);
         reload();
 
         Person stored = people.require(ada.id());
         assertAll(
-                () -> assertEquals("Ada", stored.name()),
+                () -> assertEquals("Ada", stored.name().value()),
                 () -> assertEquals(List.of(diving, night), stored.certifications()),
                 () -> assertEquals(WEEK, stored.availability())
         );
@@ -99,7 +102,7 @@ class CatalogRepositoriesTest {
     @Test
     void savingAPersonAgainReplacesItsCertificationsInPlace() {
         Certification diving = certification("Diving");
-        Person ada = new Person(people.nextPersonId(), "Ada", List.of(), Availability.always());
+        Person ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(), Availability.always());
         people.save(ada);
         reload();
 
@@ -117,7 +120,7 @@ class CatalogRepositoriesTest {
     void equipmentAndPermitsKeepTheDataTheyWereSavedWith() {
         Vehicle truck = new Vehicle(vehicles.nextVehicleId(), new Capacity(6), WEEK);
         Instrument lamp = new Instrument(instruments.nextInstrumentId(), InstrumentKind.LIGHTING, WEEK);
-        Consumable fuel = new Consumable(consumables.nextConsumableId(), "Fuel", new Stock(40));
+        Consumable fuel = new Consumable(consumables.nextConsumableId(), new ConsumableName("Fuel"), new Stock(40));
         Permit nightDelta = new Permit(
                 permits.nextPermitId(),
                 new WorkZone("Delta"),
@@ -139,7 +142,7 @@ class CatalogRepositoriesTest {
                 () -> assertEquals(WEEK, storedTruck.availability()),
                 () -> assertEquals(InstrumentKind.LIGHTING, storedLamp.kind()),
                 () -> assertEquals(WEEK, storedLamp.availability()),
-                () -> assertEquals("Fuel", storedFuel.name()),
+                () -> assertEquals("Fuel", storedFuel.name().value()),
                 () -> assertEquals(new Stock(40), storedFuel.stock()),
                 () -> assertEquals(nightDelta, permits.require(nightDelta.id()))
         );
@@ -165,8 +168,8 @@ class CatalogRepositoriesTest {
 
     @Test
     void rejectsAPersonWithACertificationThatIsNotRegistered() {
-        Certification unregistered = new Certification(new CertificationId(UUID.randomUUID()), "Ghost");
-        Person ada = new Person(people.nextPersonId(), "Ada", List.of(unregistered), WEEK);
+        Certification unregistered = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Ghost"));
+        Person ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(unregistered), WEEK);
 
         assertThrows(DataAccessException.class, () -> {
             people.save(ada);
@@ -185,7 +188,7 @@ class CatalogRepositoriesTest {
     }
 
     private Certification certification(String name) {
-        Certification certification = new Certification(certifications.nextCertificationId(), name);
+        Certification certification = new Certification(certifications.nextCertificationId(), new CertificationName(name));
         certifications.save(certification);
         return certification;
     }

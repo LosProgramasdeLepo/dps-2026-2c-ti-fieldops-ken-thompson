@@ -3,6 +3,7 @@ package edu.itba.fieldops.frameworks.api;
 import edu.itba.fieldops.api.expedition.IncidentsController;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.usecase.expedition.RecordIncident;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ class IncidentsControllerTest {
         mvc.perform(post("/v1/expeditions/{id}/incidents", expeditionId).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"description\":\"radio failed\"}"))
                 .andExpect(status().isNoContent());
-        verify(incidents).record(new ExpeditionId(expeditionId), "radio failed");
+        verify(incidents).record(new ExpeditionId(expeditionId), new IncidentDescription("radio failed"));
     }
 
     @Test
@@ -44,7 +45,7 @@ class IncidentsControllerTest {
         mvc.perform(post("/v1/expeditions/{id}/incidents", expeditionId).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"description\":\"gear flooded\",\"activityId\":\"" + activityId + "\"}"))
                 .andExpect(status().isNoContent());
-        verify(incidents).record(new ExpeditionId(expeditionId), "gear flooded", new ActivityId(activityId));
+        verify(incidents).record(new ExpeditionId(expeditionId), new IncidentDescription("gear flooded"), new ActivityId(activityId));
     }
 
     @Test

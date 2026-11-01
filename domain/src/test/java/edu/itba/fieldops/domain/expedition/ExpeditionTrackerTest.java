@@ -2,12 +2,15 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -22,8 +25,10 @@ import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.support.StoredRuns;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.ObservationText;
 import edu.itba.fieldops.domain.tracking.Outcome;
 import org.junit.jupiter.api.Test;
 
@@ -100,7 +105,7 @@ class ExpeditionTrackerTest {
 
     @Test
     void anActivityRecordsWhatItConsumed() {
-        Consumable fuel = new Consumable(new ConsumableId(UUID.randomUUID()), "fuel", new Stock(50));
+        Consumable fuel = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("fuel"), new Stock(50));
         catalog.save(fuel);
         Expedition plan = approved();
         ActivityId activity = plan.activities().getFirst().id();
@@ -141,10 +146,10 @@ class ExpeditionTrackerTest {
         ExpeditionExecution run = tracker.start(plan.id());
         now = DAY.plus(Duration.ofHours(1));
 
-        Incident incident = tracker.reportIncident(run, activity, "flooded trail");
+        Incident incident = tracker.reportIncident(run, activity, new IncidentDescription("flooded trail"));
 
         assertAll(
-                () -> assertEquals(Incident.affecting(activity, "flooded trail", DAY.plus(Duration.ofHours(1))), incident),
+                () -> assertEquals(Incident.affecting(activity, new IncidentDescription("flooded trail"), DAY.plus(Duration.ofHours(1))), incident),
                 () -> assertEquals(List.of(incident), run.incidents())
         );
     }
@@ -158,7 +163,7 @@ class ExpeditionTrackerTest {
 
         InvalidActivityExecution rejected = assertThrows(
                 InvalidActivityExecution.class,
-                () -> tracker.reportIncident(run, stranger, "flooded trail")
+                () -> tracker.reportIncident(run, stranger, new IncidentDescription("flooded trail"))
         );
 
         assertEquals("unknown activity: " + stranger, rejected.getMessage());
@@ -174,7 +179,7 @@ class ExpeditionTrackerTest {
 
         InvalidActivityExecution rejected = assertThrows(
                 InvalidActivityExecution.class,
-                () -> tracker.reportIncident(run, "storm")
+                () -> tracker.reportIncident(run, new IncidentDescription("storm"))
         );
 
         assertEquals("incident is outside the expedition period", rejected.getMessage());
@@ -188,12 +193,12 @@ class ExpeditionTrackerTest {
         ExpeditionExecution run = tracker.start(plan.id());
         now = DAY.plus(Duration.ofHours(3));
 
-        tracker.observe(run, "heron colony");
+        tracker.observe(run, new ObservationText("heron colony"));
         now = DAY.plus(Duration.ofDays(6));
 
         assertAll(
-                () -> assertEquals(List.of(new Observation("heron colony", DAY.plus(Duration.ofHours(3)))), run.observations()),
-                () -> assertThrows(InvalidActivityExecution.class, () -> tracker.observe(run, "late note"))
+                () -> assertEquals(List.of(new Observation(new ObservationText("heron colony"), DAY.plus(Duration.ofHours(3)))), run.observations()),
+                () -> assertThrows(InvalidActivityExecution.class, () -> tracker.observe(run, new ObservationText("late note")))
         );
     }
 
@@ -212,10 +217,10 @@ class ExpeditionTrackerTest {
                         List.of(lead),
                         List.of(new Restriction("Daylight only"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
         plan.addActivity(Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "Approach")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("Approach"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))))
                 .build());

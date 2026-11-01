@@ -3,6 +3,7 @@ package edu.itba.fieldops.frameworks.api;
 import edu.itba.fieldops.api.catalog.EquipmentController;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ConsumableId;
@@ -101,7 +102,7 @@ class EquipmentControllerTest {
         PageRequest request = new PageRequest(0, 20);
         when(consult.vehicles(request)).thenReturn(page(new Vehicle(new VehicleId(vehicle), new Capacity(4), Availability.always()), request));
         when(consult.instruments(request)).thenReturn(page(new Instrument(new InstrumentId(instrument), InstrumentKind.LIGHTING, Availability.always()), request));
-        when(consult.consumables(request)).thenReturn(page(new Consumable(new ConsumableId(consumable), "Vials", new Stock(5)), request));
+        when(consult.consumables(request)).thenReturn(page(new Consumable(new ConsumableId(consumable), new ConsumableName("Vials"), new Stock(5)), request));
 
         mvc.perform(get("/v1/vehicles")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(vehicle.toString()));
         mvc.perform(get("/v1/instruments")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(instrument.toString()));
@@ -115,7 +116,7 @@ class EquipmentControllerTest {
         UUID consumable = UUID.randomUUID();
         when(consult.vehicle(new VehicleId(vehicle))).thenReturn(new Vehicle(new VehicleId(vehicle), new Capacity(4), Availability.always()));
         when(consult.instrument(new InstrumentId(instrument))).thenReturn(new Instrument(new InstrumentId(instrument), InstrumentKind.LIGHTING, Availability.always()));
-        when(consult.consumable(new ConsumableId(consumable))).thenReturn(new Consumable(new ConsumableId(consumable), "Vials", new Stock(5)));
+        when(consult.consumable(new ConsumableId(consumable))).thenReturn(new Consumable(new ConsumableId(consumable), new ConsumableName("Vials"), new Stock(5)));
 
         mvc.perform(get("/v1/vehicles/{id}", vehicle))
                 .andExpect(status().isOk())

@@ -22,9 +22,11 @@ import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
@@ -34,6 +36,7 @@ import edu.itba.fieldops.domain.expedition.ExpeditionState;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
+import edu.itba.fieldops.domain.expedition.Justification;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.PlanningContexts;
@@ -44,6 +47,7 @@ import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Capacity;
@@ -131,10 +135,10 @@ class ExpeditionRepositoryTest {
         consumables = new JpaConsumableRegistry(consumableRows, transactions);
         permits = new JpaPermitRegistry(permitRows, transactions);
         catalogs = new Catalogs(new BookableResources(people, vehicles, instruments), consumables, permits);
-        ada = new Person(people.nextPersonId(), "Ada", List.of(), Availability.always());
+        ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(), Availability.always());
         truck = new Vehicle(vehicles.nextVehicleId(), new Capacity(4), Availability.always());
         lamp = new Instrument(instruments.nextInstrumentId(), InstrumentKind.LIGHTING, Availability.always());
-        fuel = new Consumable(consumables.nextConsumableId(), "Fuel", new Stock(50));
+        fuel = new Consumable(consumables.nextConsumableId(), new ConsumableName("Fuel"), new Stock(50));
         zonePermit = new Permit(permits.nextPermitId(), DELTA, PERIOD, PermitKind.ZONE);
         nightPermit = new Permit(permits.nextPermitId(), DELTA, PERIOD, PermitKind.NIGHT);
         people.save(ada);
@@ -238,7 +242,7 @@ class ExpeditionRepositoryTest {
         Activity soil = sampling("Soil", 0, 4, Set.of());
         draft.addActivity(soil);
         InMemoryPersonRegistry elsewhere = new InMemoryPersonRegistry();
-        Person stranger = new Person(elsewhere.nextPersonId(), "Stranger", List.of(), Availability.always());
+        Person stranger = new Person(elsewhere.nextPersonId(), new PersonName("Stranger"), List.of(), Availability.always());
         elsewhere.save(stranger);
         draft.addAssignment(
                 new PersonAssignment(soil.id(), stranger.id()),
@@ -266,12 +270,12 @@ class ExpeditionRepositoryTest {
         Activity ride = transit("Ride", 4, 6, Set.of(soil.id()));
         Activity camp = camp("Camp", 6, 8);
         Activity probe = Activity.measurement(SAMPLING, InstrumentKind.LIGHTING)
-                .named(plans.nextActivityId(), "Probe")
+                .named(plans.nextActivityId(), new ActivityName("Probe"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, window(8, 10))
                 .build();
         Activity watch = Activity.night(NIGHT_OPERATION)
-                .named(plans.nextActivityId(), "Night watch")
+                .named(plans.nextActivityId(), new ActivityName("Night watch"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.MEDIUM)
                 .consuming(Map.of(fuel.id(), new Consumption(2)))
                 .in(DELTA, window(8, 10))
@@ -289,7 +293,7 @@ class ExpeditionRepositoryTest {
         ExpeditionValidator reportingCapacity = planning -> new ValidationResult(planning.plan().id(), planning.plan().version(), List.of(capacity));
         PlanningContexts contexts = new PlanningContexts(new InMemoryExpeditionRepository(), new InMemoryExecutionRepository(), catalogs);
         expedition.submitForReview(reportingCapacity, contexts);
-        expedition.acceptWarning(reportingCapacity, contexts, new AcceptedWarning(capacity, "a second truck follows", ada.id()));
+        expedition.acceptWarning(reportingCapacity, contexts, new AcceptedWarning(capacity, new Justification("a second truck follows"), ada.id()));
         return approved(expedition);
     }
 
@@ -320,7 +324,7 @@ class ExpeditionRepositoryTest {
 
     private Activity sampling(String name, int fromHour, int toHour, Set<ActivityId> predecessors) {
         return Activity.sampling(SAMPLING)
-                .named(plans.nextActivityId(), name)
+                .named(plans.nextActivityId(), new ActivityName(name))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.MEDIUM)
                 .consuming(Map.of(fuel.id(), new Consumption(1)))
                 .in(DELTA, window(fromHour, toHour))
@@ -330,7 +334,7 @@ class ExpeditionRepositoryTest {
 
     private Activity transit(String name, int fromHour, int toHour, Set<ActivityId> predecessors) {
         return Activity.transit()
-                .named(plans.nextActivityId(), name)
+                .named(plans.nextActivityId(), new ActivityName(name))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .after(predecessors)
@@ -339,7 +343,7 @@ class ExpeditionRepositoryTest {
 
     private Activity camp(String name, int fromHour, int toHour) {
         return Activity.camp()
-                .named(plans.nextActivityId(), name)
+                .named(plans.nextActivityId(), new ActivityName(name))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.LOW)
                 .in(DELTA, window(fromHour, toHour))
                 .build();

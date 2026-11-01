@@ -14,6 +14,7 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.usecase.expedition.RecordIncident;
 
 import java.util.Objects;
@@ -41,14 +42,14 @@ public final class RecordIncidentInteractor implements RecordIncident {
     }
 
     @Override
-    public void record(ExpeditionId expeditionId, String description) {
+    public void record(ExpeditionId expeditionId, IncidentDescription description) {
         ExpeditionExecution execution = requireRun(expeditionId);
         tracker.reportIncident(execution, description);
         executions.save(execution);
     }
 
     @Override
-    public void record(ExpeditionId expeditionId, String description, ActivityId activityId) {
+    public void record(ExpeditionId expeditionId, IncidentDescription description, ActivityId activityId) {
         ExpeditionExecution execution = requireRun(expeditionId);
         Incident incident = tracker.reportIncident(execution, activityId, description);
         executions.save(execution);

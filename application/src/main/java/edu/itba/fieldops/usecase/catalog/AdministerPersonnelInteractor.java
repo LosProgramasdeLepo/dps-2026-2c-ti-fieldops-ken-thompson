@@ -2,8 +2,10 @@ package edu.itba.fieldops.usecase.catalog;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.CertificationRegistry;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.PersonId;
@@ -22,14 +24,14 @@ public final class AdministerPersonnelInteractor implements AdministerPersonnel 
     }
 
     @Override
-    public CertificationId registerCertification(String name) {
+    public CertificationId registerCertification(CertificationName name) {
         CertificationId id = certifications.nextCertificationId();
         certifications.save(new Certification(id, name));
         return id;
     }
 
     @Override
-    public PersonId registerPerson(String name, List<CertificationId> certificationIds, Availability availability) {
+    public PersonId registerPerson(PersonName name, List<CertificationId> certificationIds, Availability availability) {
         PersonId id = people.nextPersonId();
         people.save(new Person(id, name, certificationIds.stream().map(certifications::require).toList(), availability));
         return id;

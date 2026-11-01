@@ -2,7 +2,9 @@ package edu.itba.fieldops.domain.report;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExecutionState;
 import edu.itba.fieldops.domain.expedition.Expedition;
@@ -16,6 +18,7 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -27,6 +30,7 @@ import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.tracking.Outcome;
 import org.junit.jupiter.api.Test;
 
@@ -53,14 +57,14 @@ class OperationalReportTest {
                     List.of(lead),
                     List.of(new Restriction("Stay on the water"))
             ),
-            StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+            StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
     );
 
     @Test
     void aPlanWithoutARunReportsTheEstimateAndTheAssignedConsumption() {
         ConsumableId vials = new ConsumableId(UUID.randomUUID());
         ResourceCatalog catalog = new ResourceCatalog();
-        catalog.save(new Consumable(vials, "vials", new Stock(10)));
+        catalog.save(new Consumable(vials, new ConsumableName("vials"), new Stock(10)));
         Activity measure = activity(0, 3, RiskLevel.HIGH, Map.of(vials, new Consumption(3)));
         expedition.addActivity(measure);
         expedition.addAssignment(new ConsumableAssignment(measure.id(), vials, new Consumption(5)), catalog.catalogs());
@@ -129,7 +133,7 @@ class OperationalReportTest {
     @Test
     void includesIncidents() {
         expedition.addActivity(activity(0, 3, RiskLevel.LOW));
-        Incident incident = Incident.of("ventisca en el frente", START);
+        Incident incident = Incident.of(new IncidentDescription("ventisca en el frente"), START);
         ExpeditionExecution withIncident = ExpeditionExecution.restore(new ExecutionState(
                 expedition.id(),
                 ExpeditionExecution.Status.IN_PROGRESS,
@@ -207,7 +211,7 @@ class OperationalReportTest {
 
     private static Activity activity(int fromHour, int toHour, RiskLevel risk, Map<ConsumableId, Consumption> consumption) {
         return Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "survey")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("survey"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), risk)
                 .in(DELTA, new TimePeriod(START.plus(Duration.ofHours(fromHour)), START.plus(Duration.ofHours(toHour))))
                 .consuming(consumption)

@@ -1,5 +1,6 @@
 package edu.itba.fieldops.frameworks;
 
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
@@ -22,6 +23,7 @@ import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.ObservationText;
 import edu.itba.fieldops.domain.tracking.Outcome;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 import org.junit.jupiter.api.Test;
@@ -142,14 +144,14 @@ class TrackingUseCasesTest extends UseCaseFixture {
         Sampling sampling = runningSampling();
         clock.set(at(1));
 
-        tracking.addObservation(sampling.expeditionId(), "ice on the trail");
+        tracking.addObservation(sampling.expeditionId(), new ObservationText("ice on the trail"));
 
-        assertEquals(List.of(new Observation("ice on the trail", at(1))), reports.of(sampling.expeditionId()).observations());
+        assertEquals(List.of(new Observation(new ObservationText("ice on the trail"), at(1))), reports.of(sampling.expeditionId()).observations());
     }
 
     @Test
     void theReportUsesTheActualDurationAndTheConsumptionRecordedByFinishedActivities() {
-        ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
+        ConsumableId vials = equipment.registerConsumable(new ConsumableName("vials"), new Stock(20));
         TwoSamplings plan = approvedTwoSamplingsConsuming(vials);
         tracking.start(plan.expeditionId());
         tracking.startActivity(plan.expeditionId(), plan.first());

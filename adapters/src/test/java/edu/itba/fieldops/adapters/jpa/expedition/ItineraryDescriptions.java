@@ -28,7 +28,7 @@ final class ItineraryDescriptions {
         return switch (item) {
             case Activity activity -> new ActivityView(
                     activity.id(),
-                    activity.name(),
+                    activity.name().value(),
                     activity.estimatedDuration().value(),
                     activity.risk(),
                     activity.estimatedConsumption(),

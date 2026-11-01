@@ -3,6 +3,7 @@ package edu.itba.fieldops.adapters.jpa.expedition;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
+import edu.itba.fieldops.domain.expedition.Justification;
 import edu.itba.fieldops.domain.identity.PersonId;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
@@ -23,7 +24,7 @@ public record StoredWarning(
                 issue.severity().name(),
                 issue.code(),
                 issue.message(),
-                warning.justification(),
+                warning.justification().text(),
                 warning.acceptedBy().value()
         );
     }
@@ -31,7 +32,7 @@ public record StoredWarning(
     AcceptedWarning toDomain() {
         return new AcceptedWarning(
                 new ValidationIssue(IssueSeverity.valueOf(severity), code, message),
-                justification,
+                new Justification(justification),
                 new PersonId(acceptedBy)
         );
     }
