@@ -61,7 +61,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.cloud.config.enabled=false")
 @ActiveProfiles(PersistenceProfiles.MEMORY)
 @Import(UseCaseFixture.FixedTime.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
