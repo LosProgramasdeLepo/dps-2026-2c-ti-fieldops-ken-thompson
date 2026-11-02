@@ -5,6 +5,8 @@ import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,8 +15,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-@InMemoryAdapter
-public final class InMemoryPersonRegistry implements PersonRegistry {
+@Repository
+@Profile(PersistenceProfiles.MEMORY)
+public class InMemoryPersonRegistry implements PersonRegistry {
     private final Map<PersonId, Person> people = new LinkedHashMap<>();
 
     @Override

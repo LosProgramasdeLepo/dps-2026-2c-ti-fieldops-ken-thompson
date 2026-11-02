@@ -66,8 +66,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -92,8 +90,6 @@ class ExpeditionRepositoryTest {
 
     @Autowired
     private TestEntityManager entities;
-    @Autowired
-    private PlatformTransactionManager transactionManager;
     @Autowired
     private ExpeditionJpaRepository expeditionRows;
     @Autowired
@@ -127,13 +123,12 @@ class ExpeditionRepositoryTest {
 
     @BeforeEach
     void registerTheCatalog() {
-        TransactionTemplate transactions = new TransactionTemplate(transactionManager);
-        plans = new JpaExpeditionRepository(expeditionRows, registrationRows, transactions);
-        people = new JpaPersonRegistry(personRows, certificationRows, transactions);
-        vehicles = new JpaVehicleRegistry(vehicleRows, transactions);
-        instruments = new JpaInstrumentRegistry(instrumentRows, transactions);
-        consumables = new JpaConsumableRegistry(consumableRows, transactions);
-        permits = new JpaPermitRegistry(permitRows, transactions);
+        plans = new JpaExpeditionRepository(expeditionRows, registrationRows);
+        people = new JpaPersonRegistry(personRows, certificationRows);
+        vehicles = new JpaVehicleRegistry(vehicleRows);
+        instruments = new JpaInstrumentRegistry(instrumentRows);
+        consumables = new JpaConsumableRegistry(consumableRows);
+        permits = new JpaPermitRegistry(permitRows);
         catalogs = new Catalogs(new BookableResources(people, vehicles, instruments), consumables, permits);
         ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(), Availability.always());
         truck = new Vehicle(vehicles.nextVehicleId(), new Capacity(4), Availability.always());

@@ -5,6 +5,8 @@ import edu.itba.fieldops.domain.catalog.PermitRegistry;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,8 +14,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-@InMemoryAdapter
-public final class InMemoryPermitRegistry implements PermitRegistry {
+@Repository
+@Profile(PersistenceProfiles.MEMORY)
+public class InMemoryPermitRegistry implements PermitRegistry {
     private final Map<PermitId, Permit> permits = new LinkedHashMap<>();
 
     @Override

@@ -47,8 +47,11 @@ import edu.itba.fieldops.domain.usecase.expedition.PlanItinerary;
 import edu.itba.fieldops.domain.usecase.expedition.RecordIncident;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -59,7 +62,8 @@ import java.util.Objects;
 
 @Component
 @Profile("demo")
-public final class DemoData {
+@Transactional
+public class DemoData implements ApplicationRunner {
     private static final WorkZone DELTA = new WorkZone("Delta");
     private static final InstrumentKind WATER_PROBE = new InstrumentKind("water probe");
     private static final InstrumentKind BINOCULARS = new InstrumentKind("binoculars");
@@ -106,6 +110,11 @@ public final class DemoData {
         Instant now = Objects.requireNonNull(clock, "clock").now().truncatedTo(ChronoUnit.HOURS);
         this.firstDay = now.plus(Duration.ofDays(1));
         this.period = new TimePeriod(now.minus(Duration.ofDays(1)), now.plus(Duration.ofDays(10)));
+    }
+
+    @Override
+    public void run(ApplicationArguments arguments) {
+        loadIfEmpty();
     }
 
     public void loadIfEmpty() {

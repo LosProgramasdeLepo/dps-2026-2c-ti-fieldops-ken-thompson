@@ -5,6 +5,8 @@ import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,8 +15,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-@InMemoryAdapter
-public final class InMemoryInstrumentRegistry implements InstrumentRegistry {
+@Repository
+@Profile(PersistenceProfiles.MEMORY)
+public class InMemoryInstrumentRegistry implements InstrumentRegistry {
     private final Map<InstrumentId, Instrument> instruments = new LinkedHashMap<>();
 
     @Override

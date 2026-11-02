@@ -3,14 +3,17 @@ package edu.itba.fieldops.adapters;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-@InMemoryAdapter
-public final class InMemoryExecutionRepository implements ExecutionRepository {
+@Repository
+@Profile(PersistenceProfiles.MEMORY)
+public class InMemoryExecutionRepository implements ExecutionRepository {
     private final Map<ExpeditionId, ExpeditionExecution> executions = new LinkedHashMap<>();
 
     @Override
