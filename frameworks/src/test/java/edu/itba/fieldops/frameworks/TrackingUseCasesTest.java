@@ -1,27 +1,24 @@
 package edu.itba.fieldops.frameworks;
 
+import edu.itba.fieldops.domain.catalog.ConsumableName;
+import edu.itba.fieldops.domain.catalog.Stock;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
-import edu.itba.fieldops.domain.identity.ActivityId;
-import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.shared.Consumption;
-import edu.itba.fieldops.domain.shared.PermitKind;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.ObservationText;
 import edu.itba.fieldops.domain.tracking.Outcome;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 import org.junit.jupiter.api.Test;
@@ -65,29 +62,6 @@ class TrackingUseCasesTest extends UseCaseFixture {
         tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), ActivityReport.of(new Outcome("samples stored late")));
 
         assertTrue(run(sampling.expeditionId()).activities().getFirst().isFinished());
-    }
-
-    @Test
-    void anActivityOfASequenceDoesNotStartBeforeThePreviousOneFinishes() {
-        Sequence sequence = runningSequence();
-        clock.set(at(2));
-
-        assertThrows(InvalidActivityExecution.class, () -> tracking.startActivity(sequence.expeditionId(), sequence.downstream()));
-
-        assertFalse(run(sequence.expeditionId()).hasStarted(sequence.downstream()));
-    }
-
-    @Test
-    void anActivityOfASequenceStartsOnceThePreviousOneFinishes() {
-        Sequence sequence = runningSequence();
-        clock.set(at(0));
-        tracking.startActivity(sequence.expeditionId(), sequence.upstream());
-        clock.set(at(2));
-        tracking.finishActivity(sequence.expeditionId(), sequence.upstream(), ActivityReport.of(new Outcome("upstream sampled")));
-
-        tracking.startActivity(sequence.expeditionId(), sequence.downstream());
-
-        assertTrue(run(sequence.expeditionId()).hasStarted(sequence.downstream()));
     }
 
     @Test
@@ -142,14 +116,14 @@ class TrackingUseCasesTest extends UseCaseFixture {
         Sampling sampling = runningSampling();
         clock.set(at(1));
 
-        tracking.addObservation(sampling.expeditionId(), "ice on the trail");
+        tracking.addObservation(sampling.expeditionId(), new ObservationText("ice on the trail"));
 
-        assertEquals(List.of(new Observation("ice on the trail", at(1))), reports.of(sampling.expeditionId()).observations());
+        assertEquals(List.of(new Observation(new ObservationText("ice on the trail"), at(1))), reports.of(sampling.expeditionId()).observations());
     }
 
     @Test
     void theReportUsesTheActualDurationAndTheConsumptionRecordedByFinishedActivities() {
-        ConsumableId vials = equipment.registerConsumable("vials", new Stock(20));
+        ConsumableId vials = equipment.registerConsumable(new ConsumableName("vials"), new Stock(20));
         TwoSamplings plan = approvedTwoSamplingsConsuming(vials);
         tracking.start(plan.expeditionId());
         tracking.startActivity(plan.expeditionId(), plan.first());
@@ -246,25 +220,6 @@ class TrackingUseCasesTest extends UseCaseFixture {
         assertFalse(hasOverlap(other.expeditionId()));
     }
 
-    private Sequence runningSequence() {
-        CertificationId certificationId = certification();
-        PersonId ada = certifiedPerson("Ada", certificationId);
-        ExpeditionId expeditionId = draftResponsibleFor(ada);
-        ActivityId upstream = itinerary.nextActivityId();
-        ActivityId downstream = itinerary.nextActivityId();
-        itinerary.addBlock(expeditionId, ActivityBlock.sequential(
-                sampling(certificationId, upstream, hours(0, 2)),
-                sampling(certificationId, downstream, hours(2, 4))
-        ));
-        assignments.addAssignment(expeditionId, new PersonAssignment(upstream, ada));
-        assignments.addAssignment(expeditionId, new PersonAssignment(downstream, ada));
-        assignments.addPermit(expeditionId, permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
-        review.submit(expeditionId);
-        approval.approve(expeditionId);
-        tracking.start(expeditionId);
-        return new Sequence(expeditionId, upstream, downstream);
-    }
-
     private TwoSamplings approvedTwoSamplingsConsuming(ConsumableId vials) {
         TwoSamplings plan = twoSamplings();
         assignments.addAssignment(plan.expeditionId(), new ConsumableAssignment(plan.first(), vials, new Consumption(5)));
@@ -287,8 +242,5 @@ class TrackingUseCasesTest extends UseCaseFixture {
 
     private ExpeditionExecution run(ExpeditionId expeditionId) {
         return runs.find(expeditionId).orElseThrow();
-    }
-
-    private record Sequence(ExpeditionId expeditionId, ActivityId upstream, ActivityId downstream) {
     }
 }

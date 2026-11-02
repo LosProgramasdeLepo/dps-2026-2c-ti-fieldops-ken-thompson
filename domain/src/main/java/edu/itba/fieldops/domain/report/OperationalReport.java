@@ -11,6 +11,7 @@ import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.Observation;
 
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ public record OperationalReport(
         int finishedActivities,
         Duration duration,
         RiskLevel risk,
+        List<ActivityRisk> risks,
         Map<ConsumableId, Consumption> consumption,
         Map<ConsumableId, Consumption> estimatedConsumption,
         List<Incident> incidents,
@@ -33,6 +35,7 @@ public record OperationalReport(
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(duration, "duration");
         Objects.requireNonNull(risk, "risk");
+        risks = List.copyOf(risks);
         consumption = Map.copyOf(consumption);
         estimatedConsumption = Map.copyOf(estimatedConsumption);
         incidents = List.copyOf(incidents);
@@ -49,6 +52,7 @@ public record OperationalReport(
                 0,
                 estimate.duration(),
                 estimate.risk(),
+                risksOf(expedition),
                 expedition.assignments().consumption(),
                 estimate.estimatedConsumption(),
                 List.of(),
@@ -69,12 +73,20 @@ public record OperationalReport(
                 finished.size(),
                 started ? actualDuration(expedition, finished) : estimate.duration(),
                 estimate.risk(),
+                risksOf(expedition),
                 consumed(finished),
                 estimate.estimatedConsumption(),
                 execution.incidents(),
                 execution.observations(),
                 activityResults(finished)
         );
+    }
+
+    private static List<ActivityRisk> risksOf(Expedition expedition) {
+        return expedition.activities().stream()
+                .map(activity -> new ActivityRisk(activity.id(), activity.risk()))
+                .sorted(Comparator.comparing(ActivityRisk::risk).reversed())
+                .toList();
     }
 
     private static Duration actualDuration(Expedition expedition, List<ActivityExecution> finished) {

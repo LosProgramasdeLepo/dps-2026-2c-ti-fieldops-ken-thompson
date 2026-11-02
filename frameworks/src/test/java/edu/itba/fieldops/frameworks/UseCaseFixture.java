@@ -1,6 +1,9 @@
 package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Capacity;
+import edu.itba.fieldops.domain.catalog.CertificationName;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
@@ -15,8 +18,8 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
-import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.PermitKind;
@@ -90,11 +93,11 @@ abstract class UseCaseFixture {
     }
 
     CertificationId certification() {
-        return personnel.registerCertification("Sampling");
+        return personnel.registerCertification(new CertificationName("Sampling"));
     }
 
     PersonId certifiedPerson(String name, CertificationId certificationId) {
-        return personnel.registerPerson(name, List.of(certificationId), Availability.always());
+        return personnel.registerPerson(new PersonName(name), List.of(certificationId), Availability.always());
     }
 
     Sampling unassignedSampling(Map<ConsumableId, Consumption> estimated) {
@@ -103,7 +106,7 @@ abstract class UseCaseFixture {
         ExpeditionId expeditionId = draftResponsibleFor(ada);
         ActivityId activityId = itinerary.nextActivityId();
         itinerary.addActivity(expeditionId, Activity.sampling(certificationId)
-                .named(activityId, "Soil sampling")
+                .named(activityId, new ActivityName("Soil sampling"))
                 .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.MEDIUM)
                 .in(DELTA, hours(0, 4))
                 .consuming(estimated)
@@ -162,7 +165,7 @@ abstract class UseCaseFixture {
         ExpeditionId expeditionId = draftResponsibleFor(responsible);
         ActivityId activityId = itinerary.nextActivityId();
         itinerary.addActivity(expeditionId, Activity.transit()
-                .named(activityId, "Crossing")
+                .named(activityId, new ActivityName("Crossing"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, hours(0, 2))
                 .build());
@@ -172,8 +175,8 @@ abstract class UseCaseFixture {
     }
 
     ExpeditionId crowdedCrossingInReview() {
-        PersonId ada = personnel.registerPerson("Ada", List.of(), Availability.always());
-        PersonId bob = personnel.registerPerson("Bob", List.of(), Availability.always());
+        PersonId ada = personnel.registerPerson(new PersonName("Ada"), List.of(), Availability.always());
+        PersonId bob = personnel.registerPerson(new PersonName("Bob"), List.of(), Availability.always());
         Crossing crossing = crossing(ada, equipment.registerVehicle(new Capacity(1), Availability.always()));
         assignments.addAssignment(crossing.expeditionId(), new PersonAssignment(crossing.activityId(), ada));
         assignments.addAssignment(crossing.expeditionId(), new PersonAssignment(crossing.activityId(), bob));
@@ -183,7 +186,7 @@ abstract class UseCaseFixture {
 
     static Activity sampling(CertificationId certificationId, ActivityId activityId, TimePeriod window) {
         return Activity.sampling(certificationId)
-                .named(activityId, "Sampling")
+                .named(activityId, new ActivityName("Sampling"))
                 .estimated(new EstimatedDuration(Duration.between(window.start(), window.end())), RiskLevel.LOW)
                 .in(DELTA, window)
                 .build();

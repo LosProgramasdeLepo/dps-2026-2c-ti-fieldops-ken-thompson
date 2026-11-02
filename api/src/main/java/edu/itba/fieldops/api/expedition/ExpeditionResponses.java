@@ -1,6 +1,5 @@
 package edu.itba.fieldops.api.expedition;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import edu.itba.fieldops.api.json.PeriodResponse;
@@ -88,7 +87,6 @@ public final class ExpeditionResponses {
     ) {
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ExpeditionResponse(
             UUID id,
             int version,
@@ -102,7 +100,6 @@ public final class ExpeditionResponses {
     ) {
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ExpeditionSummaryResponse(
             UUID id,
             int version,
@@ -115,7 +112,6 @@ public final class ExpeditionResponses {
     public record EstimateResponse(String duration, String risk, Map<String, Integer> consumption) {
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record IncidentResponse(String description, Instant at, UUID activityId) {
     }
 
@@ -125,7 +121,6 @@ public final class ExpeditionResponses {
     public record ActivityResultResponse(UUID activityId, String result) {
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ActivityExecutionResponse(
             UUID activityId,
             Instant startedAt,
@@ -152,6 +147,7 @@ public final class ExpeditionResponses {
             int finishedActivities,
             String duration,
             String risk,
+            List<ActivityRiskResponse> risks,
             Map<String, Integer> consumption,
             Map<String, Integer> estimatedConsumption,
             List<IncidentResponse> incidents,
@@ -160,13 +156,15 @@ public final class ExpeditionResponses {
     ) {
     }
 
+    public record ActivityRiskResponse(UUID activityId, String risk) {
+    }
+
     public record ValidationResponse(UUID expeditionId, int version, List<IssueResponse> issues) {
     }
 
     public record IssueResponse(String severity, String code, String message) {
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ProposalResponse(
             UUID id,
             UUID originalId,

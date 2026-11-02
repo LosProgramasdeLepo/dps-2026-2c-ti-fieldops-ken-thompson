@@ -2,6 +2,7 @@ package edu.itba.fieldops.adapters.jpa.catalog;
 
 import edu.itba.fieldops.adapters.jpa.StoredPeriod;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.identity.PersonId;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -49,7 +50,7 @@ public class PersonEntity {
 
     PersonEntity(Person person, List<CertificationEntity> certifications) {
         this.id = person.id().value();
-        this.name = person.name();
+        this.name = person.name().value();
         this.certifications = new ArrayList<>(certifications);
         this.availability = new ArrayList<>(StoredPeriod.of(person.availability()));
     }
@@ -57,7 +58,7 @@ public class PersonEntity {
     public Person toDomain() {
         return new Person(
                 new PersonId(id),
-                name,
+                new PersonName(name),
                 certifications.stream().map(CertificationEntity::toDomain).toList(),
                 StoredPeriod.availability(availability)
         );

@@ -13,6 +13,7 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
+import edu.itba.fieldops.domain.tracking.ObservationText;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
 
@@ -75,7 +76,7 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     }
 
     @Override
-    public void addObservation(ExpeditionId expeditionId, String text) {
+    public void addObservation(ExpeditionId expeditionId, ObservationText text) {
         ExpeditionExecution execution = requireRun(expeditionId, "record observation");
         tracker.observe(execution, text);
         executions.save(execution);
@@ -94,7 +95,7 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     }
 
     private ExpeditionExecution requireRun(ExpeditionId expeditionId, String action) {
-        return executions.find(Objects.requireNonNull(expeditionId, "expedition id"))
+        return executions.find(expeditionId)
                 .orElseThrow(() -> new InvalidExpeditionTransition(plans.require(expeditionId).status(), action));
     }
 

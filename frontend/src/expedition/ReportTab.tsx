@@ -45,6 +45,20 @@ export function ReportTab({ plan, catalog }: PlanTabProps) {
           <dd>{RISK_LABELS[summary.risk]}</dd>
         </div>
       </dl>
+      <Panel title="Riesgos por actividad" flush>
+        {summary.risks.length === 0 ? (
+          <Empty>Sin actividades.</Empty>
+        ) : (
+          <ul className="list">
+            {summary.risks.map((risk) => (
+              <li key={risk.activityId}>
+                <span className="when">{RISK_LABELS[risk.risk]}</span>
+                <span className="grow">{activityName(plan, risk.activityId)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
       <Panel title="Consumo de recursos" flush>
         <table>
           <thead>

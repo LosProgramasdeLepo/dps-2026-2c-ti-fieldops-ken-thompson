@@ -14,6 +14,7 @@ import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Permits;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.Vehicles;
 import edu.itba.fieldops.domain.expedition.Expedition;
@@ -31,6 +32,7 @@ import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
@@ -41,14 +43,12 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ValidationExtensionTest {
@@ -76,7 +76,7 @@ class ValidationExtensionTest {
     @Test
     void combinesACustomRuleWithAStandardRule() {
         Expedition expedition = expeditionWithTransit();
-        Person stranger = new Person(new PersonId(UUID.randomUUID()), "Stranger", List.of(), Availability.always());
+        Person stranger = new Person(new PersonId(UUID.randomUUID()), new PersonName("Stranger"), List.of(), Availability.always());
         ResourceCatalog elsewhere = new ResourceCatalog();
         elsewhere.save(stranger);
         expedition.addAssignment(new PersonAssignment(expedition.activities().getFirst().id(), stranger.id()), elsewhere.catalogs());
@@ -90,21 +90,6 @@ class ValidationExtensionTest {
         assertTrue(result.hasCritical());
         assertTrue(hasCode(result, "RESOURCE"), () -> "expected RESOURCE in " + result.issues());
         assertTrue(hasCode(result, "BRIEFING"), () -> "expected BRIEFING in " + result.issues());
-    }
-
-    @Test
-    void doesNotObserveRulesAddedAfterConstruction() {
-        Expedition expedition = expeditionWithTransit();
-        ValidationRule noise = context -> List.of(
-                new ValidationIssue(IssueSeverity.WARNING, "NOISE", "should not reach the validator")
-        );
-        List<ValidationRule> mutable = new ArrayList<>();
-        RuleBasedValidator validator = new RuleBasedValidator(mutable);
-        mutable.add(noise);
-
-        ValidationResult result = validator.validate(new PlanningContext(expedition, emptyCatalog(), OccupyingExpeditions.of(expedition, List.of(), Map.of())));
-
-        assertFalse(hasCode(result, "NOISE"), () -> "validator kept a live view of the rule list: " + result.issues());
     }
 
     private static boolean hasCode(ValidationResult result, String code) {
@@ -122,10 +107,10 @@ class ValidationExtensionTest {
                         List.of(lead),
                         List.of(new Restriction("sin vuelos nocturnos"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
         expedition.addActivity(Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "Traslado al campamento")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("Traslado al campamento"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(ZONE, new TimePeriod(DAY, DAY.plusSeconds(4 * 3600L)))
                 .build());

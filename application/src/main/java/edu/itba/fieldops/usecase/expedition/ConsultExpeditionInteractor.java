@@ -1,5 +1,6 @@
 package edu.itba.fieldops.usecase.expedition;
 
+import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -31,10 +32,10 @@ public final class ConsultExpeditionInteractor implements ConsultExpedition {
 
     @Override
     public Activity activity(ExpeditionId expeditionId, ActivityId activityId) {
-        Objects.requireNonNull(activityId, "activity id");
-        return plans.require(expeditionId).activities().stream()
-                .filter(activity -> activity.id().equals(activityId))
-                .findFirst()
-                .orElseThrow(() -> new UnknownResource("activity", activityId.value().toString()));
+        Expedition plan = plans.require(expeditionId);
+        if (!plan.includes(activityId)) {
+            throw new UnknownResource("activity", activityId.value().toString());
+        }
+        return plan.activityOf(activityId);
     }
 }

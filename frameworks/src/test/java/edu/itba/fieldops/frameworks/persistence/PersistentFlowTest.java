@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -80,7 +81,7 @@ class PersistentFlowTest {
     }
 
     private UUID created(
-            org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,
+            MockHttpServletRequestBuilder request,
             String body
     ) throws Exception {
         return id(mvc.perform(request.contentType(MediaType.APPLICATION_JSON).content(body))
@@ -89,7 +90,7 @@ class PersistentFlowTest {
     }
 
     private void noContent(
-            org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,
+            MockHttpServletRequestBuilder request,
             String body
     ) throws Exception {
         mvc.perform(request.contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isNoContent());

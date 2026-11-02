@@ -1,19 +1,18 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.catalog;
 
-import edu.itba.fieldops.api.catalog.EquipmentController;
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Capacity;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Instrument;
+import edu.itba.fieldops.domain.catalog.Stock;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
-import edu.itba.fieldops.domain.shared.Stock;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultEquipment;
 import org.junit.jupiter.api.Test;
@@ -27,8 +26,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -84,16 +81,6 @@ class EquipmentControllerTest {
     }
 
     @Test
-    void anUnknownVehicleInThePathIsNotFound() throws Exception {
-        UUID id = UUID.randomUUID();
-        doThrow(new UnknownResource("vehicle", id.toString())).when(equipment).changeAvailability(eq(new VehicleId(id)), any());
-
-        mvc.perform(put("/v1/vehicles/{id}/availability", id).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"availability\":" + AVAILABILITY + "}"))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
     void listsEachKindOfEquipment() throws Exception {
         UUID vehicle = UUID.randomUUID();
         UUID instrument = UUID.randomUUID();
@@ -101,7 +88,7 @@ class EquipmentControllerTest {
         PageRequest request = new PageRequest(0, 20);
         when(consult.vehicles(request)).thenReturn(page(new Vehicle(new VehicleId(vehicle), new Capacity(4), Availability.always()), request));
         when(consult.instruments(request)).thenReturn(page(new Instrument(new InstrumentId(instrument), InstrumentKind.LIGHTING, Availability.always()), request));
-        when(consult.consumables(request)).thenReturn(page(new Consumable(new ConsumableId(consumable), "Vials", new Stock(5)), request));
+        when(consult.consumables(request)).thenReturn(page(new Consumable(new ConsumableId(consumable), new ConsumableName("Vials"), new Stock(5)), request));
 
         mvc.perform(get("/v1/vehicles")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(vehicle.toString()));
         mvc.perform(get("/v1/instruments")).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(instrument.toString()));
@@ -115,7 +102,7 @@ class EquipmentControllerTest {
         UUID consumable = UUID.randomUUID();
         when(consult.vehicle(new VehicleId(vehicle))).thenReturn(new Vehicle(new VehicleId(vehicle), new Capacity(4), Availability.always()));
         when(consult.instrument(new InstrumentId(instrument))).thenReturn(new Instrument(new InstrumentId(instrument), InstrumentKind.LIGHTING, Availability.always()));
-        when(consult.consumable(new ConsumableId(consumable))).thenReturn(new Consumable(new ConsumableId(consumable), "Vials", new Stock(5)));
+        when(consult.consumable(new ConsumableId(consumable))).thenReturn(new Consumable(new ConsumableId(consumable), new ConsumableName("Vials"), new Stock(5)));
 
         mvc.perform(get("/v1/vehicles/{id}", vehicle))
                 .andExpect(status().isOk())

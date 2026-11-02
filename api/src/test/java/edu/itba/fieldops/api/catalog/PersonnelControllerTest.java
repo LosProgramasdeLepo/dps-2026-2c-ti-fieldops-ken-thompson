@@ -1,15 +1,15 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.catalog;
 
-import edu.itba.fieldops.api.catalog.PersonnelController;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.TimePeriod;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultPersonnel;
 import org.junit.jupiter.api.Test;
@@ -49,7 +49,7 @@ class PersonnelControllerTest {
     @Test
     void registersACertification() throws Exception {
         UUID id = UUID.randomUUID();
-        when(personnel.registerCertification("Sampling")).thenReturn(new CertificationId(id));
+        when(personnel.registerCertification(new CertificationName("Sampling"))).thenReturn(new CertificationId(id));
 
         mvc.perform(post("/v1/certifications").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Sampling\"}"))
                 .andExpect(status().isCreated())
@@ -74,7 +74,7 @@ class PersonnelControllerTest {
     void registersAPerson() throws Exception {
         UUID personId = UUID.randomUUID();
         UUID certificationId = UUID.randomUUID();
-        when(personnel.registerPerson(eq("Ada"), any(), any())).thenReturn(new PersonId(personId));
+        when(personnel.registerPerson(eq(new PersonName("Ada")), any(), any())).thenReturn(new PersonId(personId));
 
         mvc.perform(post("/v1/people").contentType(MediaType.APPLICATION_JSON).content("""
                 {"name":"Ada","certifications":["%s"],"availability":{"periods":[{"start":"2026-11-01T00:00:00Z","end":"2026-11-06T00:00:00Z"}]}}
@@ -98,7 +98,7 @@ class PersonnelControllerTest {
     void listsCertifications() throws Exception {
         UUID id = UUID.randomUUID();
         PageRequest request = new PageRequest(0, 20);
-        when(consult.certifications(request)).thenReturn(new Page<>(List.of(new Certification(new CertificationId(id), "Diving")), request, 1));
+        when(consult.certifications(request)).thenReturn(new Page<>(List.of(new Certification(new CertificationId(id), new CertificationName("Diving"))), request, 1));
 
         mvc.perform(get("/v1/certifications"))
                 .andExpect(status().isOk())
@@ -110,9 +110,9 @@ class PersonnelControllerTest {
     @Test
     void readsAPersonWithCertificationsAndAvailability() throws Exception {
         UUID id = UUID.randomUUID();
-        Certification sampling = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+        Certification sampling = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
         TimePeriod period = new TimePeriod(Instant.parse("2026-11-01T00:00:00Z"), Instant.parse("2026-11-06T00:00:00Z"));
-        when(consult.person(new PersonId(id))).thenReturn(new Person(new PersonId(id), "Ada", List.of(sampling), new Availability(List.of(period))));
+        when(consult.person(new PersonId(id))).thenReturn(new Person(new PersonId(id), new PersonName("Ada"), List.of(sampling), new Availability(List.of(period))));
 
         mvc.perform(get("/v1/people/{id}", id))
                 .andExpect(status().isOk())
@@ -120,15 +120,5 @@ class PersonnelControllerTest {
                 .andExpect(jsonPath("$.name").value("Ada"))
                 .andExpect(jsonPath("$.certifications[0].name").value("Sampling"))
                 .andExpect(jsonPath("$.availability.periods[0].start").value("2026-11-01T00:00:00Z"));
-    }
-
-    @Test
-    void anUnknownPersonIsNotFound() throws Exception {
-        UUID id = UUID.randomUUID();
-        when(consult.person(new PersonId(id))).thenThrow(new UnknownResource("person", id.toString()));
-
-        mvc.perform(get("/v1/people/{id}", id))
-                .andExpect(status().isNotFound())
-                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
     }
 }

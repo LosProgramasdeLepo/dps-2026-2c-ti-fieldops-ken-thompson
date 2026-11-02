@@ -1,8 +1,8 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
 import edu.itba.fieldops.domain.catalog.Person;
-import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.catalog.PersonRegistry;
+import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import org.springframework.transaction.support.TransactionOperations;

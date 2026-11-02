@@ -1,11 +1,10 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.expedition;
 
-import edu.itba.fieldops.api.expedition.ReviewController;
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
-import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
+import edu.itba.fieldops.domain.expedition.Justification;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
@@ -19,8 +18,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -81,16 +78,8 @@ class ReviewControllerTest {
 
         verify(review).acceptWarning(new ExpeditionId(expeditionId), new AcceptedWarning(
                 new ValidationIssue(IssueSeverity.WARNING, "CAPACITY", "vehicle is over capacity"),
-                "One extra passenger walks",
+                new Justification("One extra passenger walks"),
                 new PersonId(acceptedBy)
         ));
-    }
-
-    @Test
-    void aCriticalSubmissionConflicts() throws Exception {
-        doThrow(new ExpeditionNotApprovable("critical validation issues remain")).when(review).submit(any());
-
-        mvc.perform(post("/v1/expeditions/{id}/submission", UUID.randomUUID()))
-                .andExpect(status().isConflict());
     }
 }

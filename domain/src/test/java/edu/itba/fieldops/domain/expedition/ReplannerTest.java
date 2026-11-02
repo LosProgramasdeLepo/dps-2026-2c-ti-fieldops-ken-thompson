@@ -2,31 +2,36 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Certification;
+import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
+import edu.itba.fieldops.domain.catalog.Stock;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.support.ResourceCatalog;
+import edu.itba.fieldops.domain.support.StoredExpeditions;
 import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.support.StoredPlans;
+import edu.itba.fieldops.domain.support.StoredRuns;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static edu.itba.fieldops.domain.support.Submissions.submit;
@@ -38,8 +43,7 @@ class ReplannerTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     private static final WorkZone DELTA = new WorkZone("Delta");
 
-    private final Replanner replanner = new Replanner(new AssignmentSuggester());
-    private final Certification certification = new Certification(new CertificationId(UUID.randomUUID()), "Sampling");
+    private final Certification certification = new Certification(new CertificationId(UUID.randomUUID()), new CertificationName("Sampling"));
     private final Person ada = person("Ada");
     private final Person bob = person("Bob");
     private final ResourceCatalog catalog = new ResourceCatalog();
@@ -53,7 +57,7 @@ class ReplannerTest {
         expedition.addActivity(second);
         expedition.addDependency(second.id(), first.id());
 
-        replanner.cancel(unoccupied(expedition), first.id());
+        replannerAmong().cancel(expedition, first.id());
 
         assertEquals(List.of(second.id()), expedition.activities().stream().map(Activity::id).toList());
         assertTrue(expedition.activityOf(second.id()).predecessors().isEmpty());
@@ -70,7 +74,7 @@ class ReplannerTest {
         expedition.addDependency(second.id(), first.id());
         expedition.addAssignment(new PersonAssignment(first.id(), ada.id()), catalog.catalogs());
 
-        replanner.delay(unoccupied(expedition), first.id(), new Delay(Duration.ofHours(2)));
+        replannerAmong().delay(expedition, first.id(), new Delay(Duration.ofHours(2)));
 
         assertEquals(window(2, 6), expedition.activityOf(first.id()).window());
         assertEquals(window(6, 10), expedition.activityOf(second.id()).window());
@@ -89,7 +93,7 @@ class ReplannerTest {
         Expedition expedition = draftWith(sample);
         expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()), catalog.catalogs());
 
-        replanner.delay(occupiedBy(expedition, occupying), sample.id(), new Delay(Duration.ofHours(4)));
+        replannerAmong(occupying).delay(expedition, sample.id(), new Delay(Duration.ofHours(4)));
 
         assertEquals(window(4, 8), expedition.activityOf(sample.id()).window());
         assertEquals(List.of(new PersonAssignment(sample.id(), bob.id())), expedition.assignments().all());
@@ -100,7 +104,7 @@ class ReplannerTest {
         Activity sample = sampling(0, 4);
         Expedition expedition = draftWith(sample);
 
-        assertThrows(InvalidItinerary.class, () -> replanner.delay(unoccupied(expedition), sample.id(), new Delay(Duration.ofDays(10))));
+        assertThrows(InvalidItinerary.class, () -> replannerAmong().delay(expedition, sample.id(), new Delay(Duration.ofDays(10))));
     }
 
     @Test
@@ -112,14 +116,14 @@ class ReplannerTest {
         Expedition expedition = draftWith(sample);
         expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()), catalog.catalogs());
 
-        replanner.replaceUnavailable(occupiedBy(expedition, occupying));
+        replannerAmong(occupying).replaceUnavailable(expedition);
 
         assertEquals(List.of(new PersonAssignment(sample.id(), bob.id())), expedition.assignments().all());
     }
 
     @Test
     void replaceUnavailableKeepsConsumable() {
-        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), "vials", new Stock(10));
+        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("vials"), new Stock(10));
         catalog.save(ada);
         catalog.save(bob);
         catalog.save(vials);
@@ -130,7 +134,7 @@ class ReplannerTest {
         expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()), catalog.catalogs());
         expedition.addAssignment(vialsAssigned, catalog.catalogs());
 
-        replanner.replaceUnavailable(occupiedBy(expedition, occupying));
+        replannerAmong(occupying).replaceUnavailable(expedition);
 
         assertEquals(2, expedition.assignments().all().size());
         assertTrue(expedition.assignments().all().contains(vialsAssigned));
@@ -148,7 +152,7 @@ class ReplannerTest {
         Expedition inForce = StoredPlans.approved(approved);
         Expedition revision = inForce.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
 
-        replanner.replaceUnavailable(occupiedBy(revision, inForce));
+        replannerAmong(inForce).replaceUnavailable(revision);
 
         assertEquals(List.of(new PersonAssignment(sample.id(), ada.id())), revision.assignments().all());
     }
@@ -160,19 +164,18 @@ class ReplannerTest {
         Expedition expedition = draftWith(sample);
         expedition.addAssignment(new PersonAssignment(sample.id(), ada.id()), catalog.catalogs());
         submit(expedition);
-        PlanningContext context = unoccupied(expedition);
+        Replanner replanner = replannerAmong();
 
-        assertThrows(InvalidExpeditionTransition.class, () -> replanner.replaceUnavailable(context));
+        assertThrows(InvalidExpeditionTransition.class, () -> replanner.replaceUnavailable(expedition));
 
         assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
     }
 
-    private PlanningContext unoccupied(Expedition plan) {
-        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.of(plan, List.of(), Map.of()));
-    }
-
-    private PlanningContext occupiedBy(Expedition plan, Expedition other) {
-        return new PlanningContext(plan, catalog.catalogs(), OccupyingExpeditions.of(plan, List.of(other), Map.of()));
+    private Replanner replannerAmong(Expedition... others) {
+        return new Replanner(
+                new AssignmentSuggester(),
+                new PlanningContexts(new StoredExpeditions(others), new StoredRuns(), catalog.catalogs())
+        );
     }
 
     private Expedition inReviewWithAdaBetween(int fromHour, int toHour) {
@@ -184,12 +187,12 @@ class ReplannerTest {
     }
 
     private Person person(String name) {
-        return new Person(new PersonId(UUID.randomUUID()), name, List.of(certification), Availability.always());
+        return new Person(new PersonId(UUID.randomUUID()), new PersonName(name), List.of(certification), Availability.always());
     }
 
     private Activity sampling(int fromHour, int toHour) {
         return Activity.sampling(certification.id())
-                .named(new ActivityId(UUID.randomUUID()), "sample")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("sample"))
                 .estimated(new EstimatedDuration(Duration.ofHours(toHour - fromHour)), RiskLevel.MEDIUM)
                 .in(DELTA, window(fromHour, toHour))
                 .build();
@@ -206,7 +209,7 @@ class ReplannerTest {
                         List.of(lead),
                         List.of(new Restriction("No night work"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
         expedition.addActivity(activity);
         return expedition;

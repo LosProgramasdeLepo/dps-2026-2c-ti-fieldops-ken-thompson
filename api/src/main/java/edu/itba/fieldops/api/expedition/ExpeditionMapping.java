@@ -22,6 +22,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionResponses.AcceptedWarningRespo
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityExecutionResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityResultResponse;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityRiskResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.AssignmentResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.BlockResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.CharterResponse;
@@ -49,6 +50,7 @@ import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
+import edu.itba.fieldops.domain.expedition.Justification;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.Restriction;
@@ -56,16 +58,19 @@ import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
+import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.itinerary.ResourceRequirements;
 import edu.itba.fieldops.domain.report.ActivityResult;
+import edu.itba.fieldops.domain.report.ActivityRisk;
 import edu.itba.fieldops.domain.report.Estimate;
 import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.shared.Consumption;
@@ -81,6 +86,7 @@ import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,7 +122,7 @@ public final class ExpeditionMapping {
             case CampActivity ignored -> Activity.camp();
         };
         return builder
-                .named(id, request.name())
+                .named(id, new ActivityName(request.name()))
                 .estimated(new EstimatedDuration(request.estimatedDuration()), request.risk())
                 .consuming(consumption(request.consumption()))
                 .in(new WorkZone(request.zone()), Periods.toPeriod(request.window()))
@@ -158,7 +164,7 @@ public final class ExpeditionMapping {
     public static AcceptedWarning warning(AcceptWarningRequest request) {
         return new AcceptedWarning(
                 new ValidationIssue(request.issue().severity(), request.issue().code(), request.issue().message()),
-                request.justification(),
+                new Justification(request.justification()),
                 new PersonId(request.acceptedBy())
         );
     }
@@ -167,7 +173,7 @@ public final class ExpeditionMapping {
         return new ExpeditionResponse(
                 snapshot.id().value(),
                 snapshot.version(),
-                snapshot.supersedes().map(id -> id.value()).orElse(null),
+                snapshot.supersedes().map(ExpeditionId::value).orElse(null),
                 snapshot.status().name(),
                 charter(snapshot.charter()),
                 snapshot.itinerary().stream().map(ExpeditionMapping::item).toList(),
@@ -181,14 +187,14 @@ public final class ExpeditionMapping {
         return new ExpeditionSummaryResponse(
                 snapshot.id().value(),
                 snapshot.version(),
-                snapshot.supersedes().map(id -> id.value()).orElse(null),
+                snapshot.supersedes().map(ExpeditionId::value).orElse(null),
                 snapshot.status().name(),
                 charter(snapshot.charter())
         );
     }
 
     public static BlockResponse block(ActivityBlock block) {
-        return (BlockResponse) item(block);
+        return new BlockResponse(block.arrangement().name(), block.parts().stream().map(ExpeditionMapping::item).toList());
     }
 
     public static List<AssignmentResponse> assignments(List<Assignment> assignments) {
@@ -207,6 +213,7 @@ public final class ExpeditionMapping {
                 report.finishedActivities(),
                 report.duration().toString(),
                 report.risk().name(),
+                report.risks().stream().map(ExpeditionMapping::risk).toList(),
                 amounts(report.consumption()),
                 amounts(report.estimatedConsumption()),
                 report.incidents().stream().map(ExpeditionMapping::incident).toList(),
@@ -256,17 +263,14 @@ public final class ExpeditionMapping {
     private static ItineraryItemResponse item(ItineraryItem item) {
         return switch (item) {
             case Activity activity -> activity(activity);
-            case ActivityBlock block -> new BlockResponse(
-                    block.arrangement().name(),
-                    block.parts().stream().map(ExpeditionMapping::item).toList()
-            );
+            case ActivityBlock block -> block(block);
         };
     }
 
     public static ActivityResponse activity(Activity activity) {
         return new ActivityResponse(
                 activity.id().value(),
-                activity.name(),
+                activity.name().value(),
                 activity.estimatedDuration().value().toString(),
                 activity.risk().name(),
                 amounts(activity.estimatedConsumption()),
@@ -316,21 +320,21 @@ public final class ExpeditionMapping {
                 warning.issue().severity().name(),
                 warning.issue().code(),
                 warning.issue().message(),
-                warning.justification(),
+                warning.justification().text(),
                 warning.acceptedBy().value()
         );
     }
 
     private static IncidentResponse incident(Incident incident) {
         return new IncidentResponse(
-                incident.description(),
+                incident.description().text(),
                 incident.at(),
                 incident.activityId().map(ActivityId::value).orElse(null)
         );
     }
 
     private static ObservationResponse observation(Observation observation) {
-        return new ObservationResponse(observation.text(), observation.at());
+        return new ObservationResponse(observation.text().text(), observation.at());
     }
 
     private static ActivityExecutionResponse execution(ActivityExecution execution) {
@@ -341,6 +345,10 @@ public final class ExpeditionMapping {
                 execution.result().map(Outcome::text).orElse(null),
                 amounts(execution.consumed())
         );
+    }
+
+    private static ActivityRiskResponse risk(ActivityRisk risk) {
+        return new ActivityRiskResponse(risk.activityId().value(), risk.risk().name());
     }
 
     private static ActivityResultResponse result(ActivityResult result) {
@@ -360,7 +368,7 @@ public final class ExpeditionMapping {
     private static Map<String, Integer> amounts(Map<ConsumableId, Consumption> consumption) {
         Map<String, Integer> amounts = new LinkedHashMap<>();
         consumption.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey(java.util.Comparator.comparing(ConsumableId::value)))
+                .sorted(Map.Entry.comparingByKey(Comparator.comparing(ConsumableId::value)))
                 .forEach(entry -> amounts.put(entry.getKey().value().toString(), entry.getValue().amount()));
         return amounts;
     }

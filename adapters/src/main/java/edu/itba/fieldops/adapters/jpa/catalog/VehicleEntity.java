@@ -1,9 +1,9 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
 import edu.itba.fieldops.adapters.jpa.StoredPeriod;
+import edu.itba.fieldops.domain.catalog.Capacity;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.domain.shared.Capacity;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;

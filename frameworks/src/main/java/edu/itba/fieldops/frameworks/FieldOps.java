@@ -4,6 +4,7 @@ import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.expedition.Replanner;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
@@ -70,10 +71,10 @@ public final class FieldOps {
         Objects.requireNonNull(repositories, "repositories");
         Objects.requireNonNull(clock, "clock");
         RuleBasedValidator validator = RuleBasedValidator.withDefaultRules();
-        Replanner replanner = new Replanner(new AssignmentSuggester());
         Catalogs catalogs = repositories.catalogs();
         ExpeditionRepository plans = repositories.plans();
         ExecutionRepository runs = repositories.runs();
+        Replanner replanner = new Replanner(new AssignmentSuggester(), new PlanningContexts(plans, runs, catalogs));
         personnel = new AdministerPersonnelInteractor(repositories.certifications(), repositories.people());
         equipment = new AdministerEquipmentInteractor(
                 repositories.vehicles(), repositories.instruments(), repositories.consumables()
@@ -92,9 +93,11 @@ public final class FieldOps {
         approval = new ApproveExpeditionInteractor(plans, runs, catalogs, validator);
         consult = new ConsultExpeditionInteractor(plans);
         tracking = new TrackExpeditionInteractor(plans, runs, repositories.consumables(), clock);
-        incidents = new RecordIncidentInteractor(plans, runs, clock, catalogs, replanner, repositories.proposals());
+        incidents = new RecordIncidentInteractor(
+                plans, runs, repositories.consumables(), clock, replanner, repositories.proposals()
+        );
         proposalReview = new ReviewReplanProposalInteractor(plans, repositories.proposals(), clock);
-        replan = new ReplanExpeditionInteractor(plans, runs, catalogs, replanner);
+        replan = new ReplanExpeditionInteractor(plans, replanner);
         reports = new ReportExpeditionInteractor(plans, runs);
     }
 

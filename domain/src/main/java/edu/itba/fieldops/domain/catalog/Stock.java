@@ -1,4 +1,7 @@
-package edu.itba.fieldops.domain.shared;
+package edu.itba.fieldops.domain.catalog;
+
+import edu.itba.fieldops.domain.shared.Consumption;
+import edu.itba.fieldops.domain.shared.InvalidValue;
 
 public record Stock(int amount) {
     public Stock {

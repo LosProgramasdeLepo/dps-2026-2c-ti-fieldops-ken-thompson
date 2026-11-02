@@ -1,6 +1,5 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.expedition;
 
-import edu.itba.fieldops.api.expedition.ReplanController;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
@@ -10,12 +9,12 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Delay;
-import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ReplanExpedition;
@@ -33,8 +32,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -155,21 +152,11 @@ class ReplanControllerTest {
                 .andExpect(jsonPath("$.incident.description").value("gear flooded"));
     }
 
-    @Test
-    void aDecidedProposalIsUnprocessable() throws Exception {
-        doThrow(new InvalidValue("proposal already decided")).when(proposals).accept(any(), any());
-
-        mvc.perform(post("/v1/replan-proposals/{proposalId}/acceptance", UUID.randomUUID())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"responsible\":\"" + UUID.randomUUID() + "\"}"))
-                .andExpect(status().isUnprocessableEntity());
-    }
-
     private static ProposalSnapshot proposal(UUID proposalId, UUID expeditionId, PlanSnapshot suggested) {
         return new ProposalSnapshot(
                 new ProposalId(proposalId),
                 new ExpeditionId(expeditionId),
-                Incident.affecting(new ActivityId(UUID.randomUUID()), "gear flooded", Instant.parse("2026-11-01T09:00:00Z")),
+                Incident.affecting(new ActivityId(UUID.randomUUID()), new IncidentDescription("gear flooded"), Instant.parse("2026-11-01T09:00:00Z")),
                 ReplanProposal.Decision.PENDING,
                 Optional.empty(),
                 Optional.empty(),

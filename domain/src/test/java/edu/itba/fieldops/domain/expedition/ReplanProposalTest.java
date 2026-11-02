@@ -2,11 +2,13 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -16,6 +18,7 @@ import edu.itba.fieldops.domain.support.StoredExpeditions;
 import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -187,7 +190,7 @@ class ReplanProposalTest {
 
     @Test
     void incidentWithoutActivityIsRejected() {
-        Incident general = Incident.of("storm", DAY);
+        Incident general = Incident.of(new IncidentDescription("storm"), DAY);
         Expedition revision = revision();
 
         assertThrows(InvalidValue.class, () -> new ReplanProposal(new ProposalId(UUID.randomUUID()), general, revision));
@@ -239,7 +242,7 @@ class ReplanProposalTest {
     }
 
     private static Incident incident() {
-        return Incident.affecting(new ActivityId(UUID.randomUUID()), "storm on site", DAY);
+        return Incident.affecting(new ActivityId(UUID.randomUUID()), new IncidentDescription("storm on site"), DAY);
     }
 
     private static Expedition revision() {
@@ -253,7 +256,7 @@ class ReplanProposalTest {
     private static Expedition approved(PersonId lead) {
         Expedition expedition = draft(lead);
         expedition.addActivity(Activity.transit()
-                .named(new ActivityId(UUID.randomUUID()), "Approach")
+                .named(new ActivityId(UUID.randomUUID()), new ActivityName("Approach"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(new WorkZone("Delta"), new TimePeriod(DAY, DAY.plus(Duration.ofHours(2))))
                 .build());
@@ -275,7 +278,7 @@ class ReplanProposalTest {
                         List.of(lead),
                         List.of(new Restriction("Daylight only"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
     }
 }

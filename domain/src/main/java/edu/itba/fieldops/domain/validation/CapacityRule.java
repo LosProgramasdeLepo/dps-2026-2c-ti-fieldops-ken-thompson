@@ -2,14 +2,14 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
+import edu.itba.fieldops.domain.catalog.Capacity;
+import edu.itba.fieldops.domain.catalog.Passengers;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.Vehicles;
 import edu.itba.fieldops.domain.expedition.Assignments;
 import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.shared.Capacity;
-import edu.itba.fieldops.domain.shared.Passengers;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +47,7 @@ public final class CapacityRule implements ValidationRule {
         return Optional.of(new ValidationIssue(
                 IssueSeverity.WARNING,
                 "CAPACITY",
-                "activity " + activity.name()
+                "activity " + activity.name().value()
                         + " assigned " + passengers.count()
                         + " people but vehicles can carry " + capacity.seats()
         ));

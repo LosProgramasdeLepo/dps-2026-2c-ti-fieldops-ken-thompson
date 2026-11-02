@@ -1,6 +1,7 @@
 package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.adapters.SystemClock;
+import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerPermits;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
@@ -19,8 +20,6 @@ import edu.itba.fieldops.domain.usecase.expedition.ReviewReplanProposal;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
 import edu.itba.fieldops.domain.usecase.report.EstimateExpedition;
 import edu.itba.fieldops.domain.usecase.report.ReportExpedition;
-import edu.itba.fieldops.domain.shared.Clock;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.support.TransactionOperations;

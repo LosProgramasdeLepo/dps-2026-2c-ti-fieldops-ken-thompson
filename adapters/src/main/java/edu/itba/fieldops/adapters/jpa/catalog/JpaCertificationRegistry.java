@@ -1,8 +1,8 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
 import edu.itba.fieldops.domain.catalog.Certification;
-import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.catalog.CertificationRegistry;
+import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import org.springframework.transaction.support.TransactionOperations;
