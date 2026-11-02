@@ -5,7 +5,7 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 
 import java.util.Optional;
 
-public interface Assignment {
+public sealed interface Assignment permits BookableAssignment, ConsumableAssignment {
     ActivityId activityId();
 
     Optional<String> unknownIn(Catalogs catalogs);

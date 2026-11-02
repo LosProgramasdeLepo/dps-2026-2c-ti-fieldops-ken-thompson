@@ -28,7 +28,7 @@ public final class AssignmentsController {
 
     @PostMapping("/v1/expeditions/{id}/assignments")
     public ResponseEntity<Void> addAssignment(@PathVariable UUID id, @Valid @RequestBody AssignmentRequest request) {
-        assignments.addAssignment(new ExpeditionId(id), ExpeditionMapping.assignment(request));
+        assignments.addAssignment(new ExpeditionId(id), AssignmentMapping.assignment(request));
         return Responses.noContent();
     }
 
@@ -40,6 +40,6 @@ public final class AssignmentsController {
 
     @GetMapping("/v1/expeditions/{id}/assignment-suggestions")
     public List<AssignmentResponse> suggest(@PathVariable UUID id) {
-        return ExpeditionMapping.assignments(assignments.suggest(new ExpeditionId(id)));
+        return AssignmentMapping.assignments(assignments.suggest(new ExpeditionId(id)));
     }
 }

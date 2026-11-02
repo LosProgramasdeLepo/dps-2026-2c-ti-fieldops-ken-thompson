@@ -8,7 +8,7 @@ import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.Optional;
 
-public interface BookableAssignment extends Assignment {
+public sealed interface BookableAssignment extends Assignment permits PersonAssignment, VehicleAssignment, InstrumentAssignment {
     BookableId resourceId();
 
     Optional<? extends Bookable> resourceIn(BookableResources resources);

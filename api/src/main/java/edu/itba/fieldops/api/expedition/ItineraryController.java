@@ -32,15 +32,15 @@ public final class ItineraryController {
     public ResponseEntity<ResourceIdResponse> addActivity(@PathVariable UUID id, @Valid @RequestBody ActivityRequest request) {
         ExpeditionId expeditionId = new ExpeditionId(id);
         ActivityId activityId = itinerary.nextActivityId();
-        itinerary.addActivity(expeditionId, ExpeditionMapping.activity(request, activityId));
+        itinerary.addActivity(expeditionId, ItineraryMapping.activity(request, activityId));
         return Responses.created("/v1/expeditions/" + id + "/activities", activityId.value());
     }
 
     @PostMapping("/v1/expeditions/{id}/blocks")
     public ResponseEntity<BlockResponse> addBlock(@PathVariable UUID id, @Valid @RequestBody BlockNode request) {
-        ActivityBlock block = ExpeditionMapping.block(request, itinerary::nextActivityId);
+        ActivityBlock block = ItineraryMapping.block(request, itinerary::nextActivityId);
         itinerary.addBlock(new ExpeditionId(id), block);
-        return ResponseEntity.created(URI.create("/v1/expeditions/" + id)).body(ExpeditionMapping.block(block));
+        return ResponseEntity.created(URI.create("/v1/expeditions/" + id)).body(ItineraryMapping.block(block));
     }
 
     @PutMapping("/v1/expeditions/{id}/activities/{activityId}/predecessors/{predecessorId}")

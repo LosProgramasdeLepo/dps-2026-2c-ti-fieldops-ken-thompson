@@ -38,12 +38,12 @@ public final class ReviewController {
 
     @GetMapping("/v1/expeditions/{id}/validation")
     public ValidationResponse validate(@PathVariable UUID id) {
-        return ExpeditionMapping.validation(review.validate(new ExpeditionId(id)));
+        return ReviewMapping.validation(review.validate(new ExpeditionId(id)));
     }
 
     @PostMapping("/v1/expeditions/{id}/accepted-warnings")
     public ResponseEntity<Void> acceptWarning(@PathVariable UUID id, @Valid @RequestBody AcceptWarningRequest request) {
-        review.acceptWarning(new ExpeditionId(id), ExpeditionMapping.warning(request));
+        review.acceptWarning(new ExpeditionId(id), ReviewMapping.warning(request));
         return Responses.noContent();
     }
 }

@@ -59,7 +59,6 @@ record AssignmentRows(
             case ConsumableAssignment consumable -> consumables.add(new StoredConsumableAssignment(
                     consumable.activityId().value(), consumable.consumableId().value(), consumable.quantity().amount()
             ));
-            default -> throw new IllegalArgumentException("unknown assignment: " + assignment);
         }
     }
 }
