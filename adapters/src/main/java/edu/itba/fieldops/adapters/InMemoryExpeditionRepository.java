@@ -32,24 +32,24 @@ public class InMemoryExpeditionRepository implements ExpeditionRepository {
     }
 
     @Override
-    public void save(Expedition expedition) {
+    public synchronized void save(Expedition expedition) {
         Objects.requireNonNull(expedition, "expedition");
         plans.put(expedition.id(), expedition);
     }
 
     @Override
-    public Optional<Expedition> find(ExpeditionId id) {
+    public synchronized Optional<Expedition> find(ExpeditionId id) {
         Objects.requireNonNull(id, "expedition id");
         return Optional.ofNullable(plans.get(id));
     }
 
     @Override
-    public List<Expedition> all() {
+    public synchronized List<Expedition> all() {
         return List.copyOf(plans.values());
     }
 
     @Override
-    public Page<Expedition> all(PageRequest request) {
+    public synchronized Page<Expedition> all(PageRequest request) {
         return InMemoryPages.slice(plans.values(), request);
     }
 }

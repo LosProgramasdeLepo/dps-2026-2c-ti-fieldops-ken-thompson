@@ -25,19 +25,19 @@ public class InMemoryConsumableRegistry implements ConsumableRegistry {
     }
 
     @Override
-    public void save(Consumable consumable) {
+    public synchronized void save(Consumable consumable) {
         Objects.requireNonNull(consumable, "consumable");
         consumables.put(consumable.id(), consumable);
     }
 
     @Override
-    public Optional<Consumable> consumable(ConsumableId id) {
+    public synchronized Optional<Consumable> consumable(ConsumableId id) {
         Objects.requireNonNull(id, "consumable id");
         return Optional.ofNullable(consumables.get(id));
     }
 
     @Override
-    public Page<Consumable> consumables(PageRequest request) {
+    public synchronized Page<Consumable> consumables(PageRequest request) {
         return InMemoryPages.slice(consumables.values(), request);
     }
 }

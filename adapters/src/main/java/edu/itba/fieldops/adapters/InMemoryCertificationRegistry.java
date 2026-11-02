@@ -25,19 +25,19 @@ public class InMemoryCertificationRegistry implements CertificationRegistry {
     }
 
     @Override
-    public void save(Certification certification) {
+    public synchronized void save(Certification certification) {
         Objects.requireNonNull(certification, "certification");
         certifications.put(certification.id(), certification);
     }
 
     @Override
-    public Optional<Certification> certification(CertificationId id) {
+    public synchronized Optional<Certification> certification(CertificationId id) {
         Objects.requireNonNull(id, "certification id");
         return Optional.ofNullable(certifications.get(id));
     }
 
     @Override
-    public Page<Certification> certifications(PageRequest request) {
+    public synchronized Page<Certification> certifications(PageRequest request) {
         return InMemoryPages.slice(certifications.values(), request);
     }
 }

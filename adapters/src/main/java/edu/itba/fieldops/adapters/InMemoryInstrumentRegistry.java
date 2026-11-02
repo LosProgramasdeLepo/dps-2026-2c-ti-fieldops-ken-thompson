@@ -26,24 +26,24 @@ public class InMemoryInstrumentRegistry implements InstrumentRegistry {
     }
 
     @Override
-    public void save(Instrument instrument) {
+    public synchronized void save(Instrument instrument) {
         Objects.requireNonNull(instrument, "instrument");
         instruments.put(instrument.id(), instrument);
     }
 
     @Override
-    public Optional<Instrument> instrument(InstrumentId id) {
+    public synchronized Optional<Instrument> instrument(InstrumentId id) {
         Objects.requireNonNull(id, "instrument id");
         return Optional.ofNullable(instruments.get(id));
     }
 
     @Override
-    public List<Instrument> instruments() {
+    public synchronized List<Instrument> instruments() {
         return List.copyOf(instruments.values());
     }
 
     @Override
-    public Page<Instrument> instruments(PageRequest request) {
+    public synchronized Page<Instrument> instruments(PageRequest request) {
         return InMemoryPages.slice(instruments.values(), request);
     }
 }

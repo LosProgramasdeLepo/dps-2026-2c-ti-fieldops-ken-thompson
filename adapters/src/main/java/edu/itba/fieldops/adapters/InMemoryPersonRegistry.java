@@ -26,24 +26,24 @@ public class InMemoryPersonRegistry implements PersonRegistry {
     }
 
     @Override
-    public void save(Person person) {
+    public synchronized void save(Person person) {
         Objects.requireNonNull(person, "person");
         people.put(person.id(), person);
     }
 
     @Override
-    public Optional<Person> person(PersonId id) {
+    public synchronized Optional<Person> person(PersonId id) {
         Objects.requireNonNull(id, "person id");
         return Optional.ofNullable(people.get(id));
     }
 
     @Override
-    public List<Person> people() {
+    public synchronized List<Person> people() {
         return List.copyOf(people.values());
     }
 
     @Override
-    public Page<Person> people(PageRequest request) {
+    public synchronized Page<Person> people(PageRequest request) {
         return InMemoryPages.slice(people.values(), request);
     }
 }

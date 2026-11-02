@@ -25,19 +25,19 @@ public class InMemoryPermitRegistry implements PermitRegistry {
     }
 
     @Override
-    public void save(Permit permit) {
+    public synchronized void save(Permit permit) {
         Objects.requireNonNull(permit, "permit");
         permits.put(permit.id(), permit);
     }
 
     @Override
-    public Optional<Permit> permit(PermitId id) {
+    public synchronized Optional<Permit> permit(PermitId id) {
         Objects.requireNonNull(id, "permit id");
         return Optional.ofNullable(permits.get(id));
     }
 
     @Override
-    public Page<Permit> permits(PageRequest request) {
+    public synchronized Page<Permit> permits(PageRequest request) {
         return InMemoryPages.slice(permits.values(), request);
     }
 }
