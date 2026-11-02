@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.cloud.config.enabled=false")
 @ActiveProfiles({PersistenceProfiles.MEMORY, DemoData.PROFILE})
 @Import(DemoDataTest.FixedTime.class)
 class DemoDataTest {

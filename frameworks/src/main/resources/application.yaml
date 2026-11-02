@@ -5,3 +5,14 @@ spring:
     # Persistence: sql (PostgreSQL, default) | mongo (MongoDB) | memory (no database).
     # Add "demo" to load the demonstration data, e.g. --spring.profiles.active=sql,demo
     default: sql
+  config:
+    # Extra properties from the config server, matched by application name (fieldops) and active profiles.
+    # "optional:" lets the application start when the config server is not running.
+    import: optional:configserver:${FIELDOPS_CONFIG_SERVER_URL:http://localhost:8888}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # POST /actuator/refresh applies the fieldops.* properties changed in the config server without a restart.
+        include: health,refresh

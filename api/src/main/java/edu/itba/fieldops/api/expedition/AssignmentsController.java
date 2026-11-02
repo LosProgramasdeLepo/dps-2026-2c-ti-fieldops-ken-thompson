@@ -1,5 +1,7 @@
 package edu.itba.fieldops.api.expedition;
 
+import edu.itba.fieldops.api.config.FieldOpsProperties;
+import edu.itba.fieldops.api.error.FeatureDisabled;
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.AssignmentRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.AssignmentResponse;
 import edu.itba.fieldops.api.json.Responses;
@@ -21,9 +23,11 @@ import java.util.UUID;
 @RestController
 public final class AssignmentsController {
     private final AssignResources assignments;
+    private final FieldOpsProperties properties;
 
-    public AssignmentsController(AssignResources assignments) {
+    public AssignmentsController(AssignResources assignments, FieldOpsProperties properties) {
         this.assignments = assignments;
+        this.properties = properties;
     }
 
     @PostMapping("/v1/expeditions/{id}/assignments")
@@ -40,6 +44,9 @@ public final class AssignmentsController {
 
     @GetMapping("/v1/expeditions/{id}/assignment-suggestions")
     public List<AssignmentResponse> suggest(@PathVariable UUID id) {
+        if (!properties.getFeatures().isAssignmentSuggestions()) {
+            throw new FeatureDisabled("Assignment suggestions are disabled");
+        }
         return AssignmentMapping.assignments(assignments.suggest(new ExpeditionId(id)));
     }
 }
