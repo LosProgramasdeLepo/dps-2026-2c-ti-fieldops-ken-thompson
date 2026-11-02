@@ -46,6 +46,19 @@ public final class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, "Unprocessable Content", error.getMessage());
     }
 
+    @ExceptionHandler(FeatureDisabled.class)
+    ResponseEntity<ProblemDetail> disabled(FeatureDisabled error) {
+        return problem(HttpStatus.NOT_FOUND, "Not Found", error.getMessage());
+    }
+
+    @ExceptionHandler(UnderMaintenance.class)
+    ResponseEntity<ProblemDetail> maintenance(UnderMaintenance error) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(error.retryAfterSeconds()))
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(detail(HttpStatus.SERVICE_UNAVAILABLE, "Service Unavailable", error.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ProblemDetail> unexpected(Exception error) {
         log.error("Unhandled failure", error);
@@ -89,10 +102,14 @@ public final class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private static ResponseEntity<ProblemDetail> problem(HttpStatus status, String title, String detail) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setTitle(title);
         return ResponseEntity.status(status)
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(problem);
+                .body(detail(status, title, detail));
+    }
+
+    private static ProblemDetail detail(HttpStatus status, String title, String detail) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
+        problem.setTitle(title);
+        return problem;
     }
 }
