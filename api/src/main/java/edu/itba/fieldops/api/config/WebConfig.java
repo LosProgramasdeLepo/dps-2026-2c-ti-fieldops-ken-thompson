@@ -7,10 +7,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(FieldOpsProperties.class)
-public class WebConfig implements WebMvcConfigurer {
+class WebConfig implements WebMvcConfigurer {
     private final FieldOpsProperties properties;
 
-    public WebConfig(FieldOpsProperties properties) {
+    WebConfig(FieldOpsProperties properties) {
         this.properties = properties;
     }
 
