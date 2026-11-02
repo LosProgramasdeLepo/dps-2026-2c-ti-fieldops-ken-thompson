@@ -23,11 +23,11 @@ public final class ReportsController {
 
     @GetMapping("/v1/expeditions/{id}/estimate")
     public EstimateResponse estimate(@PathVariable UUID id) {
-        return ExpeditionMapping.estimate(estimates.of(new ExpeditionId(id)));
+        return ReportMapping.estimate(estimates.of(new ExpeditionId(id)));
     }
 
     @GetMapping("/v1/expeditions/{id}/report")
     public ReportResponse report(@PathVariable UUID id) {
-        return ExpeditionMapping.report(reports.of(new ExpeditionId(id)));
+        return ReportMapping.report(reports.of(new ExpeditionId(id)));
     }
 }
