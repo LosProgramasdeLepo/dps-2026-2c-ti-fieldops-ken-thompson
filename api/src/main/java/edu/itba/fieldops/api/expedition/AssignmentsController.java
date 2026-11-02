@@ -45,7 +45,7 @@ public final class AssignmentsController {
     @GetMapping("/v1/expeditions/{id}/assignment-suggestions")
     public List<AssignmentResponse> suggest(@PathVariable UUID id) {
         if (!properties.getFeatures().isAssignmentSuggestions()) {
-            throw new FeatureDisabled("Assignment suggestions");
+            throw new FeatureDisabled("Assignment suggestions are disabled");
         }
         return AssignmentMapping.assignments(assignments.suggest(new ExpeditionId(id)));
     }

@@ -16,7 +16,7 @@ public class FieldOpsProperties {
     }
 
     public static class Features {
-        private boolean assignmentSuggestions = true;
+        private volatile boolean assignmentSuggestions = true;
 
         public boolean isAssignmentSuggestions() {
             return assignmentSuggestions;
@@ -28,9 +28,9 @@ public class FieldOpsProperties {
     }
 
     public static class Maintenance {
-        private boolean enabled;
-        private String message = "FieldOps is under maintenance. Please try again later.";
-        private int retryAfterSeconds = 60;
+        private volatile boolean enabled;
+        private volatile String message = "FieldOps is under maintenance. Please try again later.";
+        private volatile int retryAfterSeconds = 60;
 
         public boolean isEnabled() {
             return enabled;
