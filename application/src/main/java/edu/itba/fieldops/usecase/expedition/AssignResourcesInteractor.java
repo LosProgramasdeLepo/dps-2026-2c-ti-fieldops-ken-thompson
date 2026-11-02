@@ -3,7 +3,6 @@ package edu.itba.fieldops.usecase.expedition;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.PlanningContexts;
@@ -26,13 +25,13 @@ public class AssignResourcesInteractor implements AssignResources {
 
     public AssignResourcesInteractor(
             ExpeditionRepository plans,
-            ExecutionRepository executions,
             Catalogs catalogs,
+            PlanningContexts contexts,
             AssignmentSuggester suggester
     ) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
-        this.contexts = new PlanningContexts(plans, executions, catalogs);
+        this.contexts = Objects.requireNonNull(contexts, "planning contexts");
         this.suggester = Objects.requireNonNull(suggester, "suggester");
     }
 

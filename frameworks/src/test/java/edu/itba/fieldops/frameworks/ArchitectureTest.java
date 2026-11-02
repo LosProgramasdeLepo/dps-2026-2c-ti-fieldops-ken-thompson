@@ -57,13 +57,24 @@ class ArchitectureTest {
             );
 
     @ArchTest
-    static final ArchRule theUseCasesStayOutOfPersistenceAndTheWeb = noClasses()
-            .that().resideInAPackage("edu.itba.fieldops.usecase..")
+    static final ArchRule persistenceStaysInTheAdapters = noClasses()
+            .that().resideOutsideOfPackage("edu.itba.fieldops.adapters..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "jakarta..",
+                    "jakarta.persistence..",
                     "org.hibernate..",
                     "org.springframework.data..",
-                    "org.springframework.web.."
+                    "com.mongodb..",
+                    "org.bson.."
+            );
+
+    @ArchTest
+    static final ArchRule theWebStaysInTheApi = noClasses()
+            .that().resideOutsideOfPackage("edu.itba.fieldops.api..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "org.springframework.web..",
+                    "org.springframework.http..",
+                    "jakarta.servlet..",
+                    "jakarta.validation.."
             );
 
     @ArchTest

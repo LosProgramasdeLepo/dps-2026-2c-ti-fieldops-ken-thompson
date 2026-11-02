@@ -7,7 +7,6 @@ import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
-import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.UnknownResource;
@@ -28,11 +27,11 @@ public class ReviewReplanProposalInteractor implements ReviewReplanProposal {
     public ReviewReplanProposalInteractor(
             ExpeditionRepository plans,
             ReplanProposalRepository proposals,
-            Clock clock
+            ProposalReviewer reviewer
     ) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.proposals = Objects.requireNonNull(proposals, "proposals");
-        this.reviewer = new ProposalReviewer(plans, clock);
+        this.reviewer = Objects.requireNonNull(reviewer, "proposal reviewer");
     }
 
     @Override

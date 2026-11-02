@@ -1,5 +1,6 @@
 package edu.itba.fieldops.frameworks;
 
+import edu.itba.fieldops.adapters.PersistenceProfiles;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Capacity;
 import edu.itba.fieldops.domain.catalog.CertificationName;
@@ -64,7 +65,7 @@ import java.util.List;
 import java.util.Map;
 
 @SpringBootTest
-@ActiveProfiles("memory")
+@ActiveProfiles(PersistenceProfiles.MEMORY)
 @Import(UseCaseFixture.FixedTime.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 abstract class UseCaseFixture {

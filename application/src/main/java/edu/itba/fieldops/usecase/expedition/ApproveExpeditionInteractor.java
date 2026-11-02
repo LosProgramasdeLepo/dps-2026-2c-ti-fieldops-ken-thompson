@@ -1,7 +1,5 @@
 package edu.itba.fieldops.usecase.expedition;
 
-import edu.itba.fieldops.domain.catalog.Catalogs;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
@@ -21,14 +19,9 @@ public class ApproveExpeditionInteractor implements ApproveExpedition {
     private final PlanningContexts contexts;
     private final ExpeditionValidator validator;
 
-    public ApproveExpeditionInteractor(
-            ExpeditionRepository plans,
-            ExecutionRepository executions,
-            Catalogs catalogs,
-            ExpeditionValidator validator
-    ) {
+    public ApproveExpeditionInteractor(ExpeditionRepository plans, PlanningContexts contexts, ExpeditionValidator validator) {
         this.plans = Objects.requireNonNull(plans, "plans");
-        this.contexts = new PlanningContexts(plans, executions, catalogs);
+        this.contexts = Objects.requireNonNull(contexts, "planning contexts");
         this.validator = Objects.requireNonNull(validator, "validator");
     }
 
