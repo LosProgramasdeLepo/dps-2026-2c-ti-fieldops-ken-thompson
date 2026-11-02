@@ -38,6 +38,19 @@ Activar solo `demo` deja la aplicación sin almacenamiento: el perfil por defect
 
 Para empezar de cero: `docker compose down -v`.
 
+### Configuración dinámica
+
+Al arrancar, el backend pide propiedades extra al config server de la materia (`dynamic-config-server`, puerto 8888) para la aplicación `fieldops` y sus perfiles. Es opcional: si no está corriendo, arranca con los valores por defecto. Otra URL: `FIELDOPS_CONFIG_SERVER_URL`. Después de cambiar un valor en el server, `POST /actuator/refresh` lo aplica sin reiniciar y devuelve las claves que cambiaron.
+
+| Propiedad | Por defecto | Efecto |
+|---|---|---|
+| `fieldops.features.assignment-suggestions` | `true` | Feature flag: con `false`, `GET /expeditions/{id}/assignment-suggestions` responde 404 |
+| `fieldops.maintenance.enabled` | `false` | Modo mantenimiento: toda la API (`/v1/**`) responde 503 |
+| `fieldops.maintenance.message` | (texto) | Detalle del 503 |
+| `fieldops.maintenance.retry-after-seconds` | `60` | Encabezado `Retry-After` del 503 |
+
+Demo: levantar primero `dynamic-config-server` y después el backend; en `http://localhost:8888` agregar una propiedad para la aplicación `fieldops` (perfil `default`), aplicar con `curl -X POST http://localhost:8080/actuator/refresh` y probar la API. `/actuator/health` sigue respondiendo en mantenimiento, así que siempre se puede apagar.
+
 ### Frontend
 
 Requiere Node 22.
@@ -64,6 +77,8 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 - id del path desconocido: 404. `GET /expeditions/{desconocido}` es 404
 - referencia del body desconocida, valor inválido, itinerario o asignación inválidos, u otra regla de dominio: 422. `POST /expeditions` con un responsable inexistente es 422
 - transición de plan o de corrida inválida, o plan que no se puede aprobar: 409
+- sugerencias de asignación apagadas por configuración: 404
+- modo mantenimiento: 503, con `Retry-After`
 - cualquier otro error: 500, detalle genérico, sin mensaje interno ni stack trace
 
 ### Catálogo

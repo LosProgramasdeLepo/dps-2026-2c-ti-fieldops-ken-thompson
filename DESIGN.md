@@ -99,6 +99,8 @@ Los errores salen como `application/problem+json` (RFC 9457) desde un `@RestCont
 - `UnknownResource` de una referencia del body, `InvalidValue`, `InvalidItinerary`, `InvalidAssignment`: 422
 - `InvalidExpeditionTransition`, `ExpeditionNotApprovable`, `InvalidActivityExecution`: 409
 - otro `DomainException`: 422
+- `FeatureDisabled` (sugerencias apagadas): 404
+- `UnderMaintenance` (modo mantenimiento): 503, con `Retry-After`
 - cualquier otra: 500, con detalle genérico y sin mensaje interno ni stack trace
 
 Así `GET /v1/expeditions/{desconocido}` es 404 y `POST /v1/expeditions` con un responsable inexistente es 422.
@@ -204,3 +206,11 @@ Deuda: las propuestas se consultan por el plan que revisan, así que después de
 ## Spring en las capas
 
 Las clases piden agregar Spring Boot y anotar con `@Service` y `@Component` donde haga falta, y pasar los tests de integración a `@SpringBootTest`. Los interactors son `@Service` con `@Transactional` y los adaptadores `@Repository` elegidos por perfil (`sql`, `mongo`, `memory`), con transacciones declarativas como `SqlDogRepository` en la clase 9; desaparecieron el cableado a mano (`FieldOps`, `FieldOpsRepositories`, `InMemoryFieldOps`) y el decorador `TransactionalUseCase`. El dominio sigue sin Spring porque la consigna lo exige y porque es el centro que no depende de nada: sus servicios los publica `FieldOpsConfiguration` como beans. Descartado: anotar el dominio (rompe la regla de dependencias y la consigna de la entrega 3); elegir el almacenamiento con una propiedad propia (`fieldops.persistence`) en lugar de perfiles (la clase 9 usa perfiles, y con ellos cada almacenamiento trae su propio YAML).
+
+## Configuración dinámica
+
+Como en la clase 9, la aplicación es cliente de Spring Cloud Config (2025.1.4, la versión de la clase para Spring Boot 4.1): al arrancar importa las propiedades del config server de la materia, de forma opcional, y `POST /actuator/refresh` las vuelve a leer sin reiniciar. Actuator expone solo `health` y `refresh`. Las propiedades se enlazan a `FieldOpsProperties` (`fieldops.*`), en `api`, porque las dos que hay deciden cómo responde la web: el feature flag `fieldops.features.assignment-suggestions` y el modo mantenimiento (`fieldops.maintenance.*`). `FieldOpsProperties` es un JavaBean mutable y no un record: el refresh la vuelve a enlazar en el mismo objeto, así que quien la usa la lee en cada pedido y no copia sus valores. El flag lo consulta `AssignmentsController`, que responde 404 (`FeatureDisabled`) sin llegar al caso de uso: para el cliente, una funcionalidad apagada no existe. El mantenimiento lo aplica `MaintenanceInterceptor` sobre `/v1/**`, que responde 503 con `Retry-After` (`UnderMaintenance`); Actuator queda afuera, así que el modo se puede apagar a distancia. Los defaults viven en `FieldOpsProperties`, y los tests de `frameworks` apagan el cliente (`spring.cloud.config.enabled=false`) para no depender de un config server local. `DynamicConfigurationTest` cambia las propiedades en ejecución con el mismo evento que dispara el refresh (`EnvironmentChangeEvent`) y verifica el efecto sin reiniciar.
+
+Descartado: `@RefreshScope` en los controladores (recrea beans y los envuelve en proxies; volver a enlazar `@ConfigurationProperties` alcanza); el flag dentro del dominio o de un caso de uso (las sugerencias son una regla del dominio y apagarlas es una decisión de despliegue, que no le corresponde al negocio); una librería de feature flags como Togglz o Unleash (un booleano no la justifica); un config server propio (se usa el de la materia).
+
+Deuda: `/actuator/refresh` no tiene autenticación, igual que el resto de la API; en producción tendría que estar protegido o fuera de la red pública. El refresh es por instancia: con varias instancias habría que llamar a cada una o usar Spring Cloud Bus.
