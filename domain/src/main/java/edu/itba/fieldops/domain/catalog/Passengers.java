@@ -1,4 +1,6 @@
-package edu.itba.fieldops.domain.shared;
+package edu.itba.fieldops.domain.catalog;
+
+import edu.itba.fieldops.domain.shared.InvalidValue;
 
 public record Passengers(int count) {
     public Passengers {

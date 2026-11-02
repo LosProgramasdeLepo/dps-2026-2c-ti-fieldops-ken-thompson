@@ -2,8 +2,8 @@ package edu.itba.fieldops.adapters.jpa.catalog;
 
 import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.ConsumableName;
+import edu.itba.fieldops.domain.catalog.Stock;
 import edu.itba.fieldops.domain.identity.ConsumableId;
-import edu.itba.fieldops.domain.shared.Stock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
