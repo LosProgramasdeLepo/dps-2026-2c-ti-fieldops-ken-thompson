@@ -1,22 +1,28 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
+import edu.itba.fieldops.adapters.PersistenceProfiles;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
-import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-public final class JpaVehicleRegistry implements VehicleRegistry {
+@Repository
+@Profile(PersistenceProfiles.SQL)
+@Transactional(readOnly = true)
+public class JpaVehicleRegistry implements VehicleRegistry {
     private final StoredCatalog<VehicleEntity, Vehicle> stored;
 
-    public JpaVehicleRegistry(VehicleJpaRepository repository, TransactionOperations transactions) {
-        this.stored = new StoredCatalog<>(repository, VehicleEntity::toDomain, transactions);
+    public JpaVehicleRegistry(VehicleJpaRepository repository) {
+        this.stored = new StoredCatalog<>(repository, VehicleEntity::toDomain);
     }
 
     @Override
@@ -25,9 +31,10 @@ public final class JpaVehicleRegistry implements VehicleRegistry {
     }
 
     @Override
+    @Transactional
     public void save(Vehicle vehicle) {
         Objects.requireNonNull(vehicle, "vehicle");
-        stored.save(() -> new VehicleEntity(vehicle));
+        stored.save(new VehicleEntity(vehicle));
     }
 
     @Override

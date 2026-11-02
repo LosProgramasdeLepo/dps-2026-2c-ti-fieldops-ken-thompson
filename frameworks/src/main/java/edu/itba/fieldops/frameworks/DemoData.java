@@ -37,7 +37,21 @@ import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
+import edu.itba.fieldops.domain.usecase.catalog.AdministerPermits;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
+import edu.itba.fieldops.domain.usecase.expedition.ApproveExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.AssignResources;
+import edu.itba.fieldops.domain.usecase.expedition.ConsultExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.DraftExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.PlanItinerary;
+import edu.itba.fieldops.domain.usecase.expedition.RecordIncident;
+import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
+import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -46,24 +60,67 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public final class DemoData {
+@Component
+@Profile(DemoData.PROFILE)
+@Transactional
+public class DemoData implements ApplicationRunner {
+    public static final String PROFILE = "demo";
+
     private static final WorkZone DELTA = new WorkZone("Delta");
     private static final InstrumentKind WATER_PROBE = new InstrumentKind("water probe");
     private static final InstrumentKind BINOCULARS = new InstrumentKind("binoculars");
 
-    private final FieldOps useCases;
+    private final AdministerPersonnel personnel;
+    private final AdministerEquipment equipment;
+    private final AdministerPermits permitting;
+    private final DraftExpedition drafts;
+    private final PlanItinerary itinerary;
+    private final AssignResources assignments;
+    private final ReviewExpedition review;
+    private final ApproveExpedition approval;
+    private final TrackExpedition tracking;
+    private final RecordIncident incidents;
+    private final ConsultExpedition consult;
     private final Instant firstDay;
     private final TimePeriod period;
 
-    public DemoData(FieldOps useCases, Clock clock) {
-        this.useCases = Objects.requireNonNull(useCases, "use cases");
+    public DemoData(
+            AdministerPersonnel personnel,
+            AdministerEquipment equipment,
+            AdministerPermits permitting,
+            DraftExpedition drafts,
+            PlanItinerary itinerary,
+            AssignResources assignments,
+            ReviewExpedition review,
+            ApproveExpedition approval,
+            TrackExpedition tracking,
+            RecordIncident incidents,
+            ConsultExpedition consult,
+            Clock clock
+    ) {
+        this.personnel = Objects.requireNonNull(personnel, "personnel");
+        this.equipment = Objects.requireNonNull(equipment, "equipment");
+        this.permitting = Objects.requireNonNull(permitting, "permitting");
+        this.drafts = Objects.requireNonNull(drafts, "drafts");
+        this.itinerary = Objects.requireNonNull(itinerary, "itinerary");
+        this.assignments = Objects.requireNonNull(assignments, "assignments");
+        this.review = Objects.requireNonNull(review, "review");
+        this.approval = Objects.requireNonNull(approval, "approval");
+        this.tracking = Objects.requireNonNull(tracking, "tracking");
+        this.incidents = Objects.requireNonNull(incidents, "incidents");
+        this.consult = Objects.requireNonNull(consult, "consult");
         Instant now = Objects.requireNonNull(clock, "clock").now().truncatedTo(ChronoUnit.HOURS);
         this.firstDay = now.plus(Duration.ofDays(1));
         this.period = new TimePeriod(now.minus(Duration.ofDays(1)), now.plus(Duration.ofDays(10)));
     }
 
+    @Override
+    public void run(ApplicationArguments arguments) {
+        loadIfEmpty();
+    }
+
     public void loadIfEmpty() {
-        if (useCases.consult().all(new PageRequest(0, 1)).totalItems() == 0) {
+        if (consult.all(new PageRequest(0, 1)).totalItems() == 0) {
             Catalog catalog = registerCatalog();
             planWetlandSurvey(catalog);
             planRidgeWatchWithoutNightPermit(catalog);
@@ -71,8 +128,6 @@ public final class DemoData {
     }
 
     private Catalog registerCatalog() {
-        AdministerPersonnel personnel = useCases.personnel();
-        AdministerEquipment equipment = useCases.equipment();
         CertificationId sampling = personnel.registerCertification(new CertificationName("Field sampling"));
         CertificationId diving = personnel.registerCertification(new CertificationName("Scientific diving"));
         CertificationId night = personnel.registerCertification(new CertificationName("Night operation"));
@@ -93,13 +148,13 @@ public final class DemoData {
                 equipment.registerInstrument(BINOCULARS, Availability.always()),
                 equipment.registerConsumable(new ConsumableName("Fuel (litres)"), new Stock(200)),
                 equipment.registerConsumable(new ConsumableName("Sample vials"), new Stock(100)),
-                useCases.permitting().registerPermit(PermitKind.ZONE, DELTA, period),
-                useCases.permitting().registerPermit(PermitKind.NIGHT, DELTA, period)
+                permitting.registerPermit(PermitKind.ZONE, DELTA, period),
+                permitting.registerPermit(PermitKind.NIGHT, DELTA, period)
         );
     }
 
     private void planWetlandSurvey(Catalog catalog) {
-        ExpeditionId survey = useCases.drafts().draft(new ExpeditionCharter(
+        ExpeditionId survey = drafts.draft(new ExpeditionCharter(
                 List.of(new Objective("Survey the biodiversity of the Delta wetlands"), new Objective("Measure water quality")),
                 period,
                 List.of(DELTA),
@@ -119,11 +174,11 @@ public final class DemoData {
         Activity birds = planned(Activity.measurement(catalog.sampling(), BINOCULARS), "Bird count", new Slot(76, 79));
         Activity back = planned(Activity.transit(), "Return to base camp", new Slot(81, 83));
         List.of(drive, camp, eastSoil, westSoil, water, dive, census, north)
-                .forEach(activity -> useCases.itinerary().addActivity(survey, activity));
-        useCases.itinerary().addBlock(survey, ActivityBlock.sequential(hides, ActivityBlock.parallel(cores, birds), back));
-        useCases.itinerary().addDependency(survey, camp.id(), drive.id());
-        useCases.itinerary().addDependency(survey, eastSoil.id(), camp.id());
-        useCases.itinerary().addDependency(survey, census.id(), dive.id());
+                .forEach(activity -> itinerary.addActivity(survey, activity));
+        itinerary.addBlock(survey, ActivityBlock.sequential(hides, ActivityBlock.parallel(cores, birds), back));
+        itinerary.addDependency(survey, camp.id(), drive.id());
+        itinerary.addDependency(survey, eastSoil.id(), camp.id());
+        itinerary.addDependency(survey, census.id(), dive.id());
         assign(survey, List.of(
                 new PersonAssignment(drive.id(), catalog.ada()),
                 new PersonAssignment(drive.id(), catalog.bruno()),
@@ -158,40 +213,40 @@ public final class DemoData {
                 new PersonAssignment(back.id(), catalog.diego()),
                 new VehicleAssignment(back.id(), catalog.van())
         ));
-        useCases.assignments().addPermit(survey, catalog.zonePermit());
-        useCases.assignments().addPermit(survey, catalog.nightPermit());
+        assignments.addPermit(survey, catalog.zonePermit());
+        assignments.addPermit(survey, catalog.nightPermit());
         approveAcceptingTheWarnings(survey, catalog.ada());
-        useCases.tracking().start(survey);
-        useCases.incidents().record(survey, new IncidentDescription("The access road to the north lagoon is flooded"), north.id());
+        tracking.start(survey);
+        incidents.record(survey, new IncidentDescription("The access road to the north lagoon is flooded"), north.id());
     }
 
     private void planRidgeWatchWithoutNightPermit(Catalog catalog) {
-        ExpeditionId ridge = useCases.drafts().draft(new ExpeditionCharter(
+        ExpeditionId ridge = drafts.draft(new ExpeditionCharter(
                 List.of(new Objective("Watch nocturnal raptors on the ridge")),
                 period,
                 List.of(DELTA),
                 List.of(catalog.bruno()),
                 List.of()
         ));
-        useCases.itinerary().addActivity(ridge, planned(Activity.night(catalog.night()), "Ridge night watch", new Slot(96, 99)));
-        useCases.assignments().addPermit(ridge, catalog.zonePermit());
+        itinerary.addActivity(ridge, planned(Activity.night(catalog.night()), "Ridge night watch", new Slot(96, 99)));
+        assignments.addPermit(ridge, catalog.zonePermit());
     }
 
     private void approveAcceptingTheWarnings(ExpeditionId expeditionId, PersonId responsible) {
-        useCases.review().submit(expeditionId);
-        useCases.review().validate(expeditionId).warnings().forEach(warning -> useCases.review().acceptWarning(
+        review.submit(expeditionId);
+        review.validate(expeditionId).warnings().forEach(warning -> review.acceptWarning(
                 expeditionId,
                 new AcceptedWarning(warning, new Justification("A second vehicle follows the truck with the extra passenger"), responsible)
         ));
-        useCases.approval().approve(expeditionId);
+        approval.approve(expeditionId);
     }
 
-    private void assign(ExpeditionId expeditionId, List<Assignment> assignments) {
-        assignments.forEach(assignment -> useCases.assignments().addAssignment(expeditionId, assignment));
+    private void assign(ExpeditionId expeditionId, List<Assignment> planned) {
+        planned.forEach(assignment -> assignments.addAssignment(expeditionId, assignment));
     }
 
     private Activity planned(Activity.Builder kind, String name, Slot slot) {
-        return kind.named(useCases.itinerary().nextActivityId(), new ActivityName(name))
+        return kind.named(itinerary.nextActivityId(), new ActivityName(name))
                 .estimated(new EstimatedDuration(Duration.ofHours(slot.toHour() - slot.fromHour())), RiskLevel.MEDIUM)
                 .in(DELTA, new TimePeriod(
                         firstDay.plus(Duration.ofHours(slot.fromHour())),

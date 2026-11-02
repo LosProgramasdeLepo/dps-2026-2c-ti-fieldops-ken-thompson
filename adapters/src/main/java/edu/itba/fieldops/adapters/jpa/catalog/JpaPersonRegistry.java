@@ -1,27 +1,31 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
+import edu.itba.fieldops.adapters.PersistenceProfiles;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
-import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-public final class JpaPersonRegistry implements PersonRegistry {
+@Repository
+@Profile(PersistenceProfiles.SQL)
+@Transactional(readOnly = true)
+public class JpaPersonRegistry implements PersonRegistry {
     private final StoredCatalog<PersonEntity, Person> stored;
     private final CertificationJpaRepository certifications;
 
     public JpaPersonRegistry(
             PersonJpaRepository repository,
-            CertificationJpaRepository certifications,
-            TransactionOperations transactions
-    ) {
-        this.stored = new StoredCatalog<>(repository, PersonEntity::toDomain, transactions);
+            CertificationJpaRepository certifications) {
+        this.stored = new StoredCatalog<>(repository, PersonEntity::toDomain);
         this.certifications = Objects.requireNonNull(certifications, "certifications");
     }
 
@@ -31,9 +35,10 @@ public final class JpaPersonRegistry implements PersonRegistry {
     }
 
     @Override
+    @Transactional
     public void save(Person person) {
         Objects.requireNonNull(person, "person");
-        stored.save(() -> new PersonEntity(person, heldBy(person)));
+        stored.save(new PersonEntity(person, heldBy(person)));
     }
 
     @Override

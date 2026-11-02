@@ -12,7 +12,6 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -22,7 +21,7 @@ class ReviewUseCasesTest extends UseCaseFixture {
 
     @Test
     void cannotSubmitWhileCriticalIssuesRemain() {
-        Sampling open = unassignedSampling(Map.of());
+        Sampling open = unassignedSampling();
 
         assertThrows(ExpeditionNotApprovable.class, () -> review.submit(open.expeditionId()));
 

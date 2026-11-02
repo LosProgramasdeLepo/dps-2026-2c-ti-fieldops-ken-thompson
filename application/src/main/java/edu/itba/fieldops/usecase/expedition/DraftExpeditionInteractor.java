@@ -6,10 +6,14 @@ import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.usecase.expedition.DraftExpedition;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class DraftExpeditionInteractor implements DraftExpedition {
+@Service
+@Transactional
+public class DraftExpeditionInteractor implements DraftExpedition {
     private final ExpeditionRepository plans;
     private final People people;
 

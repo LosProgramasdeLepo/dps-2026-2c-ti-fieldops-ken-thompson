@@ -34,8 +34,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -43,7 +41,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static edu.itba.fieldops.adapters.jpa.expedition.ItineraryDescriptions.describe;
+import static edu.itba.fieldops.adapters.ItineraryDescriptions.describe;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -55,8 +53,6 @@ class ReplanProposalRepositoryTest {
 
     @Autowired
     private TestEntityManager entities;
-    @Autowired
-    private PlatformTransactionManager transactionManager;
     @Autowired
     private ProposalJpaRepository proposalRows;
     @Autowired
@@ -76,10 +72,9 @@ class ReplanProposalRepositoryTest {
 
     @BeforeEach
     void registerAnApprovedPlan() {
-        TransactionTemplate transactions = new TransactionTemplate(transactionManager);
-        proposals = new JpaReplanProposalRepository(proposalRows, expeditionRows, transactions);
-        plans = new JpaExpeditionRepository(expeditionRows, registrationRows, transactions);
-        JpaPersonRegistry people = new JpaPersonRegistry(personRows, certificationRows, transactions);
+        proposals = new JpaReplanProposalRepository(proposalRows, expeditionRows);
+        plans = new JpaExpeditionRepository(expeditionRows, registrationRows);
+        JpaPersonRegistry people = new JpaPersonRegistry(personRows, certificationRows);
         ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(), Availability.always());
         people.save(ada);
         approved = Expedition.draft(plans.nextId(), new ExpeditionCharter(

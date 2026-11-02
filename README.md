@@ -12,13 +12,13 @@ Requiere JDK 25. El Maven Wrapper baja Maven 3.9.11 la primera vez.
 
 En Windows (cmd o PowerShell): `mvnw.cmd verify`.
 
-Los tests de persistencia levantan PostgreSQL con Testcontainers, así que `verify` necesita Docker corriendo.
+Los tests de persistencia levantan PostgreSQL y MongoDB con Testcontainers, así que `verify` necesita Docker corriendo.
 
 ## Ejecutar
 
 ### Backend
 
-El backend guarda en PostgreSQL. `compose.yaml` levanta uno local (base, usuario y contraseña `fieldops`, puerto 5432):
+El perfil de Spring elige dónde guarda el backend: `sql` (PostgreSQL, por defecto), `mongo` (MongoDB) o `memory` (en memoria, sin base). `compose.yaml` levanta PostgreSQL (base, usuario y contraseña `fieldops`, puerto 5432) y MongoDB como replica set `rs0` (puerto 27017):
 
 ```
 docker compose up -d
@@ -26,12 +26,15 @@ docker compose up -d
 java -jar frameworks/target/fieldops-frameworks-1.0-SNAPSHOT.jar
 ```
 
-Flyway crea o actualiza el esquema al arrancar. La API queda en `http://localhost:8080/v1`. Otro puerto: `--server.port=9090`. Otra base: `FIELDOPS_DB_URL`, `FIELDOPS_DB_USER` y `FIELDOPS_DB_PASSWORD`.
+Con `sql`, Flyway crea o actualiza el esquema al arrancar. La API queda en `http://localhost:8080/v1`. Otro puerto: `--server.port=9090`. Otra base: `FIELDOPS_DB_URL`, `FIELDOPS_DB_USER` y `FIELDOPS_DB_PASSWORD` para PostgreSQL, `FIELDOPS_MONGO_URI` para MongoDB.
 
-Perfiles:
+Perfiles (se activa uno de almacenamiento y, si se quiere, `demo`):
 
-- `--spring.profiles.active=demo` carga los datos de demostración si no hay planes: un relevamiento aprobado con doce actividades de los seis tipos, un bloque compuesto, recursos compartidos, una advertencia aceptada, la corrida iniciada y una propuesta de replanificación por un incidente, y un plan en borrador con errores críticos. Se puede repetir: si ya hay planes, no carga nada.
+- `--spring.profiles.active=mongo` guarda en MongoDB.
+- `--spring.profiles.active=sql,demo` (o `mongo,demo`) carga los datos de demostración si no hay planes: un relevamiento aprobado con doce actividades de los seis tipos, un bloque compuesto, recursos compartidos, una advertencia aceptada, la corrida iniciada y una propuesta de replanificación por un incidente, y un plan en borrador con errores críticos. Se puede repetir: si ya hay planes, no carga nada.
 - `--spring.profiles.active=memory` guarda en memoria y no necesita base; los datos se pierden al cerrar.
+
+Activar solo `demo` deja la aplicación sin almacenamiento: el perfil por defecto (`sql`) se usa únicamente cuando no hay ninguno activo.
 
 Para empezar de cero: `docker compose down -v`.
 

@@ -1,0 +1,18 @@
+# Persistence profile: PostgreSQL through Spring Data JPA. Flyway creates the schema; Hibernate only validates it.
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration
+      - org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration
+      - org.springframework.boot.data.mongodb.autoconfigure.DataMongoRepositoriesAutoConfiguration
+  datasource:
+    url: ${FIELDOPS_DB_URL:jdbc:postgresql://localhost:5432/fieldops}
+    username: ${FIELDOPS_DB_USER:fieldops}
+    password: ${FIELDOPS_DB_PASSWORD:fieldops}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_batch_fetch_size: 64

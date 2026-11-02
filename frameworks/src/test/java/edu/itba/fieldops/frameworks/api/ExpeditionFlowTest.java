@@ -1,5 +1,6 @@
 package edu.itba.fieldops.frameworks.api;
 
+import edu.itba.fieldops.adapters.PersistenceProfiles;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("memory")
+@ActiveProfiles(PersistenceProfiles.MEMORY)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class ExpeditionFlowTest {
     private static final String PERIOD = "{\"start\":\"2026-11-01T00:00:00Z\",\"end\":\"2026-11-06T00:00:00Z\"}";

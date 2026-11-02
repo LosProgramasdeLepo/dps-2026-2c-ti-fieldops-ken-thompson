@@ -1,31 +1,28 @@
 package edu.itba.fieldops.usecase.expedition;
 
 import edu.itba.fieldops.domain.assessment.ValidationResult;
-import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class ReviewExpeditionInteractor implements ReviewExpedition {
+@Service
+@Transactional
+public class ReviewExpeditionInteractor implements ReviewExpedition {
     private final ExpeditionRepository plans;
     private final PlanningContexts contexts;
     private final ExpeditionValidator validator;
 
-    public ReviewExpeditionInteractor(
-            ExpeditionRepository plans,
-            ExecutionRepository executions,
-            Catalogs catalogs,
-            ExpeditionValidator validator
-    ) {
+    public ReviewExpeditionInteractor(ExpeditionRepository plans, PlanningContexts contexts, ExpeditionValidator validator) {
         this.plans = Objects.requireNonNull(plans, "plans");
-        this.contexts = new PlanningContexts(plans, executions, catalogs);
+        this.contexts = Objects.requireNonNull(contexts, "planning contexts");
         this.validator = Objects.requireNonNull(validator, "validator");
     }
 
@@ -37,6 +34,7 @@ public final class ReviewExpeditionInteractor implements ReviewExpedition {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ValidationResult validate(ExpeditionId expeditionId) {
         return validator.validate(contexts.around(plans.require(expeditionId)));
     }

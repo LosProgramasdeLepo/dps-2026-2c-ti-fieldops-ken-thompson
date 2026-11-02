@@ -37,8 +37,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -57,8 +55,6 @@ class ExecutionRepositoryTest {
 
     @Autowired
     private TestEntityManager entities;
-    @Autowired
-    private PlatformTransactionManager transactionManager;
     @Autowired
     private RunJpaRepository runRows;
     @Autowired
@@ -80,13 +76,12 @@ class ExecutionRepositoryTest {
 
     @BeforeEach
     void registerAPlan() {
-        TransactionTemplate transactions = new TransactionTemplate(transactionManager);
-        runs = new JpaExecutionRepository(runRows, transactions);
-        JpaPersonRegistry people = new JpaPersonRegistry(personRows, certificationRows, transactions);
-        JpaExpeditionRepository plans = new JpaExpeditionRepository(expeditionRows, registrationRows, transactions);
+        runs = new JpaExecutionRepository(runRows);
+        JpaPersonRegistry people = new JpaPersonRegistry(personRows, certificationRows);
+        JpaExpeditionRepository plans = new JpaExpeditionRepository(expeditionRows, registrationRows);
         Person ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(), Availability.always());
         people.save(ada);
-        JpaConsumableRegistry consumables = new JpaConsumableRegistry(consumableRows, transactions);
+        JpaConsumableRegistry consumables = new JpaConsumableRegistry(consumableRows);
         fuel = new Consumable(consumables.nextConsumableId(), new ConsumableName("Fuel"), new Stock(50));
         consumables.save(fuel);
         Expedition plan = Expedition.draft(plans.nextId(), new ExpeditionCharter(

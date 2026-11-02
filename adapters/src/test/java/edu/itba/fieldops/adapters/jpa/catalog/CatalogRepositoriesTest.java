@@ -26,8 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.dao.DataAccessException;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -50,8 +48,6 @@ class CatalogRepositoriesTest {
     @Autowired
     private TestEntityManager entities;
     @Autowired
-    private PlatformTransactionManager transactionManager;
-    @Autowired
     private CertificationJpaRepository certificationRows;
     @Autowired
     private PersonJpaRepository personRows;
@@ -73,13 +69,12 @@ class CatalogRepositoriesTest {
 
     @BeforeEach
     void connect() {
-        TransactionTemplate transactions = new TransactionTemplate(transactionManager);
-        certifications = new JpaCertificationRegistry(certificationRows, transactions);
-        people = new JpaPersonRegistry(personRows, certificationRows, transactions);
-        vehicles = new JpaVehicleRegistry(vehicleRows, transactions);
-        instruments = new JpaInstrumentRegistry(instrumentRows, transactions);
-        consumables = new JpaConsumableRegistry(consumableRows, transactions);
-        permits = new JpaPermitRegistry(permitRows, transactions);
+        certifications = new JpaCertificationRegistry(certificationRows);
+        people = new JpaPersonRegistry(personRows, certificationRows);
+        vehicles = new JpaVehicleRegistry(vehicleRows);
+        instruments = new JpaInstrumentRegistry(instrumentRows);
+        consumables = new JpaConsumableRegistry(consumableRows);
+        permits = new JpaPermitRegistry(permitRows);
     }
 
     @Test
