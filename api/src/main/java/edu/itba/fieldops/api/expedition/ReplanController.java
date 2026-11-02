@@ -61,12 +61,12 @@ public final class ReplanController {
 
     @GetMapping("/v1/expeditions/{id}/replan-proposals")
     public ResponseEntity<PageResponse<ProposalResponse>> proposals(@PathVariable UUID id, @Valid PageQuery query) {
-        return Pages.toResponse(proposals.of(new ExpeditionId(id), Pages.toRequest(query)), ExpeditionMapping::proposal);
+        return Pages.toResponse(proposals.of(new ExpeditionId(id), Pages.toRequest(query)), ReplanMapping::proposal);
     }
 
     @GetMapping("/v1/replan-proposals/{proposalId}")
     public ProposalResponse proposal(@PathVariable UUID proposalId) {
-        return ExpeditionMapping.proposal(proposals.of(new ProposalId(proposalId)));
+        return ReplanMapping.proposal(proposals.of(new ProposalId(proposalId)));
     }
 
     @PostMapping("/v1/replan-proposals/{proposalId}/acceptance")

@@ -35,21 +35,21 @@ public final class ExpeditionsController {
 
     @PostMapping("/v1/expeditions")
     public ResponseEntity<ResourceIdResponse> draft(@Valid @RequestBody CharterRequest request) {
-        return Responses.created("/v1/expeditions", drafts.draft(ExpeditionMapping.charter(request)).value());
+        return Responses.created("/v1/expeditions", drafts.draft(PlanMapping.charter(request)).value());
     }
 
     @GetMapping("/v1/expeditions")
     public ResponseEntity<PageResponse<ExpeditionSummaryResponse>> all(@Valid PageQuery query) {
-        return Pages.toResponse(consult.all(Pages.toRequest(query)), ExpeditionMapping::summary);
+        return Pages.toResponse(consult.all(Pages.toRequest(query)), PlanMapping::summary);
     }
 
     @GetMapping("/v1/expeditions/{id}")
     public ExpeditionResponse consult(@PathVariable UUID id) {
-        return ExpeditionMapping.expedition(consult.of(new ExpeditionId(id)));
+        return PlanMapping.expedition(consult.of(new ExpeditionId(id)));
     }
 
     @GetMapping("/v1/expeditions/{id}/activities/{activityId}")
     public ActivityResponse activity(@PathVariable UUID id, @PathVariable UUID activityId) {
-        return ExpeditionMapping.activity(consult.activity(new ExpeditionId(id), new ActivityId(activityId)));
+        return ItineraryMapping.activity(consult.activity(new ExpeditionId(id), new ActivityId(activityId)));
     }
 }
