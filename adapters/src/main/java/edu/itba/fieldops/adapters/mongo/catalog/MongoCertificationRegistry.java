@@ -19,10 +19,10 @@ import java.util.UUID;
 @Profile(PersistenceProfiles.MONGO)
 @Transactional(readOnly = true)
 public class MongoCertificationRegistry implements CertificationRegistry {
-    private final CatalogCollection<CertificationDocument, Certification> stored;
+    private final StoredCatalog<CertificationDocument, Certification> stored;
 
     MongoCertificationRegistry(CertificationMongoRepository repository, RegistrationSequence sequence) {
-        this.stored = new CatalogCollection<>(repository, sequence, CertificationDocument.COLLECTION, CertificationDocument::toDomain);
+        this.stored = new StoredCatalog<>(repository, sequence, CertificationDocument.COLLECTION, CertificationDocument::toDomain);
     }
 
     @Override

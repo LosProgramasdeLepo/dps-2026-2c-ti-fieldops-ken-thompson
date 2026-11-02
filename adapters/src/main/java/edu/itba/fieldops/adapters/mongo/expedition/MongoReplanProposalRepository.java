@@ -22,7 +22,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class MongoReplanProposalRepository implements ReplanProposalRepository {
     private final ProposalMongoRepository proposals;
-    private final StoredPlans stored;
+    private final StoredExpeditions stored;
     private final RegistrationSequence sequence;
 
     MongoReplanProposalRepository(
@@ -31,7 +31,7 @@ public class MongoReplanProposalRepository implements ReplanProposalRepository {
             RegistrationSequence sequence
     ) {
         this.proposals = Objects.requireNonNull(proposals, "proposals");
-        this.stored = new StoredPlans(expeditions, sequence);
+        this.stored = new StoredExpeditions(expeditions, sequence);
         this.sequence = Objects.requireNonNull(sequence, "sequence");
     }
 

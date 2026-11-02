@@ -53,6 +53,7 @@ public class AssignResourcesInteractor implements AssignResources {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Assignment> suggest(ExpeditionId expeditionId) {
         return suggester.suggest(contexts.around(plans.require(expeditionId)));
     }

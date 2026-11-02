@@ -20,10 +20,10 @@ import java.util.UUID;
 @Profile(PersistenceProfiles.MONGO)
 @Transactional(readOnly = true)
 public class MongoPersonRegistry implements PersonRegistry {
-    private final CatalogCollection<PersonDocument, Person> stored;
+    private final StoredCatalog<PersonDocument, Person> stored;
 
     MongoPersonRegistry(PersonMongoRepository repository, RegistrationSequence sequence) {
-        this.stored = new CatalogCollection<>(repository, sequence, PersonDocument.COLLECTION, PersonDocument::toDomain);
+        this.stored = new StoredCatalog<>(repository, sequence, PersonDocument.COLLECTION, PersonDocument::toDomain);
     }
 
     @Override

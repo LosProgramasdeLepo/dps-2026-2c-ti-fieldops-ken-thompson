@@ -8,8 +8,7 @@ import org.springframework.data.domain.Sort;
 import java.util.function.Function;
 
 public final class MongoPages {
-    public static final String REGISTRATION_ORDER = "registrationOrder";
-    public static final Sort IN_REGISTRATION_ORDER = Sort.by(REGISTRATION_ORDER);
+    public static final Sort IN_REGISTRATION_ORDER = Sort.by("registrationOrder");
 
     private MongoPages() {
     }

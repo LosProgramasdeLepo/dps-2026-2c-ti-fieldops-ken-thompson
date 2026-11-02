@@ -20,10 +20,10 @@ import java.util.UUID;
 @Profile(PersistenceProfiles.MONGO)
 @Transactional(readOnly = true)
 public class MongoVehicleRegistry implements VehicleRegistry {
-    private final CatalogCollection<VehicleDocument, Vehicle> stored;
+    private final StoredCatalog<VehicleDocument, Vehicle> stored;
 
     MongoVehicleRegistry(VehicleMongoRepository repository, RegistrationSequence sequence) {
-        this.stored = new CatalogCollection<>(repository, sequence, VehicleDocument.COLLECTION, VehicleDocument::toDomain);
+        this.stored = new StoredCatalog<>(repository, sequence, VehicleDocument.COLLECTION, VehicleDocument::toDomain);
     }
 
     @Override

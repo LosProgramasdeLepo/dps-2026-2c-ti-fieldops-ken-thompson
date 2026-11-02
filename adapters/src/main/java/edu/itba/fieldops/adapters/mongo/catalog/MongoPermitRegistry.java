@@ -19,10 +19,10 @@ import java.util.UUID;
 @Profile(PersistenceProfiles.MONGO)
 @Transactional(readOnly = true)
 public class MongoPermitRegistry implements PermitRegistry {
-    private final CatalogCollection<PermitDocument, Permit> stored;
+    private final StoredCatalog<PermitDocument, Permit> stored;
 
     MongoPermitRegistry(PermitMongoRepository repository, RegistrationSequence sequence) {
-        this.stored = new CatalogCollection<>(repository, sequence, PermitDocument.COLLECTION, PermitDocument::toDomain);
+        this.stored = new StoredCatalog<>(repository, sequence, PermitDocument.COLLECTION, PermitDocument::toDomain);
     }
 
     @Override

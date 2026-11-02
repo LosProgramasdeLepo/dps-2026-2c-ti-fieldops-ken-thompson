@@ -23,11 +23,11 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class MongoExpeditionRepository implements ExpeditionRepository {
     private final ExpeditionMongoRepository expeditions;
-    private final StoredPlans stored;
+    private final StoredExpeditions stored;
 
     MongoExpeditionRepository(ExpeditionMongoRepository expeditions, RegistrationSequence sequence) {
         this.expeditions = Objects.requireNonNull(expeditions, "expeditions");
-        this.stored = new StoredPlans(expeditions, sequence);
+        this.stored = new StoredExpeditions(expeditions, sequence);
     }
 
     @Override

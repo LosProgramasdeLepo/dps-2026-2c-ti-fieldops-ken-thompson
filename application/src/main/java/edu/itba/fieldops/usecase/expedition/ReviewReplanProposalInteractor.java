@@ -50,12 +50,14 @@ public class ReviewReplanProposalInteractor implements ReviewReplanProposal {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<ProposalSnapshot> of(ExpeditionId expeditionId, PageRequest request) {
         plans.require(expeditionId);
         return proposals.of(expeditionId, request).map(ProposalSnapshot::of);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProposalSnapshot of(ProposalId proposalId) {
         return ProposalSnapshot.of(require(proposalId));
     }
