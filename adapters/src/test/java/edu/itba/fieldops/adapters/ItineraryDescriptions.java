@@ -1,4 +1,4 @@
-package edu.itba.fieldops.adapters.jpa.expedition;
+package edu.itba.fieldops.adapters;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
@@ -16,11 +16,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-final class ItineraryDescriptions {
+public final class ItineraryDescriptions {
     private ItineraryDescriptions() {
     }
 
-    static List<Object> describe(List<ItineraryItem> items) {
+    public static List<Object> describe(List<ItineraryItem> items) {
         return items.stream().map(ItineraryDescriptions::describe).toList();
     }
 

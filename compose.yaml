@@ -14,5 +14,20 @@ services:
       interval: 2s
       retries: 15
 
+  # Single-node replica set: MongoDB only runs multi-document transactions on a replica set.
+  # The health check initiates it the first time.
+  mongo:
+    image: mongo:8
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - fieldops-mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]}).ok }"]
+      interval: 2s
+      retries: 15
+
 volumes:
   fieldops-data:
+  fieldops-mongo:

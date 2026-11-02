@@ -75,7 +75,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static edu.itba.fieldops.adapters.jpa.expedition.ItineraryDescriptions.describe;
+import static edu.itba.fieldops.adapters.ItineraryDescriptions.describe;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
