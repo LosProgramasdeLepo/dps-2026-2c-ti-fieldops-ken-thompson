@@ -10,9 +10,13 @@ import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionTracker;
 import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
+import edu.itba.fieldops.domain.expedition.IncidentResponder;
 import edu.itba.fieldops.domain.expedition.PlanningContexts;
+import edu.itba.fieldops.domain.expedition.ProposalReviewer;
 import edu.itba.fieldops.domain.expedition.Replanner;
+import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.validation.RuleBasedValidator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +35,11 @@ class FieldOpsConfiguration {
     }
 
     @Bean
+    PlanningContexts planningContexts(ExpeditionRepository plans, ExecutionRepository runs, Catalogs catalogs) {
+        return new PlanningContexts(plans, runs, catalogs);
+    }
+
+    @Bean
     ExpeditionValidator validator() {
         return RuleBasedValidator.withDefaultRules();
     }
@@ -41,7 +50,22 @@ class FieldOpsConfiguration {
     }
 
     @Bean
-    Replanner replanner(AssignmentSuggester suggester, ExpeditionRepository plans, ExecutionRepository runs, Catalogs catalogs) {
-        return new Replanner(suggester, new PlanningContexts(plans, runs, catalogs));
+    Replanner replanner(AssignmentSuggester suggester, PlanningContexts contexts) {
+        return new Replanner(suggester, contexts);
+    }
+
+    @Bean
+    IncidentResponder incidentResponder(ExpeditionRepository plans, Replanner replanner) {
+        return new IncidentResponder(plans, replanner);
+    }
+
+    @Bean
+    ExpeditionTracker tracker(ExpeditionRepository plans, ExecutionRepository runs, ConsumableRegistry consumables, Clock clock) {
+        return new ExpeditionTracker(plans, runs, consumables, clock);
+    }
+
+    @Bean
+    ProposalReviewer proposalReviewer(ExpeditionRepository plans, Clock clock) {
+        return new ProposalReviewer(plans, clock);
     }
 }

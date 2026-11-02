@@ -1,5 +1,6 @@
 package edu.itba.fieldops.frameworks;
 
+import edu.itba.fieldops.adapters.PersistenceProfiles;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.itinerary.Activity;
@@ -33,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
-@ActiveProfiles({"memory", "demo"})
+@ActiveProfiles({PersistenceProfiles.MEMORY, DemoData.PROFILE})
 @Import(DemoDataTest.FixedTime.class)
 class DemoDataTest {
     private static final PageRequest ALL = new PageRequest(0, 100);

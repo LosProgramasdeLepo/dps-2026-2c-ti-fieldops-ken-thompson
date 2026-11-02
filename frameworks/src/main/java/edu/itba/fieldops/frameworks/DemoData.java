@@ -61,9 +61,11 @@ import java.util.Map;
 import java.util.Objects;
 
 @Component
-@Profile("demo")
+@Profile(DemoData.PROFILE)
 @Transactional
 public class DemoData implements ApplicationRunner {
+    public static final String PROFILE = "demo";
+
     private static final WorkZone DELTA = new WorkZone("Delta");
     private static final InstrumentKind WATER_PROBE = new InstrumentKind("water probe");
     private static final InstrumentKind BINOCULARS = new InstrumentKind("binoculars");

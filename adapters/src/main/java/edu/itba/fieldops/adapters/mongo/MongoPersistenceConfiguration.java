@@ -11,7 +11,7 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 @Configuration(proxyBeanMethods = false)
 @Profile(PersistenceProfiles.MONGO)
 @EnableMongoRepositories(basePackageClasses = MongoPersistenceConfiguration.class)
-public class MongoPersistenceConfiguration {
+class MongoPersistenceConfiguration {
     @Bean
     MongoTransactionManager transactionManager(MongoDatabaseFactory databases) {
         return new MongoTransactionManager(databases);
