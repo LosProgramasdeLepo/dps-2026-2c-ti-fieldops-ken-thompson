@@ -1,6 +1,5 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.catalog;
 
-import edu.itba.fieldops.api.catalog.PermitsController;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.shared.Page;

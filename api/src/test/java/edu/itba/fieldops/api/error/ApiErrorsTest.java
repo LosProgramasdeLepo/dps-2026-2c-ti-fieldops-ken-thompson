@@ -1,4 +1,4 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.error;
 
 import edu.itba.fieldops.api.expedition.ExpeditionsController;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;

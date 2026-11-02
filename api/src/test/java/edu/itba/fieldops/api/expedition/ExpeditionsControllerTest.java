@@ -1,6 +1,5 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.expedition;
 
-import edu.itba.fieldops.api.expedition.ExpeditionsController;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
@@ -130,7 +129,7 @@ class ExpeditionsControllerTest {
         );
     }
 
-    static String charter(UUID responsible) {
+    private static String charter(UUID responsible) {
         return """
                 {"objectives":["Map wetland"],"period":{"start":"2026-11-01T00:00:00Z","end":"2026-11-06T00:00:00Z"},"zones":["Delta"],"responsibles":["%s"],"restrictions":["Daylight only"]}
                 """.formatted(responsible);
