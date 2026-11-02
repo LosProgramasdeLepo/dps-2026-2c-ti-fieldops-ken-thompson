@@ -1,6 +1,5 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.expedition;
 
-import edu.itba.fieldops.api.expedition.RunController;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;

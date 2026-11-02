@@ -1,19 +1,18 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.catalog;
 
-import edu.itba.fieldops.api.catalog.EquipmentController;
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Capacity;
 import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Instrument;
+import edu.itba.fieldops.domain.catalog.Stock;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultEquipment;
 import org.junit.jupiter.api.Test;

@@ -1,6 +1,5 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.expedition;
 
-import edu.itba.fieldops.api.expedition.ItineraryController;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;

@@ -42,7 +42,7 @@ class ExpeditionFlowTest {
                 {"kind":"zone","zone":"Delta","validity":%s}
                 """.formatted(PERIOD))).andExpect(status().isCreated()).andReturn());
         UUID expeditionId = id(mvc.perform(post("/v1/expeditions").contentType(MediaType.APPLICATION_JSON)
-                .content(ExpeditionsControllerTest.charter(personId))).andExpect(status().isCreated()).andReturn());
+                .content(charter(personId))).andExpect(status().isCreated()).andReturn());
         UUID activityId = id(mvc.perform(post("/v1/expeditions/{id}/activities", expeditionId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
@@ -76,7 +76,7 @@ class ExpeditionFlowTest {
     @Test
     void anUnknownResponsibleIsUnprocessable() throws Exception {
         mvc.perform(post("/v1/expeditions").contentType(MediaType.APPLICATION_JSON)
-                        .content(ExpeditionsControllerTest.charter(UUID.randomUUID())))
+                        .content(charter(UUID.randomUUID())))
                 .andExpect(status().isUnprocessableContent());
     }
 
@@ -86,7 +86,7 @@ class ExpeditionFlowTest {
         MvcResult person = create("/v1/people", """
                 {"name":"Ada","certifications":["%s"],"availability":{"periods":[%s]}}
                 """.formatted(id(certification), PERIOD));
-        MvcResult expedition = create("/v1/expeditions", ExpeditionsControllerTest.charter(id(person)));
+        MvcResult expedition = create("/v1/expeditions", charter(id(person)));
         List<MvcResult> created = List.of(
                 certification,
                 person,
@@ -118,6 +118,12 @@ class ExpeditionFlowTest {
                 .andExpect(jsonPath("$.totalItems").value(3))
                 .andExpect(jsonPath("$.totalPages").value(2))
                 .andExpect(header().string("Link", containsString("rel=\"prev\"")));
+    }
+
+    private static String charter(UUID responsible) {
+        return """
+                {"objectives":["Map wetland"],"period":%s,"zones":["Delta"],"responsibles":["%s"],"restrictions":["Daylight only"]}
+                """.formatted(PERIOD, responsible);
     }
 
     private MvcResult create(String uri, String body) throws Exception {

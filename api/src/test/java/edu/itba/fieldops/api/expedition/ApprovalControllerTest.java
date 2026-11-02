@@ -1,6 +1,5 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.expedition;
 
-import edu.itba.fieldops.api.expedition.ApprovalController;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.usecase.expedition.ApproveExpedition;
 import org.junit.jupiter.api.Test;

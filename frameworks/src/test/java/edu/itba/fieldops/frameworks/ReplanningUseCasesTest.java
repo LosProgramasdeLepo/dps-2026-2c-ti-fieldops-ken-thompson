@@ -1,6 +1,7 @@
 package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Capacity;
 import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
@@ -10,7 +11,6 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Delay;
-import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.IncidentDescription;

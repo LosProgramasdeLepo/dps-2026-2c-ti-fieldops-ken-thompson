@@ -1,6 +1,7 @@
 package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Capacity;
 import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
@@ -19,7 +20,6 @@ import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
-import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.PermitKind;
