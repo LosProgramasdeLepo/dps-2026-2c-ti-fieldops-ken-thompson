@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -23,13 +22,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Import(PostgresContainerConfiguration.class)
-class PersistentFlowTest {
+abstract class PersistentFlow {
     @Autowired
     private MockMvc mvc;
 
     @Test
-    void plansApprovesRunsAndReplansAnExpeditionStoredInPostgres() throws Exception {
+    void plansApprovesRunsAndReplansAnExpedition() throws Exception {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         String period = period(now.minus(Duration.ofDays(1)), now.plus(Duration.ofDays(4)));
         UUID certificationId = created(post("/v1/certifications"), "{\"name\":\"Sampling\"}");
