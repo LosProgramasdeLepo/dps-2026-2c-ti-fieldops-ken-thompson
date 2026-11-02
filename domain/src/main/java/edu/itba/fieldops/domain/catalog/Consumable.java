@@ -2,7 +2,6 @@ package edu.itba.fieldops.domain.catalog;
 
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.shared.Consumption;
-import edu.itba.fieldops.domain.shared.Stock;
 
 import java.util.Objects;
 

@@ -2,14 +2,14 @@ package edu.itba.fieldops.domain.validation;
 
 import edu.itba.fieldops.domain.assessment.IssueSeverity;
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
+import edu.itba.fieldops.domain.catalog.Capacity;
+import edu.itba.fieldops.domain.catalog.Passengers;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.Vehicles;
 import edu.itba.fieldops.domain.expedition.Assignments;
 import edu.itba.fieldops.domain.expedition.PlanningContext;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.shared.Capacity;
-import edu.itba.fieldops.domain.shared.Passengers;
 
 import java.util.ArrayList;
 import java.util.List;
