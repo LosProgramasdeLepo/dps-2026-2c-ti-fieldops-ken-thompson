@@ -80,6 +80,7 @@ public class TrackExpeditionInteractor implements TrackExpedition {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public RunSnapshot run(ExpeditionId expeditionId) {
         Expedition plan = plans.require(expeditionId);
         return executions.find(expeditionId)

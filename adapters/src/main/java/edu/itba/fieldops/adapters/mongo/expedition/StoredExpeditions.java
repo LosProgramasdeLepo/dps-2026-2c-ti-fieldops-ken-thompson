@@ -6,11 +6,11 @@ import edu.itba.fieldops.domain.expedition.Expedition;
 import java.util.Objects;
 import java.util.Optional;
 
-final class StoredPlans {
+final class StoredExpeditions {
     private final ExpeditionMongoRepository expeditions;
     private final RegistrationSequence sequence;
 
-    StoredPlans(ExpeditionMongoRepository expeditions, RegistrationSequence sequence) {
+    StoredExpeditions(ExpeditionMongoRepository expeditions, RegistrationSequence sequence) {
         this.expeditions = Objects.requireNonNull(expeditions, "expeditions");
         this.sequence = Objects.requireNonNull(sequence, "sequence");
     }

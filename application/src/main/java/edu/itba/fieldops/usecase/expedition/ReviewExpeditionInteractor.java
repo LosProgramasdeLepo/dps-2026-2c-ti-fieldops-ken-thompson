@@ -34,6 +34,7 @@ public class ReviewExpeditionInteractor implements ReviewExpedition {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ValidationResult validate(ExpeditionId expeditionId) {
         return validator.validate(contexts.around(plans.require(expeditionId)));
     }

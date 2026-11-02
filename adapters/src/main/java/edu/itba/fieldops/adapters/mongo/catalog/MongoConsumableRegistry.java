@@ -19,10 +19,10 @@ import java.util.UUID;
 @Profile(PersistenceProfiles.MONGO)
 @Transactional(readOnly = true)
 public class MongoConsumableRegistry implements ConsumableRegistry {
-    private final CatalogCollection<ConsumableDocument, Consumable> stored;
+    private final StoredCatalog<ConsumableDocument, Consumable> stored;
 
     MongoConsumableRegistry(ConsumableMongoRepository repository, RegistrationSequence sequence) {
-        this.stored = new CatalogCollection<>(repository, sequence, ConsumableDocument.COLLECTION, ConsumableDocument::toDomain);
+        this.stored = new StoredCatalog<>(repository, sequence, ConsumableDocument.COLLECTION, ConsumableDocument::toDomain);
     }
 
     @Override

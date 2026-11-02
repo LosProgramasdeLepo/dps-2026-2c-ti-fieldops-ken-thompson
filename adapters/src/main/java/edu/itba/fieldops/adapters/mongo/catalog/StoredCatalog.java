@@ -13,13 +13,13 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
-final class CatalogCollection<D extends RegisteredDocument, T> {
+final class StoredCatalog<D extends RegisteredDocument, T> {
     private final MongoRepository<D, String> repository;
     private final RegistrationSequence sequence;
     private final String collection;
     private final Function<D, T> toDomain;
 
-    CatalogCollection(MongoRepository<D, String> repository, RegistrationSequence sequence, String collection, Function<D, T> toDomain) {
+    StoredCatalog(MongoRepository<D, String> repository, RegistrationSequence sequence, String collection, Function<D, T> toDomain) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.sequence = Objects.requireNonNull(sequence, "sequence");
         this.collection = Objects.requireNonNull(collection, "collection");

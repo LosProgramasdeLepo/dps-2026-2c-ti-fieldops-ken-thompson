@@ -20,10 +20,10 @@ import java.util.UUID;
 @Profile(PersistenceProfiles.MONGO)
 @Transactional(readOnly = true)
 public class MongoInstrumentRegistry implements InstrumentRegistry {
-    private final CatalogCollection<InstrumentDocument, Instrument> stored;
+    private final StoredCatalog<InstrumentDocument, Instrument> stored;
 
     MongoInstrumentRegistry(InstrumentMongoRepository repository, RegistrationSequence sequence) {
-        this.stored = new CatalogCollection<>(repository, sequence, InstrumentDocument.COLLECTION, InstrumentDocument::toDomain);
+        this.stored = new StoredCatalog<>(repository, sequence, InstrumentDocument.COLLECTION, InstrumentDocument::toDomain);
     }
 
     @Override
