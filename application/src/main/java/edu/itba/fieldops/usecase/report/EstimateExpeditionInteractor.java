@@ -4,10 +4,14 @@ import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.report.Estimate;
 import edu.itba.fieldops.domain.usecase.report.EstimateExpedition;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class EstimateExpeditionInteractor implements EstimateExpedition {
+@Service
+@Transactional(readOnly = true)
+public class EstimateExpeditionInteractor implements EstimateExpedition {
     private final ExpeditionRepository plans;
 
     public EstimateExpeditionInteractor(ExpeditionRepository plans) {

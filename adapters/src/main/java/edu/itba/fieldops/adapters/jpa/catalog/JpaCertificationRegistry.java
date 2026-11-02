@@ -1,5 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
+import edu.itba.fieldops.adapters.jpa.JpaAdapter;
 import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.CertificationRegistry;
 import edu.itba.fieldops.domain.identity.CertificationId;
@@ -11,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@JpaAdapter
 public final class JpaCertificationRegistry implements CertificationRegistry {
     private final StoredCatalog<CertificationEntity, Certification> stored;
 

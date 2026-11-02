@@ -1,5 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
+import edu.itba.fieldops.adapters.jpa.JpaAdapter;
 import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.PermitRegistry;
 import edu.itba.fieldops.domain.identity.PermitId;
@@ -11,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@JpaAdapter
 public final class JpaPermitRegistry implements PermitRegistry {
     private final StoredCatalog<PermitEntity, Permit> stored;
 

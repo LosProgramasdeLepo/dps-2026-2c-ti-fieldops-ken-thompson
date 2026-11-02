@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@InMemoryAdapter
 public final class InMemoryPersonRegistry implements PersonRegistry {
     private final Map<PersonId, Person> people = new LinkedHashMap<>();
 

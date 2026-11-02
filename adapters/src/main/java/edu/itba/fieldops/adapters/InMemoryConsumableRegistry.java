@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@InMemoryAdapter
 public final class InMemoryConsumableRegistry implements ConsumableRegistry {
     private final Map<ConsumableId, Consumable> consumables = new LinkedHashMap<>();
 

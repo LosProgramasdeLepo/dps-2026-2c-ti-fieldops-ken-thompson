@@ -3,7 +3,12 @@ package edu.itba.fieldops.frameworks;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Capacity;
 import edu.itba.fieldops.domain.catalog.CertificationName;
+import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
+import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
+import edu.itba.fieldops.domain.catalog.PermitRegistry;
 import edu.itba.fieldops.domain.catalog.PersonName;
+import edu.itba.fieldops.domain.catalog.PersonRegistry;
+import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
@@ -44,43 +49,82 @@ import edu.itba.fieldops.domain.usecase.expedition.ReviewReplanProposal;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
 import edu.itba.fieldops.domain.usecase.report.EstimateExpedition;
 import edu.itba.fieldops.domain.usecase.report.ReportExpedition;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+@SpringBootTest
+@ActiveProfiles("memory")
+@Import(UseCaseFixture.FixedTime.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 abstract class UseCaseFixture {
     static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
     static final WorkZone DELTA = new WorkZone("Delta");
     static final TimePeriod PERIOD = new TimePeriod(DAY, DAY.plus(Duration.ofDays(5)));
     static final PageRequest FIRST_PAGE = new PageRequest(0, 20);
 
-    final FixedClock clock = new FixedClock(DAY);
-    private final InMemoryFieldOps memory = new InMemoryFieldOps(clock);
-    private final FieldOps app = memory.useCases();
-
-    final FieldOpsRepositories repositories = memory.repositories();
-    final ExpeditionRepository plans = repositories.plans();
-    final ExecutionRepository runs = repositories.runs();
-    final AdministerPersonnel personnel = app.personnel();
-    final AdministerEquipment equipment = app.equipment();
-    final AdministerPermits permitting = app.permitting();
-    final ConsultPersonnel consultPersonnel = app.consultPersonnel();
-    final ConsultEquipment consultEquipment = app.consultEquipment();
-    final ConsultPermits consultPermits = app.consultPermits();
-    final DraftExpedition drafts = app.drafts();
-    final PlanItinerary itinerary = app.itinerary();
-    final EstimateExpedition estimates = app.estimates();
-    final AssignResources assignments = app.assignments();
-    final ReviewExpedition review = app.review();
-    final ApproveExpedition approval = app.approval();
-    final ConsultExpedition consult = app.consult();
-    final TrackExpedition tracking = app.tracking();
-    final RecordIncident incidents = app.incidents();
-    final ReviewReplanProposal proposalReview = app.proposalReview();
-    final ReplanExpedition replan = app.replan();
-    final ReportExpedition reports = app.reports();
+    @Autowired
+    FixedClock clock;
+    @Autowired
+    PersonRegistry people;
+    @Autowired
+    VehicleRegistry vehicles;
+    @Autowired
+    InstrumentRegistry instruments;
+    @Autowired
+    ConsumableRegistry consumables;
+    @Autowired
+    PermitRegistry permits;
+    @Autowired
+    ExpeditionRepository plans;
+    @Autowired
+    ExecutionRepository runs;
+    @Autowired
+    AdministerPersonnel personnel;
+    @Autowired
+    AdministerEquipment equipment;
+    @Autowired
+    AdministerPermits permitting;
+    @Autowired
+    ConsultPersonnel consultPersonnel;
+    @Autowired
+    ConsultEquipment consultEquipment;
+    @Autowired
+    ConsultPermits consultPermits;
+    @Autowired
+    DraftExpedition drafts;
+    @Autowired
+    PlanItinerary itinerary;
+    @Autowired
+    EstimateExpedition estimates;
+    @Autowired
+    AssignResources assignments;
+    @Autowired
+    ReviewExpedition review;
+    @Autowired
+    ApproveExpedition approval;
+    @Autowired
+    ConsultExpedition consult;
+    @Autowired
+    TrackExpedition tracking;
+    @Autowired
+    RecordIncident incidents;
+    @Autowired
+    ReviewReplanProposal proposalReview;
+    @Autowired
+    ReplanExpedition replan;
+    @Autowired
+    ReportExpedition reports;
 
     ExpeditionId draftResponsibleFor(PersonId responsible) {
         return drafts.draft(new ExpeditionCharter(
@@ -207,5 +251,14 @@ abstract class UseCaseFixture {
     }
 
     record Crossing(ExpeditionId expeditionId, ActivityId activityId) {
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class FixedTime {
+        @Bean
+        @Primary
+        FixedClock clock() {
+            return new FixedClock(DAY);
+        }
     }
 }

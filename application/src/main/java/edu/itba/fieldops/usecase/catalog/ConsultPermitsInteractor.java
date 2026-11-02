@@ -6,10 +6,14 @@ import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultPermits;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class ConsultPermitsInteractor implements ConsultPermits {
+@Service
+@Transactional(readOnly = true)
+public class ConsultPermitsInteractor implements ConsultPermits {
     private final PermitRegistry permits;
 
     public ConsultPermitsInteractor(PermitRegistry permits) {

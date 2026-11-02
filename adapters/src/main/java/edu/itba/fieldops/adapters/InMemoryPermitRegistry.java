@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@InMemoryAdapter
 public final class InMemoryPermitRegistry implements PermitRegistry {
     private final Map<PermitId, Permit> permits = new LinkedHashMap<>();
 

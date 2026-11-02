@@ -13,10 +13,14 @@ import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewReplanProposal;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class ReviewReplanProposalInteractor implements ReviewReplanProposal {
+@Service
+@Transactional
+public class ReviewReplanProposalInteractor implements ReviewReplanProposal {
     private final ExpeditionRepository plans;
     private final ReplanProposalRepository proposals;
     private final ProposalReviewer reviewer;

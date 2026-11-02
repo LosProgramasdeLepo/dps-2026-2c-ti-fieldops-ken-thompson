@@ -1,5 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.expedition;
 
+import edu.itba.fieldops.adapters.jpa.JpaAdapter;
 import edu.itba.fieldops.adapters.jpa.JpaPages;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
@@ -13,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@JpaAdapter
 public final class JpaReplanProposalRepository implements ReplanProposalRepository {
     private final ProposalJpaRepository proposals;
     private final StoredExpeditions stored;

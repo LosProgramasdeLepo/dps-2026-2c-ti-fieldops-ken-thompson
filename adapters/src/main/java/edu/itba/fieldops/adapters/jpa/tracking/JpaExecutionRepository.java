@@ -1,5 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.tracking;
 
+import edu.itba.fieldops.adapters.jpa.JpaAdapter;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -8,6 +9,7 @@ import org.springframework.transaction.support.TransactionOperations;
 import java.util.Objects;
 import java.util.Optional;
 
+@JpaAdapter
 public final class JpaExecutionRepository implements ExecutionRepository {
     private final RunJpaRepository runs;
     private final TransactionOperations transactions;

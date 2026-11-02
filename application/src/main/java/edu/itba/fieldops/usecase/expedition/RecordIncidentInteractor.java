@@ -16,10 +16,14 @@ import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.usecase.expedition.RecordIncident;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class RecordIncidentInteractor implements RecordIncident {
+@Service
+@Transactional
+public class RecordIncidentInteractor implements RecordIncident {
     private final ExpeditionRepository plans;
     private final ExecutionRepository executions;
     private final ExpeditionTracker tracker;

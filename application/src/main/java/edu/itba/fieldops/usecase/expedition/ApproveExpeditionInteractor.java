@@ -8,11 +8,15 @@ import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.usecase.expedition.ApproveExpedition;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 import java.util.Optional;
 
-public final class ApproveExpeditionInteractor implements ApproveExpedition {
+@Service
+@Transactional
+public class ApproveExpeditionInteractor implements ApproveExpedition {
     private final ExpeditionRepository plans;
     private final PlanningContexts contexts;
     private final ExpeditionValidator validator;
