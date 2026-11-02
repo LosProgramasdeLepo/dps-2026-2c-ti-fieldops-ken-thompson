@@ -1,24 +1,28 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
-import edu.itba.fieldops.adapters.jpa.JpaAdapter;
+import edu.itba.fieldops.adapters.PersistenceProfiles;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
 import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
-import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-@JpaAdapter
-public final class JpaInstrumentRegistry implements InstrumentRegistry {
+@Repository
+@Profile(PersistenceProfiles.SQL)
+@Transactional(readOnly = true)
+public class JpaInstrumentRegistry implements InstrumentRegistry {
     private final StoredCatalog<InstrumentEntity, Instrument> stored;
 
-    public JpaInstrumentRegistry(InstrumentJpaRepository repository, TransactionOperations transactions) {
-        this.stored = new StoredCatalog<>(repository, InstrumentEntity::toDomain, transactions);
+    public JpaInstrumentRegistry(InstrumentJpaRepository repository) {
+        this.stored = new StoredCatalog<>(repository, InstrumentEntity::toDomain);
     }
 
     @Override
@@ -27,9 +31,10 @@ public final class JpaInstrumentRegistry implements InstrumentRegistry {
     }
 
     @Override
+    @Transactional
     public void save(Instrument instrument) {
         Objects.requireNonNull(instrument, "instrument");
-        stored.save(() -> new InstrumentEntity(instrument));
+        stored.save(new InstrumentEntity(instrument));
     }
 
     @Override

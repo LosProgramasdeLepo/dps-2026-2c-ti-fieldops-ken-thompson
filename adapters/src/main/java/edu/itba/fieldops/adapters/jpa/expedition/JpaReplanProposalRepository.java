@@ -1,6 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.expedition;
 
-import edu.itba.fieldops.adapters.jpa.JpaAdapter;
+import edu.itba.fieldops.adapters.PersistenceProfiles;
 import edu.itba.fieldops.adapters.jpa.JpaPages;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
@@ -8,26 +8,26 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
-import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-@JpaAdapter
-public final class JpaReplanProposalRepository implements ReplanProposalRepository {
+@Repository
+@Profile(PersistenceProfiles.SQL)
+@Transactional(readOnly = true)
+public class JpaReplanProposalRepository implements ReplanProposalRepository {
     private final ProposalJpaRepository proposals;
     private final StoredExpeditions stored;
-    private final TransactionOperations transactions;
 
     public JpaReplanProposalRepository(
             ProposalJpaRepository proposals,
-            ExpeditionJpaRepository expeditions,
-            TransactionOperations transactions
-    ) {
+            ExpeditionJpaRepository expeditions) {
         this.proposals = Objects.requireNonNull(proposals, "proposals");
         this.stored = new StoredExpeditions(expeditions);
-        this.transactions = Objects.requireNonNull(transactions, "transactions");
     }
 
     @Override
@@ -36,26 +36,23 @@ public final class JpaReplanProposalRepository implements ReplanProposalReposito
     }
 
     @Override
+    @Transactional
     public void save(ReplanProposal proposal) {
         Objects.requireNonNull(proposal, "proposal");
-        transactions.executeWithoutResult(status -> {
-            stored.save(proposal.suggested());
-            proposals.save(new ProposalEntity(proposal.state()));
-        });
+        stored.save(proposal.suggested());
+        proposals.save(new ProposalEntity(proposal.state()));
     }
 
     @Override
     public Optional<ReplanProposal> find(ProposalId id) {
         Objects.requireNonNull(id, "proposal id");
-        return transactions.execute(status -> proposals.findById(id.value()).map(this::toDomain));
+        return proposals.findById(id.value()).map(this::toDomain);
     }
 
     @Override
     public Page<ReplanProposal> of(ExpeditionId originalId, PageRequest request) {
         Objects.requireNonNull(originalId, "expedition id");
-        return transactions.execute(status -> JpaPages.page(
-                proposals.findByOriginalId(originalId.value(), JpaPages.pageable(request)), request, this::toDomain
-        ));
+        return JpaPages.page(proposals.findByOriginalId(originalId.value(), JpaPages.pageable(request)), request, this::toDomain);
     }
 
     private ReplanProposal toDomain(ProposalEntity entity) {

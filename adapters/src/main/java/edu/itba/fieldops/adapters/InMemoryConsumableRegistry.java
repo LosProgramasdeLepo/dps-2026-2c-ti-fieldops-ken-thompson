@@ -5,6 +5,8 @@ import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,8 +14,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-@InMemoryAdapter
-public final class InMemoryConsumableRegistry implements ConsumableRegistry {
+@Repository
+@Profile(PersistenceProfiles.MEMORY)
+public class InMemoryConsumableRegistry implements ConsumableRegistry {
     private final Map<ConsumableId, Consumable> consumables = new LinkedHashMap<>();
 
     @Override
