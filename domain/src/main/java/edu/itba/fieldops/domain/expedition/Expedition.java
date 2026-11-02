@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 
 public final class Expedition {
@@ -121,7 +120,7 @@ public final class Expedition {
         content.delay(activityId, delay);
     }
 
-    public boolean delayFits(ActivityId activityId, Delay delay) {
+    boolean delayFits(ActivityId activityId, Delay delay) {
         return content.delayFits(activityId, delay);
     }
 
@@ -147,7 +146,7 @@ public final class Expedition {
         return new ActivityStart(
                 activityId,
                 activity.window().at(at),
-                current.predecessorsOf(activityId),
+                current.content.predecessorsOf(activityId),
                 Revisions.lineage(current, plans)
         );
     }
@@ -197,7 +196,7 @@ public final class Expedition {
         transition(ExpeditionStatus.APPROVED, ExpeditionStatus.SUPERSEDED, "supersede");
     }
 
-    public boolean hasAccepted(ValidationIssue warning) {
+    boolean hasAccepted(ValidationIssue warning) {
         return acceptedWarnings.covers(warning);
     }
 
@@ -257,10 +256,6 @@ public final class Expedition {
 
     public boolean includes(ActivityId activityId) {
         return content.includes(activityId);
-    }
-
-    public Set<ActivityId> predecessorsOf(ActivityId activityId) {
-        return content.predecessorsOf(activityId);
     }
 
     public Duration duration(Function<Activity, Duration> leafDuration) {

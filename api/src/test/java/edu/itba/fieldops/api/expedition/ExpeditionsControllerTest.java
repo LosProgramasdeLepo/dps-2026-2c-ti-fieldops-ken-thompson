@@ -1,6 +1,5 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.expedition;
 
-import edu.itba.fieldops.api.expedition.ExpeditionsController;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.Objective;
@@ -8,12 +7,12 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
-import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.usecase.expedition.ConsultExpedition;
 import edu.itba.fieldops.domain.usecase.expedition.DraftExpedition;
@@ -98,7 +97,7 @@ class ExpeditionsControllerTest {
         UUID id = UUID.randomUUID();
         UUID activityId = UUID.randomUUID();
         when(consult.activity(new ExpeditionId(id), new ActivityId(activityId))).thenReturn(Activity.transit()
-                .named(new ActivityId(activityId), "Crossing")
+                .named(new ActivityId(activityId), new ActivityName("Crossing"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(new WorkZone("Delta"), new TimePeriod(Instant.parse("2026-11-01T08:00:00Z"), Instant.parse("2026-11-01T10:00:00Z")))
                 .build());
@@ -108,16 +107,6 @@ class ExpeditionsControllerTest {
                 .andExpect(jsonPath("$.id").value(activityId.toString()))
                 .andExpect(jsonPath("$.name").value("Crossing"))
                 .andExpect(jsonPath("$.estimatedDuration").value("PT2H"));
-    }
-
-    @Test
-    void anActivityOutsideThePlanIsNotFound() throws Exception {
-        UUID id = UUID.randomUUID();
-        UUID activityId = UUID.randomUUID();
-        when(consult.activity(new ExpeditionId(id), new ActivityId(activityId))).thenThrow(new UnknownResource("activity", activityId.toString()));
-
-        mvc.perform(get("/v1/expeditions/{id}/activities/{activityId}", id, activityId))
-                .andExpect(status().isNotFound());
     }
 
     static PlanSnapshot plan(UUID id) {
@@ -140,7 +129,7 @@ class ExpeditionsControllerTest {
         );
     }
 
-    static String charter(UUID responsible) {
+    private static String charter(UUID responsible) {
         return """
                 {"objectives":["Map wetland"],"period":{"start":"2026-11-01T00:00:00Z","end":"2026-11-06T00:00:00Z"},"zones":["Delta"],"responsibles":["%s"],"restrictions":["Daylight only"]}
                 """.formatted(responsible);

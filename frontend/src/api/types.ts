@@ -186,6 +186,7 @@ export interface Report {
   finishedActivities: number;
   duration: IsoDuration;
   risk: RiskLevel;
+  risks: { activityId: Uuid; risk: RiskLevel }[];
   consumption: Consumption;
   estimatedConsumption: Consumption;
   incidents: Incident[];

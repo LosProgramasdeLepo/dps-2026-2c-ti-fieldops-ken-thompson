@@ -1,4 +1,4 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.error;
 
 import edu.itba.fieldops.api.expedition.ExpeditionsController;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
@@ -14,6 +14,9 @@ import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.usecase.expedition.ConsultExpedition;
 import edu.itba.fieldops.domain.usecase.expedition.DraftExpedition;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
@@ -21,6 +24,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -61,44 +65,32 @@ class ApiErrorsTest {
         when(consult.of(new ExpeditionId(pathId))).thenThrow(new UnknownResource("responsible", otherId.toString()));
 
         mvc.perform(get("/v1/expeditions/{id}", pathId))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail").value("unknown responsible: " + otherId));
     }
 
-    @Test
-    void invalidValueIsUnprocessable() throws Exception {
-        expect(new InvalidValue("objectives must not be empty"), 422);
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("domainFailures")
+    void aDomainFailureMapsToItsStatus(DomainException error, int status) throws Exception {
+        when(consult.of(any())).thenThrow(error);
+
+        mvc.perform(get("/v1/expeditions/{id}", UUID.randomUUID()))
+                .andExpect(status().is(status))
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail").value(error.getMessage()));
     }
 
-    @Test
-    void invalidItineraryIsUnprocessable() throws Exception {
-        expect(new InvalidItinerary("activity window is shorter than estimated duration"), 422);
-    }
-
-    @Test
-    void invalidAssignmentIsUnprocessable() throws Exception {
-        expect(new InvalidAssignment("duplicate assignment"), 422);
-    }
-
-    @Test
-    void illegalTransitionConflicts() throws Exception {
-        expect(new InvalidExpeditionTransition(ExpeditionStatus.DRAFT, "approve"), 409);
-    }
-
-    @Test
-    void anExpeditionThatCannotBeApprovedConflicts() throws Exception {
-        expect(new ExpeditionNotApprovable("critical validation issues remain"), 409);
-    }
-
-    @Test
-    void illegalTrackingConflicts() throws Exception {
-        expect(new InvalidActivityExecution("activity is outside its window"), 409);
-    }
-
-    @Test
-    void anUnclassifiedDomainFailureIsUnprocessable() throws Exception {
-        expect(new DomainException("future rule") {
-        }, 422);
+    static Stream<Arguments> domainFailures() {
+        return Stream.of(
+                Arguments.of(new InvalidValue("objectives must not be empty"), 422),
+                Arguments.of(new InvalidItinerary("activity window is shorter than estimated duration"), 422),
+                Arguments.of(new InvalidAssignment("duplicate assignment"), 422),
+                Arguments.of(new DomainException("future rule") {
+                }, 422),
+                Arguments.of(new InvalidExpeditionTransition(ExpeditionStatus.DRAFT, "approve"), 409),
+                Arguments.of(new ExpeditionNotApprovable("critical validation issues remain"), 409),
+                Arguments.of(new InvalidActivityExecution("activity is outside its window"), 409)
+        );
     }
 
     @Test
@@ -127,13 +119,5 @@ class ApiErrorsTest {
                                 """.formatted(UUID.randomUUID())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors").isArray());
-    }
-
-    private void expect(DomainException error, int status) throws Exception {
-        when(consult.of(any())).thenThrow(error);
-        mvc.perform(get("/v1/expeditions/{id}", UUID.randomUUID()))
-                .andExpect(status().is(status))
-                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.detail").value(error.getMessage()));
     }
 }

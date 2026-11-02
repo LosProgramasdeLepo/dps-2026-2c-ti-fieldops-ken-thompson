@@ -6,6 +6,7 @@ import edu.itba.fieldops.adapters.jpa.catalog.JpaPersonRegistry;
 import edu.itba.fieldops.adapters.jpa.catalog.PersonJpaRepository;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionState;
@@ -18,6 +19,7 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Page;
@@ -26,6 +28,7 @@ import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +80,7 @@ class ReplanProposalRepositoryTest {
         proposals = new JpaReplanProposalRepository(proposalRows, expeditionRows, transactions);
         plans = new JpaExpeditionRepository(expeditionRows, registrationRows, transactions);
         JpaPersonRegistry people = new JpaPersonRegistry(personRows, certificationRows, transactions);
-        ada = new Person(people.nextPersonId(), "Ada", List.of(), Availability.always());
+        ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(), Availability.always());
         people.save(ada);
         approved = Expedition.draft(plans.nextId(), new ExpeditionCharter(
                 List.of(new Objective("Map the delta")),
@@ -87,7 +90,7 @@ class ReplanProposalRepositoryTest {
                 List.of()
         ), people);
         soil = Activity.transit()
-                .named(plans.nextActivityId(), "Soil")
+                .named(plans.nextActivityId(), new ActivityName("Soil"))
                 .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.LOW)
                 .in(DELTA, new TimePeriod(DAY, DAY.plus(Duration.ofHours(4))))
                 .build();
@@ -213,7 +216,7 @@ class ReplanProposalRepositoryTest {
     private ReplanProposal proposal(String description) {
         Expedition suggestion = approved.reviseAsDraft(plans.nextId());
         suggestion.delay(soil.id(), new Delay(Duration.ofHours(2)));
-        Incident incident = Incident.affecting(soil.id(), description, DAY.plus(Duration.ofHours(1)));
+        Incident incident = Incident.affecting(soil.id(), new IncidentDescription(description), DAY.plus(Duration.ofHours(1)));
         return ReplanProposal.restore(new ProposalState(
                 proposals.nextId(),
                 approved.id(),

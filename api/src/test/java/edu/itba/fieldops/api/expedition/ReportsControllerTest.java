@@ -1,7 +1,8 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.expedition;
 
-import edu.itba.fieldops.api.expedition.ReportsController;
+import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.report.ActivityRisk;
 import edu.itba.fieldops.domain.report.Estimate;
 import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.report.OperationalStatus;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -37,7 +39,7 @@ class ReportsControllerTest {
     @Test
     void returnsTheEstimate() throws Exception {
         UUID id = UUID.randomUUID();
-        org.mockito.Mockito.when(estimates.of(new ExpeditionId(id)))
+        when(estimates.of(new ExpeditionId(id)))
                 .thenReturn(new Estimate(Duration.ofHours(4), RiskLevel.MEDIUM, Map.of()));
 
         mvc.perform(get("/v1/expeditions/{id}/estimate", id))
@@ -49,13 +51,15 @@ class ReportsControllerTest {
     @Test
     void returnsTheReport() throws Exception {
         UUID id = UUID.randomUUID();
-        org.mockito.Mockito.when(reports.of(new ExpeditionId(id))).thenReturn(new OperationalReport(
+        UUID night = UUID.randomUUID();
+        when(reports.of(new ExpeditionId(id))).thenReturn(new OperationalReport(
                 OperationalStatus.APPROVED,
                 1,
                 0,
                 0,
                 Duration.ofHours(4),
-                RiskLevel.LOW,
+                RiskLevel.HIGH,
+                List.of(new ActivityRisk(new ActivityId(night), RiskLevel.HIGH)),
                 Map.of(),
                 Map.of(),
                 List.of(),
@@ -66,6 +70,9 @@ class ReportsControllerTest {
         mvc.perform(get("/v1/expeditions/{id}/report", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"))
-                .andExpect(jsonPath("$.plannedActivities").value(1));
+                .andExpect(jsonPath("$.plannedActivities").value(1))
+                .andExpect(jsonPath("$.risk").value("HIGH"))
+                .andExpect(jsonPath("$.risks[0].activityId").value(night.toString()))
+                .andExpect(jsonPath("$.risks[0].risk").value("HIGH"));
     }
 }

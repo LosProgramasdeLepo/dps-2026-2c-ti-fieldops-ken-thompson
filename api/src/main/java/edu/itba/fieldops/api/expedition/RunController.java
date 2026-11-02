@@ -6,6 +6,7 @@ import edu.itba.fieldops.api.expedition.ExpeditionResponses.RunResponse;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.tracking.ObservationText;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -73,7 +74,7 @@ public final class RunController {
 
     @PostMapping("/v1/expeditions/{id}/run/observations")
     public ResponseEntity<Void> addObservation(@PathVariable UUID id, @Valid @RequestBody ObservationRequest request) {
-        tracking.addObservation(new ExpeditionId(id), request.text());
+        tracking.addObservation(new ExpeditionId(id), new ObservationText(request.text()));
         return Responses.noContent();
     }
 }

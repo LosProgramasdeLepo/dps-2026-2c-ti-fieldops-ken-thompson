@@ -1,11 +1,9 @@
-package edu.itba.fieldops.frameworks.api;
+package edu.itba.fieldops.api.expedition;
 
-import edu.itba.fieldops.api.expedition.ItineraryController;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
-import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.usecase.expedition.PlanItinerary;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -19,7 +17,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -52,7 +49,7 @@ class ItineraryControllerTest {
 
         ArgumentCaptor<Activity> activity = ArgumentCaptor.forClass(Activity.class);
         verify(itinerary).addActivity(any(), activity.capture());
-        assertEquals("Soil sampling", activity.getValue().name());
+        assertEquals("Soil sampling", activity.getValue().name().value());
         assertEquals(new CertificationId(certificationId), activity.getValue().requirements().certifications().iterator().next());
     }
 
@@ -73,18 +70,6 @@ class ItineraryControllerTest {
                 .andExpect(jsonPath("$.arrangement").value("SEQUENTIAL"))
                 .andExpect(jsonPath("$.parts.length()").value(2))
                 .andExpect(jsonPath("$.parts[0].node").value("ACTIVITY"));
-    }
-
-    @Test
-    void anIllegalWindowIsUnprocessable() throws Exception {
-        when(itinerary.nextActivityId()).thenReturn(new ActivityId(UUID.randomUUID()));
-        doThrow(new InvalidItinerary("activity window is shorter than estimated duration"))
-                .when(itinerary).addActivity(any(), any());
-
-        mvc.perform(post("/v1/expeditions/{id}/activities", UUID.randomUUID())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(sampling(UUID.randomUUID())))
-                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test

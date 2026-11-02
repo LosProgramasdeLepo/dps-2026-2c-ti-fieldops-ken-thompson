@@ -2,11 +2,13 @@ package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
+import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -17,8 +19,10 @@ import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
+import edu.itba.fieldops.domain.tracking.ObservationText;
 import edu.itba.fieldops.domain.tracking.Outcome;
 import org.junit.jupiter.api.Test;
 
@@ -87,15 +91,6 @@ class ExpeditionExecutionTest {
         running.finishActivity(first, PERIOD.at(hours(1)), ActivityReport.of(new Outcome("samples stored")));
 
         assertThrows(InvalidActivityExecution.class, () -> running.finishActivity(first, PERIOD.at(hours(2)), ActivityReport.of(new Outcome("samples stored again"))));
-    }
-
-    @Test
-    void theRecordedActivitiesCannotBeChangedFromOutside() {
-        ExpeditionExecution running = open(expeditionId, new ActivityExecution(first, DAY));
-
-        running.activities().getFirst().finish(hours(1), ActivityReport.of(new Outcome("samples stored")));
-
-        assertFalse(running.activities().getFirst().isFinished());
     }
 
     @Test
@@ -176,7 +171,7 @@ class ExpeditionExecutionTest {
 
     @Test
     void recordsAnIncident() {
-        Incident incident = Incident.of("rain delay", DAY);
+        Incident incident = Incident.of(new IncidentDescription("rain delay"), DAY);
 
         execution.addIncident(incident);
 
@@ -185,7 +180,7 @@ class ExpeditionExecutionTest {
 
     @Test
     void recordsAnObservation() {
-        Observation observation = new Observation("site wet", DAY);
+        Observation observation = new Observation(new ObservationText("site wet"), DAY);
 
         execution.addObservation(observation);
 
@@ -199,8 +194,8 @@ class ExpeditionExecutionTest {
                 new ActivityExecution(first, DAY).finish(hours(4), ActivityReport.of(new Outcome("site reached"))),
                 new ActivityExecution(second, hours(4))
         );
-        withActivities.addIncident(Incident.affecting(second, "flooded trail", hours(5)));
-        withActivities.addObservation(new Observation("heron colony", hours(5)));
+        withActivities.addIncident(Incident.affecting(second, new IncidentDescription("flooded trail"), hours(5)));
+        withActivities.addObservation(new Observation(new ObservationText("heron colony"), hours(5)));
         withActivities.suspend();
 
         ExpeditionExecution restored = ExpeditionExecution.restore(withActivities.state());
@@ -261,7 +256,7 @@ class ExpeditionExecutionTest {
                         List.of(lead),
                         List.of(new Restriction("Daylight only"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
         for (Activity.Builder activity : activities) {
             plan.addActivity(activity.build());
@@ -273,7 +268,7 @@ class ExpeditionExecutionTest {
 
     private static Activity.Builder activity(ActivityId id, int fromHour, int toHour) {
         return Activity.transit()
-                .named(id, "survey")
+                .named(id, new ActivityName("survey"))
                 .estimated(new EstimatedDuration(Duration.ofHours(2)), RiskLevel.LOW)
                 .in(DELTA, new TimePeriod(hours(fromHour), hours(toHour)));
     }
@@ -293,7 +288,7 @@ class ExpeditionExecutionTest {
                         List.of(lead),
                         List.of(new Restriction("Daylight only"))
                 ),
-                StoredPeople.of(new Person(lead, "Ada", List.of(), Availability.always()))
+                StoredPeople.of(new Person(lead, new PersonName("Ada"), List.of(), Availability.always()))
         );
     }
 

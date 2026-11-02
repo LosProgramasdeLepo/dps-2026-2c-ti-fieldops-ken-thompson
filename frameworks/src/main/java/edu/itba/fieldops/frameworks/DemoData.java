@@ -1,11 +1,17 @@
 package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.catalog.Capacity;
+import edu.itba.fieldops.domain.catalog.CertificationName;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
+import edu.itba.fieldops.domain.catalog.PersonName;
+import edu.itba.fieldops.domain.catalog.Stock;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
+import edu.itba.fieldops.domain.expedition.Justification;
 import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.expedition.Restriction;
@@ -19,17 +25,17 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
-import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
-import edu.itba.fieldops.domain.shared.Stock;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
 
@@ -67,17 +73,17 @@ public final class DemoData {
     private Catalog registerCatalog() {
         AdministerPersonnel personnel = useCases.personnel();
         AdministerEquipment equipment = useCases.equipment();
-        CertificationId sampling = personnel.registerCertification("Field sampling");
-        CertificationId diving = personnel.registerCertification("Scientific diving");
-        CertificationId night = personnel.registerCertification("Night operation");
+        CertificationId sampling = personnel.registerCertification(new CertificationName("Field sampling"));
+        CertificationId diving = personnel.registerCertification(new CertificationName("Scientific diving"));
+        CertificationId night = personnel.registerCertification(new CertificationName("Night operation"));
         return new Catalog(
                 sampling,
                 diving,
                 night,
-                personnel.registerPerson("Ada Lovelace", List.of(sampling, diving, night), Availability.always()),
-                personnel.registerPerson("Bruno Diaz", List.of(sampling, diving, night), Availability.always()),
-                personnel.registerPerson("Carla Paz", List.of(sampling), Availability.always()),
-                personnel.registerPerson("Diego Sosa", List.of(sampling), Availability.always()),
+                personnel.registerPerson(new PersonName("Ada Lovelace"), List.of(sampling, diving, night), Availability.always()),
+                personnel.registerPerson(new PersonName("Bruno Diaz"), List.of(sampling, diving, night), Availability.always()),
+                personnel.registerPerson(new PersonName("Carla Paz"), List.of(sampling), Availability.always()),
+                personnel.registerPerson(new PersonName("Diego Sosa"), List.of(sampling), Availability.always()),
                 equipment.registerVehicle(new Capacity(2), Availability.always()),
                 equipment.registerVehicle(new Capacity(6), Availability.always()),
                 equipment.registerInstrument(InstrumentKind.CAMP_GEAR, Availability.always()),
@@ -85,8 +91,8 @@ public final class DemoData {
                 equipment.registerInstrument(InstrumentKind.LIGHTING, Availability.always()),
                 equipment.registerInstrument(WATER_PROBE, Availability.always()),
                 equipment.registerInstrument(BINOCULARS, Availability.always()),
-                equipment.registerConsumable("Fuel (litres)", new Stock(200)),
-                equipment.registerConsumable("Sample vials", new Stock(100)),
+                equipment.registerConsumable(new ConsumableName("Fuel (litres)"), new Stock(200)),
+                equipment.registerConsumable(new ConsumableName("Sample vials"), new Stock(100)),
                 useCases.permitting().registerPermit(PermitKind.ZONE, DELTA, period),
                 useCases.permitting().registerPermit(PermitKind.NIGHT, DELTA, period)
         );
@@ -156,7 +162,7 @@ public final class DemoData {
         useCases.assignments().addPermit(survey, catalog.nightPermit());
         approveAcceptingTheWarnings(survey, catalog.ada());
         useCases.tracking().start(survey);
-        useCases.incidents().record(survey, "The access road to the north lagoon is flooded", north.id());
+        useCases.incidents().record(survey, new IncidentDescription("The access road to the north lagoon is flooded"), north.id());
     }
 
     private void planRidgeWatchWithoutNightPermit(Catalog catalog) {
@@ -175,7 +181,7 @@ public final class DemoData {
         useCases.review().submit(expeditionId);
         useCases.review().validate(expeditionId).warnings().forEach(warning -> useCases.review().acceptWarning(
                 expeditionId,
-                new AcceptedWarning(warning, "A second vehicle follows the truck with the extra passenger", responsible)
+                new AcceptedWarning(warning, new Justification("A second vehicle follows the truck with the extra passenger"), responsible)
         ));
         useCases.approval().approve(expeditionId);
     }
@@ -185,7 +191,7 @@ public final class DemoData {
     }
 
     private Activity planned(Activity.Builder kind, String name, Slot slot) {
-        return kind.named(useCases.itinerary().nextActivityId(), name)
+        return kind.named(useCases.itinerary().nextActivityId(), new ActivityName(name))
                 .estimated(new EstimatedDuration(Duration.ofHours(slot.toHour() - slot.fromHour())), RiskLevel.MEDIUM)
                 .in(DELTA, new TimePeriod(
                         firstDay.plus(Duration.ofHours(slot.fromHour())),

@@ -5,10 +5,6 @@ server:
     include-binding-errors: never
 
 spring:
-  jackson:
-    deserialization:
-      fail-on-unknown-properties: true
-    default-property-inclusion: non_null
   datasource:
     url: ${FIELDOPS_DB_URL:jdbc:postgresql://localhost:5432/fieldops}
     username: ${FIELDOPS_DB_USER:fieldops}

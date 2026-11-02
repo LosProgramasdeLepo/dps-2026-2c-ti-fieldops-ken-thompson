@@ -47,7 +47,7 @@ public final class PermitRule implements ValidationRule {
         if (known.stream().noneMatch(permit -> permit.covers(activity.zone(), activity.window()))) {
             issues.add(issue(
                     "PERMIT",
-                    "activity " + activity.name()
+                    "activity " + activity.name().value()
                             + " in zone " + activity.zone().name()
                             + " during " + activity.window().start()
                             + "/" + activity.window().end()
@@ -58,7 +58,7 @@ public final class PermitRule implements ValidationRule {
             if (known.stream().noneMatch(permit -> permit.kind().equals(kind) && permit.covers(activity.zone(), activity.window()))) {
                 issues.add(issue(
                         "PERMIT",
-                        "activity " + activity.name() + " requires a " + kind.name() + " permit for zone " + activity.zone().name()
+                        "activity " + activity.name().value() + " requires a " + kind.name() + " permit for zone " + activity.zone().name()
                 ));
             }
         }

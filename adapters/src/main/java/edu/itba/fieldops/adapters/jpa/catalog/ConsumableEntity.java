@@ -1,8 +1,9 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
 import edu.itba.fieldops.domain.catalog.Consumable;
+import edu.itba.fieldops.domain.catalog.ConsumableName;
+import edu.itba.fieldops.domain.catalog.Stock;
 import edu.itba.fieldops.domain.identity.ConsumableId;
-import edu.itba.fieldops.domain.shared.Stock;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -30,11 +31,11 @@ public class ConsumableEntity {
 
     ConsumableEntity(Consumable consumable) {
         this.id = consumable.id().value();
-        this.name = consumable.name();
+        this.name = consumable.name().value();
         this.stock = consumable.stock().amount();
     }
 
     public Consumable toDomain() {
-        return new Consumable(new ConsumableId(id), name, new Stock(stock));
+        return new Consumable(new ConsumableId(id), new ConsumableName(name), new Stock(stock));
     }
 }

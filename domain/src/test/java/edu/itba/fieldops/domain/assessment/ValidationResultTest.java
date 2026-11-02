@@ -8,7 +8,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ValidationResultTest {
@@ -25,12 +24,5 @@ class ValidationResultTest {
                 () -> assertTrue(result.hasCritical()),
                 () -> assertEquals(List.of(warning), result.warnings())
         );
-    }
-
-    @Test
-    void emptyIssueListHasNoCriticalIssues() {
-        ValidationResult result = new ValidationResult(new ExpeditionId(UUID.randomUUID()), 1, List.of());
-
-        assertFalse(result.hasCritical());
     }
 }

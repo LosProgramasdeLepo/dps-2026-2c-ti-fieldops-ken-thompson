@@ -33,15 +33,9 @@ public final class Itinerary {
     }
 
     public void add(ItineraryItem item) {
-        Objects.requireNonNull(item, "itinerary item");
-        List<Activity> current = activities();
-        for (Activity incoming : item.activities()) {
-            if (current.stream().anyMatch(existing -> existing.id().equals(incoming.id()))) {
-                throw new InvalidItinerary("duplicate activity: " + incoming.id());
-            }
-        }
         List<ItineraryItem> next = new ArrayList<>(items);
-        next.add(item);
+        next.add(Objects.requireNonNull(item, "itinerary item"));
+        requireDistinct(leaves(next));
         requireConsistent(item.activities(), next);
         items.add(item);
     }

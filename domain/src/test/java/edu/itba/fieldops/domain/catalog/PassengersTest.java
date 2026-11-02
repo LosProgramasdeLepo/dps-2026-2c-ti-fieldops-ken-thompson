@@ -1,5 +1,6 @@
-package edu.itba.fieldops.domain.shared;
+package edu.itba.fieldops.domain.catalog;
 
+import edu.itba.fieldops.domain.shared.InvalidValue;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 

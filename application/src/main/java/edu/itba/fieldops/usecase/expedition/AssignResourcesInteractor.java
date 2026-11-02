@@ -41,7 +41,6 @@ public final class AssignResourcesInteractor implements AssignResources {
 
     @Override
     public void addPermit(ExpeditionId expeditionId, PermitId permitId) {
-        Objects.requireNonNull(permitId, "permit id");
         Expedition expedition = plans.require(expeditionId);
         if (expedition.permits().contains(permitId)) {
             return;

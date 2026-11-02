@@ -1,7 +1,6 @@
 package edu.itba.fieldops.domain.catalog;
 
 import edu.itba.fieldops.domain.identity.VehicleId;
-import edu.itba.fieldops.domain.shared.Capacity;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 
 import java.util.Objects;

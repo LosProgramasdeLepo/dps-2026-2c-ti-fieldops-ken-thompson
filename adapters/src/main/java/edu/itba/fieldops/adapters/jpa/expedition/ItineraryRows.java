@@ -5,6 +5,7 @@ import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
+import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.itinerary.ResourceRequirements;
@@ -74,7 +75,7 @@ record ItineraryRows(
         ResourceRequirements requirements = activity.requirements();
         activities.add(new StoredActivity(
                 id,
-                activity.name(),
+                activity.name().value(),
                 activity.estimatedDuration().value(),
                 activity.risk().name(),
                 activity.zone().name(),
@@ -116,7 +117,7 @@ record ItineraryRows(
     private Activity activity(StoredActivity stored) {
         UUID id = stored.activityId();
         return Activity.restoring(requirementsOf(stored))
-                .named(new ActivityId(id), stored.name())
+                .named(new ActivityId(id), new ActivityName(stored.name()))
                 .estimated(new EstimatedDuration(stored.estimatedDuration()), RiskLevel.valueOf(stored.risk()))
                 .consuming(consumption.stream()
                         .filter(row -> row.activityId().equals(id))

@@ -3,6 +3,7 @@ package edu.itba.fieldops.domain.usecase.expedition;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
+import edu.itba.fieldops.domain.tracking.ObservationText;
 
 public interface TrackExpedition {
     void start(ExpeditionId expeditionId);
@@ -17,7 +18,7 @@ public interface TrackExpedition {
 
     void finishActivity(ExpeditionId expeditionId, ActivityId activityId, ActivityReport report);
 
-    void addObservation(ExpeditionId expeditionId, String text);
+    void addObservation(ExpeditionId expeditionId, ObservationText text);
 
     RunSnapshot run(ExpeditionId expeditionId);
 }
