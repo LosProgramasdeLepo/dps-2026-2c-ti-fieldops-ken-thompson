@@ -10,6 +10,6 @@ public class MongoContainerConfiguration {
     @Bean
     @ServiceConnection
     MongoDBContainer mongoContainer() {
-        return new MongoDBContainer("mongo:8");
+        return new MongoDBContainer("mongo:7").withReplicaSet();
     }
 }
