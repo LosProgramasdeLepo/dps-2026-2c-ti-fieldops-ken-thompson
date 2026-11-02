@@ -17,13 +17,13 @@ public class InMemoryExecutionRepository implements ExecutionRepository {
     private final Map<ExpeditionId, ExpeditionExecution> executions = new LinkedHashMap<>();
 
     @Override
-    public void save(ExpeditionExecution execution) {
+    public synchronized void save(ExpeditionExecution execution) {
         Objects.requireNonNull(execution, "execution");
         executions.put(execution.expeditionId(), execution);
     }
 
     @Override
-    public Optional<ExpeditionExecution> find(ExpeditionId expeditionId) {
+    public synchronized Optional<ExpeditionExecution> find(ExpeditionId expeditionId) {
         Objects.requireNonNull(expeditionId, "expedition id");
         return Optional.ofNullable(executions.get(expeditionId));
     }

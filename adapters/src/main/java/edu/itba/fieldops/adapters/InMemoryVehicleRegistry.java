@@ -26,24 +26,24 @@ public class InMemoryVehicleRegistry implements VehicleRegistry {
     }
 
     @Override
-    public void save(Vehicle vehicle) {
+    public synchronized void save(Vehicle vehicle) {
         Objects.requireNonNull(vehicle, "vehicle");
         vehicles.put(vehicle.id(), vehicle);
     }
 
     @Override
-    public Optional<Vehicle> vehicle(VehicleId id) {
+    public synchronized Optional<Vehicle> vehicle(VehicleId id) {
         Objects.requireNonNull(id, "vehicle id");
         return Optional.ofNullable(vehicles.get(id));
     }
 
     @Override
-    public List<Vehicle> vehicles() {
+    public synchronized List<Vehicle> vehicles() {
         return List.copyOf(vehicles.values());
     }
 
     @Override
-    public Page<Vehicle> vehicles(PageRequest request) {
+    public synchronized Page<Vehicle> vehicles(PageRequest request) {
         return InMemoryPages.slice(vehicles.values(), request);
     }
 }

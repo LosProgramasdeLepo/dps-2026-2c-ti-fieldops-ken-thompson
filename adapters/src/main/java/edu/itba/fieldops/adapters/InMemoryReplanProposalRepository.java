@@ -26,19 +26,19 @@ public class InMemoryReplanProposalRepository implements ReplanProposalRepositor
     }
 
     @Override
-    public void save(ReplanProposal proposal) {
+    public synchronized void save(ReplanProposal proposal) {
         Objects.requireNonNull(proposal, "proposal");
         proposals.put(proposal.id(), proposal);
     }
 
     @Override
-    public Optional<ReplanProposal> find(ProposalId id) {
+    public synchronized Optional<ReplanProposal> find(ProposalId id) {
         Objects.requireNonNull(id, "proposal id");
         return Optional.ofNullable(proposals.get(id));
     }
 
     @Override
-    public Page<ReplanProposal> of(ExpeditionId originalId, PageRequest request) {
+    public synchronized Page<ReplanProposal> of(ExpeditionId originalId, PageRequest request) {
         Objects.requireNonNull(originalId, "expedition id");
         return InMemoryPages.slice(
                 proposals.values().stream().filter(proposal -> proposal.originalId().equals(originalId)).toList(),

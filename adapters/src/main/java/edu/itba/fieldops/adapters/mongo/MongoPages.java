@@ -5,6 +5,7 @@ import edu.itba.fieldops.domain.shared.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 public final class MongoPages {
@@ -14,6 +15,7 @@ public final class MongoPages {
     }
 
     public static Pageable pageable(PageRequest request) {
+        Objects.requireNonNull(request, "page request");
         return org.springframework.data.domain.PageRequest.of(request.number(), request.size(), IN_REGISTRATION_ORDER);
     }
 
