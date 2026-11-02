@@ -19,14 +19,12 @@ import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
-import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
-import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -48,7 +46,6 @@ import edu.itba.fieldops.domain.usecase.expedition.ReplanExpedition;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewReplanProposal;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
-import edu.itba.fieldops.domain.usecase.report.EstimateExpedition;
 import edu.itba.fieldops.domain.usecase.report.ReportExpedition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -107,8 +104,6 @@ abstract class UseCaseFixture {
     @Autowired
     PlanItinerary itinerary;
     @Autowired
-    EstimateExpedition estimates;
-    @Autowired
     AssignResources assignments;
     @Autowired
     ReviewExpedition review;
@@ -145,7 +140,7 @@ abstract class UseCaseFixture {
         return personnel.registerPerson(new PersonName(name), List.of(certificationId), Availability.always());
     }
 
-    Sampling unassignedSampling(Map<ConsumableId, Consumption> estimated) {
+    Sampling unassignedSampling() {
         CertificationId certificationId = certification();
         PersonId ada = certifiedPerson("Ada", certificationId);
         ExpeditionId expeditionId = draftResponsibleFor(ada);
@@ -154,17 +149,12 @@ abstract class UseCaseFixture {
                 .named(activityId, new ActivityName("Soil sampling"))
                 .estimated(new EstimatedDuration(Duration.ofHours(4)), RiskLevel.MEDIUM)
                 .in(DELTA, hours(0, 4))
-                .consuming(estimated)
                 .build());
         return new Sampling(expeditionId, activityId, ada);
     }
 
     Sampling samplingPlan() {
-        return samplingPlan(Map.of());
-    }
-
-    Sampling samplingPlan(Map<ConsumableId, Consumption> estimated) {
-        Sampling sampling = unassignedSampling(estimated);
+        Sampling sampling = unassignedSampling();
         assignments.addAssignment(sampling.expeditionId(), new PersonAssignment(sampling.activityId(), sampling.responsible()));
         assignments.addPermit(sampling.expeditionId(), permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD));
         return sampling;
