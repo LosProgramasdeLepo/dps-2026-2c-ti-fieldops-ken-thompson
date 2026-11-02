@@ -14,15 +14,15 @@ import edu.itba.fieldops.domain.catalog.Permit;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 
-public final class CatalogMapping {
+final class CatalogMapping {
     private CatalogMapping() {
     }
 
-    public static CertificationResponse certification(Certification certification) {
+    static CertificationResponse certification(Certification certification) {
         return new CertificationResponse(certification.id().value(), certification.name().value());
     }
 
-    public static PersonResponse person(Person person) {
+    static PersonResponse person(Person person) {
         return new PersonResponse(
                 person.id().value(),
                 person.name().value(),
@@ -31,19 +31,19 @@ public final class CatalogMapping {
         );
     }
 
-    public static VehicleResponse vehicle(Vehicle vehicle) {
+    static VehicleResponse vehicle(Vehicle vehicle) {
         return new VehicleResponse(vehicle.id().value(), vehicle.capacity().seats(), Periods.toResponse(vehicle.availability()));
     }
 
-    public static InstrumentResponse instrument(Instrument instrument) {
+    static InstrumentResponse instrument(Instrument instrument) {
         return new InstrumentResponse(instrument.id().value(), instrument.kind().name(), Periods.toResponse(instrument.availability()));
     }
 
-    public static ConsumableResponse consumable(Consumable consumable) {
+    static ConsumableResponse consumable(Consumable consumable) {
         return new ConsumableResponse(consumable.id().value(), consumable.name().value(), consumable.stock().amount());
     }
 
-    public static PermitResponse permit(Permit permit) {
+    static PermitResponse permit(Permit permit) {
         return new PermitResponse(permit.id().value(), permit.kind().name(), permit.zone().name(), Periods.toResponse(permit.validity()));
     }
 }

@@ -44,7 +44,6 @@ record AssignmentEntries(
             case VehicleAssignment vehicle -> vehicles.add(Booking.of(vehicle.activityId(), vehicle.vehicleId().value()));
             case InstrumentAssignment instrument -> instruments.add(Booking.of(instrument.activityId(), instrument.instrumentId().value()));
             case ConsumableAssignment consumable -> consumables.add(ConsumableEntry.of(consumable));
-            default -> throw new IllegalArgumentException("unknown assignment: " + assignment);
         }
     }
 

@@ -35,7 +35,7 @@ public final class RunController {
 
     @GetMapping("/v1/expeditions/{id}/run")
     public RunResponse run(@PathVariable UUID id) {
-        return ExpeditionMapping.run(tracking.run(new ExpeditionId(id)));
+        return RunMapping.run(tracking.run(new ExpeditionId(id)));
     }
 
     @PostMapping("/v1/expeditions/{id}/run/suspension")
@@ -68,7 +68,7 @@ public final class RunController {
             @PathVariable UUID activityId,
             @Valid @RequestBody FinishActivityRequest request
     ) {
-        tracking.finishActivity(new ExpeditionId(id), new ActivityId(activityId), ExpeditionMapping.activityReport(request));
+        tracking.finishActivity(new ExpeditionId(id), new ActivityId(activityId), RunMapping.activityReport(request));
         return Responses.noContent();
     }
 
