@@ -48,12 +48,22 @@ class ArchitectureTest {
             );
 
     @ArchTest
-    static final ArchRule persistenceStaysOutOfTheDomainAndTheUseCases = noClasses()
-            .that().resideInAnyPackage("edu.itba.fieldops.domain..", "edu.itba.fieldops.usecase..")
+    static final ArchRule theDomainIsFreeOfFrameworks = noClasses()
+            .that().resideInAPackage("edu.itba.fieldops.domain..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "jakarta.persistence..",
+                    "jakarta..",
                     "org.hibernate..",
                     "org.springframework.."
+            );
+
+    @ArchTest
+    static final ArchRule theUseCasesStayOutOfPersistenceAndTheWeb = noClasses()
+            .that().resideInAPackage("edu.itba.fieldops.usecase..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "jakarta..",
+                    "org.hibernate..",
+                    "org.springframework.data..",
+                    "org.springframework.web.."
             );
 
     @ArchTest

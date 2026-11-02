@@ -1,5 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
+import edu.itba.fieldops.adapters.jpa.JpaAdapter;
 import edu.itba.fieldops.domain.catalog.Consumable;
 import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
 import edu.itba.fieldops.domain.identity.ConsumableId;
@@ -11,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@JpaAdapter
 public final class JpaConsumableRegistry implements ConsumableRegistry {
     private final StoredCatalog<ConsumableEntity, Consumable> stored;
 

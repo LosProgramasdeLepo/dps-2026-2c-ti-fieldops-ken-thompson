@@ -1,5 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
+import edu.itba.fieldops.adapters.jpa.JpaAdapter;
 import edu.itba.fieldops.domain.catalog.Instrument;
 import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
 import edu.itba.fieldops.domain.identity.InstrumentId;
@@ -12,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@JpaAdapter
 public final class JpaInstrumentRegistry implements InstrumentRegistry {
     private final StoredCatalog<InstrumentEntity, Instrument> stored;
 

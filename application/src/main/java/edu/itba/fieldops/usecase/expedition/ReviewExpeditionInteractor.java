@@ -10,10 +10,14 @@ import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class ReviewExpeditionInteractor implements ReviewExpedition {
+@Service
+@Transactional
+public class ReviewExpeditionInteractor implements ReviewExpedition {
     private final ExpeditionRepository plans;
     private final PlanningContexts contexts;
     private final ExpeditionValidator validator;

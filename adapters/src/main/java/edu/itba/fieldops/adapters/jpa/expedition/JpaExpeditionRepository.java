@@ -1,5 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.expedition;
 
+import edu.itba.fieldops.adapters.jpa.JpaAdapter;
 import edu.itba.fieldops.adapters.jpa.JpaPages;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
@@ -14,6 +15,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@JpaAdapter
 public final class JpaExpeditionRepository implements ExpeditionRepository {
     private final ExpeditionJpaRepository expeditions;
     private final ExpeditionRegistrationJpaRepository registrations;

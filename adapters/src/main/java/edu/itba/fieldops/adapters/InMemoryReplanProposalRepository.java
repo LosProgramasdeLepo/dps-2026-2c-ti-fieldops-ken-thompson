@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@InMemoryAdapter
 public final class InMemoryReplanProposalRepository implements ReplanProposalRepository {
     private final Map<ProposalId, ReplanProposal> proposals = new LinkedHashMap<>();
 

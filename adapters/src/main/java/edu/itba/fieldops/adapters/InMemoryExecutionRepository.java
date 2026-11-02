@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+@InMemoryAdapter
 public final class InMemoryExecutionRepository implements ExecutionRepository {
     private final Map<ExpeditionId, ExpeditionExecution> executions = new LinkedHashMap<>();
 

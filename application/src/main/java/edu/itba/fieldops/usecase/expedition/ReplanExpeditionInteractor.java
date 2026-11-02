@@ -7,11 +7,15 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.usecase.expedition.ReplanExpedition;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 import java.util.function.Consumer;
 
-public final class ReplanExpeditionInteractor implements ReplanExpedition {
+@Service
+@Transactional
+public class ReplanExpeditionInteractor implements ReplanExpedition {
     private final ExpeditionRepository plans;
     private final Replanner replanner;
 

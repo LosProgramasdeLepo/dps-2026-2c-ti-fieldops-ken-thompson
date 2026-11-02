@@ -12,10 +12,14 @@ import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultEquipment;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class ConsultEquipmentInteractor implements ConsultEquipment {
+@Service
+@Transactional(readOnly = true)
+public class ConsultEquipmentInteractor implements ConsultEquipment {
     private final VehicleRegistry vehicles;
     private final InstrumentRegistry instruments;
     private final ConsumableRegistry consumables;

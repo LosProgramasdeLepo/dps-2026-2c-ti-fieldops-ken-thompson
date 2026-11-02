@@ -9,10 +9,14 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultPersonnel;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class ConsultPersonnelInteractor implements ConsultPersonnel {
+@Service
+@Transactional(readOnly = true)
+public class ConsultPersonnelInteractor implements ConsultPersonnel {
     private final CertificationRegistry certifications;
     private final PersonRegistry people;
 

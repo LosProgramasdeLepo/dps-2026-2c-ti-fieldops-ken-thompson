@@ -44,11 +44,11 @@ class CatalogUseCasesTest extends UseCaseFixture {
         PermitId permitId = permitting.registerPermit(PermitKind.ZONE, DELTA, PERIOD);
 
         assertAll(
-                () -> assertTrue(repositories.people().person(personId).orElseThrow().holds(sampling)),
-                () -> assertTrue(repositories.vehicles().vehicle(vehicleId).isPresent()),
-                () -> assertTrue(repositories.instruments().instrument(instrumentId).isPresent()),
-                () -> assertTrue(repositories.consumables().consumable(vials).isPresent()),
-                () -> assertTrue(repositories.permits().permit(permitId).isPresent())
+                () -> assertTrue(people.person(personId).orElseThrow().holds(sampling)),
+                () -> assertTrue(vehicles.vehicle(vehicleId).isPresent()),
+                () -> assertTrue(instruments.instrument(instrumentId).isPresent()),
+                () -> assertTrue(consumables.consumable(vials).isPresent()),
+                () -> assertTrue(permits.permit(permitId).isPresent())
         );
     }
 
@@ -69,11 +69,11 @@ class CatalogUseCasesTest extends UseCaseFixture {
         equipment.changeStock(vials, new Stock(5));
 
         assertAll(
-                () -> assertFalse(repositories.people().person(ada).orElseThrow().availableDuring(morning)),
-                () -> assertTrue(repositories.people().person(ada).orElseThrow().holds(diving)),
-                () -> assertFalse(repositories.vehicles().vehicle(boat).orElseThrow().availableDuring(morning)),
-                () -> assertFalse(repositories.instruments().instrument(lamp).orElseThrow().availableDuring(morning)),
-                () -> assertEquals(new Stock(5), repositories.consumables().consumable(vials).orElseThrow().stock())
+                () -> assertFalse(people.person(ada).orElseThrow().availableDuring(morning)),
+                () -> assertTrue(people.person(ada).orElseThrow().holds(diving)),
+                () -> assertFalse(vehicles.vehicle(boat).orElseThrow().availableDuring(morning)),
+                () -> assertFalse(instruments.instrument(lamp).orElseThrow().availableDuring(morning)),
+                () -> assertEquals(new Stock(5), consumables.consumable(vials).orElseThrow().stock())
         );
     }
 
@@ -84,7 +84,7 @@ class CatalogUseCasesTest extends UseCaseFixture {
 
         personnel.certify(ada, sampling);
 
-        assertEquals(List.of(new Certification(sampling, new CertificationName("Sampling"))), repositories.people().person(ada).orElseThrow().certifications());
+        assertEquals(List.of(new Certification(sampling, new CertificationName("Sampling"))), people.person(ada).orElseThrow().certifications());
     }
 
     @Test

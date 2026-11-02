@@ -1,5 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.catalog;
 
+import edu.itba.fieldops.adapters.jpa.JpaAdapter;
 import edu.itba.fieldops.domain.catalog.Vehicle;
 import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.identity.VehicleId;
@@ -12,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@JpaAdapter
 public final class JpaVehicleRegistry implements VehicleRegistry {
     private final StoredCatalog<VehicleEntity, Vehicle> stored;
 

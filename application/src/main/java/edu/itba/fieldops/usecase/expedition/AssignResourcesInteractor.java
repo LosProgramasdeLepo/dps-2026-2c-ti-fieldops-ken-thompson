@@ -10,11 +10,15 @@ import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.usecase.expedition.AssignResources;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
 
-public final class AssignResourcesInteractor implements AssignResources {
+@Service
+@Transactional
+public class AssignResourcesInteractor implements AssignResources {
     private final ExpeditionRepository plans;
     private final Catalogs catalogs;
     private final PlanningContexts contexts;

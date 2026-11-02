@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@InMemoryAdapter
 public final class InMemoryInstrumentRegistry implements InstrumentRegistry {
     private final Map<InstrumentId, Instrument> instruments = new LinkedHashMap<>();
 

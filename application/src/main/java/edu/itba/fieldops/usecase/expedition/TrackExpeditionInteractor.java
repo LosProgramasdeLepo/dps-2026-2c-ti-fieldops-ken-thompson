@@ -16,10 +16,14 @@ import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.ObservationText;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class TrackExpeditionInteractor implements TrackExpedition {
+@Service
+@Transactional
+public class TrackExpeditionInteractor implements TrackExpedition {
     private final ExpeditionRepository plans;
     private final ExecutionRepository executions;
     private final ExpeditionTracker tracker;

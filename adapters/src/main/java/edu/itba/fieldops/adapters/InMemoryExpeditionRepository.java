@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+@InMemoryAdapter
 public final class InMemoryExpeditionRepository implements ExpeditionRepository {
     private final Map<ExpeditionId, Expedition> plans = new LinkedHashMap<>();
 
