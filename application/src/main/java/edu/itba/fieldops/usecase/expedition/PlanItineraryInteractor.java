@@ -7,10 +7,14 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.usecase.expedition.PlanItinerary;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class PlanItineraryInteractor implements PlanItinerary {
+@Service
+@Transactional
+public class PlanItineraryInteractor implements PlanItinerary {
     private final ExpeditionRepository plans;
 
     public PlanItineraryInteractor(ExpeditionRepository plans) {

@@ -7,10 +7,14 @@ import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerPermits;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class AdministerPermitsInteractor implements AdministerPermits {
+@Service
+@Transactional
+public class AdministerPermitsInteractor implements AdministerPermits {
     private final PermitRegistry permits;
 
     public AdministerPermitsInteractor(PermitRegistry permits) {

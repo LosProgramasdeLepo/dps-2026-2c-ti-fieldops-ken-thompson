@@ -10,10 +10,14 @@ import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.usecase.expedition.ConsultExpedition;
 import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class ConsultExpeditionInteractor implements ConsultExpedition {
+@Service
+@Transactional(readOnly = true)
+public class ConsultExpeditionInteractor implements ConsultExpedition {
     private final ExpeditionRepository plans;
 
     public ConsultExpeditionInteractor(ExpeditionRepository plans) {

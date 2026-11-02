@@ -10,11 +10,15 @@ import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerPersonnel;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
 
-public final class AdministerPersonnelInteractor implements AdministerPersonnel {
+@Service
+@Transactional
+public class AdministerPersonnelInteractor implements AdministerPersonnel {
     private final CertificationRegistry certifications;
     private final PersonRegistry people;
 

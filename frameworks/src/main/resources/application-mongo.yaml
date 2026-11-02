@@ -1,0 +1,12 @@
+# Persistence profile: MongoDB through Spring Data MongoDB, one document per aggregate.
+# Transactions need a replica set (compose.yaml starts one).
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration
+      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+  mongodb:
+    uri: ${FIELDOPS_MONGO_URI:mongodb://localhost:27017/fieldops?replicaSet=rs0}

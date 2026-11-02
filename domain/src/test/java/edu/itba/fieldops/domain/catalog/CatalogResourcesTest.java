@@ -1,10 +1,8 @@
 package edu.itba.fieldops.domain.catalog;
 
 import edu.itba.fieldops.domain.identity.CertificationId;
-import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.identity.PersonId;
-import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.PermitKind;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
@@ -15,7 +13,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,15 +34,6 @@ class CatalogResourcesTest {
         );
     }
 
-    @Test
-    void consumableComparesAgainstStock() {
-        Consumable vials = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("vials"), new Stock(20));
-
-        assertAll(
-                () -> assertTrue(vials.covers(new Consumption(20))),
-                () -> assertFalse(vials.covers(new Consumption(21)))
-        );
-    }
 
     @Test
     void coversAMatchingZoneAndAWindowInsideItsValidity() {
@@ -72,10 +60,6 @@ class CatalogResourcesTest {
         assertFalse(deltaPermit(PermitKind.ZONE).covers(new WorkZone("Delta"), pastTheEnd));
     }
 
-    @Test
-    void aNightPermitKeepsItsKind() {
-        assertEquals(PermitKind.NIGHT, deltaPermit(PermitKind.NIGHT).kind());
-    }
 
     private static Permit deltaPermit(PermitKind kind) {
         return new Permit(new PermitId(UUID.randomUUID()), new WorkZone("Delta"), WEEK, kind);

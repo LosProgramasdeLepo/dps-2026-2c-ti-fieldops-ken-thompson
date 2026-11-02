@@ -205,7 +205,7 @@ class TrackingUseCasesTest extends UseCaseFixture {
         ExpeditionId revision = revisionWithout(plan.expeditionId(), plan.first());
         review.submit(revision);
         approval.approve(revision);
-        Sampling other = unassignedSampling(Map.of());
+        Sampling other = unassignedSampling();
         assignments.addAssignment(other.expeditionId(), new PersonAssignment(other.activityId(), plan.firstPerson()));
 
         assertTrue(hasOverlap(other.expeditionId()));

@@ -3,18 +3,21 @@ package edu.itba.fieldops.usecase.expedition;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.expedition.Assignment;
 import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
-import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PermitId;
 import edu.itba.fieldops.domain.usecase.expedition.AssignResources;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
 
-public final class AssignResourcesInteractor implements AssignResources {
+@Service
+@Transactional
+public class AssignResourcesInteractor implements AssignResources {
     private final ExpeditionRepository plans;
     private final Catalogs catalogs;
     private final PlanningContexts contexts;
@@ -22,13 +25,13 @@ public final class AssignResourcesInteractor implements AssignResources {
 
     public AssignResourcesInteractor(
             ExpeditionRepository plans,
-            ExecutionRepository executions,
             Catalogs catalogs,
+            PlanningContexts contexts,
             AssignmentSuggester suggester
     ) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.catalogs = Objects.requireNonNull(catalogs, "catalogs");
-        this.contexts = new PlanningContexts(plans, executions, catalogs);
+        this.contexts = Objects.requireNonNull(contexts, "planning contexts");
         this.suggester = Objects.requireNonNull(suggester, "suggester");
     }
 
@@ -50,6 +53,7 @@ public final class AssignResourcesInteractor implements AssignResources {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Assignment> suggest(ExpeditionId expeditionId) {
         return suggester.suggest(contexts.around(plans.require(expeditionId)));
     }

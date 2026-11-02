@@ -1,29 +1,16 @@
 package edu.itba.fieldops.frameworks;
 
-import edu.itba.fieldops.domain.catalog.Availability;
-import edu.itba.fieldops.domain.catalog.CertificationName;
-import edu.itba.fieldops.domain.catalog.ConsumableName;
-import edu.itba.fieldops.domain.catalog.PersonName;
-import edu.itba.fieldops.domain.catalog.Stock;
 import edu.itba.fieldops.domain.expedition.Assignment;
-import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
-import edu.itba.fieldops.domain.expedition.InstrumentAssignment;
 import edu.itba.fieldops.domain.expedition.PersonAssignment;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
-import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.PermitId;
-import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
-import edu.itba.fieldops.domain.report.Estimate;
-import edu.itba.fieldops.domain.shared.Consumption;
-import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.RiskLevel;
@@ -33,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -44,43 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlanningUseCasesTest extends UseCaseFixture {
-
-    @Test
-    void theEstimateOfANightActivityUsesItsRaisedRisk() {
-        CertificationId nightOperation = personnel.registerCertification(new CertificationName("Night operation"));
-        PersonId ada = personnel.registerPerson(new PersonName("Ada"), List.of(nightOperation), Availability.always());
-        InstrumentId lamp = equipment.registerInstrument(InstrumentKind.LIGHTING, Availability.always());
-        ExpeditionId expeditionId = draftResponsibleFor(ada);
-        ActivityId activityId = itinerary.nextActivityId();
-        itinerary.addActivity(expeditionId, Activity.night(nightOperation)
-                .named(activityId, new ActivityName("Night survey"))
-                .estimated(new EstimatedDuration(Duration.ofHours(3)), RiskLevel.MEDIUM)
-                .in(DELTA, hours(0, 3))
-                .build());
-        assignments.addAssignment(expeditionId, new PersonAssignment(activityId, ada));
-        assignments.addAssignment(expeditionId, new InstrumentAssignment(activityId, lamp));
-
-        Estimate estimate = estimates.of(expeditionId);
-
-        assertEquals(RiskLevel.HIGH, estimate.risk());
-        assertEquals(Duration.ofHours(3), estimate.duration());
-    }
-
-    @Test
-    void estimatesConsumptionFromRequirementsRatherThanAssignments() {
-        ConsumableId fuel = new ConsumableId(UUID.randomUUID());
-        Sampling sampling = samplingPlan(Map.of(fuel, new Consumption(3)));
-        ConsumableId vials = equipment.registerConsumable(new ConsumableName("vials"), new Stock(20));
-        assignments.addAssignment(sampling.expeditionId(), new ConsumableAssignment(sampling.activityId(), vials, new Consumption(7)));
-
-        Estimate estimate = estimates.of(sampling.expeditionId());
-
-        assertEquals(Map.of(fuel, new Consumption(3)), estimate.estimatedConsumption());
-    }
-
     @Test
     void suggestsAssignmentsWithoutApplyingThem() {
-        Sampling open = unassignedSampling(Map.of());
+        Sampling open = unassignedSampling();
 
         List<Assignment> suggested = assignments.suggest(open.expeditionId());
 

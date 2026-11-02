@@ -1,37 +1,7 @@
-server:
-  error:
-    include-message: never
-    include-stacktrace: never
-    include-binding-errors: never
-
 spring:
-  datasource:
-    url: ${FIELDOPS_DB_URL:jdbc:postgresql://localhost:5432/fieldops}
-    username: ${FIELDOPS_DB_USER:fieldops}
-    password: ${FIELDOPS_DB_PASSWORD:fieldops}
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: validate
-    properties:
-      hibernate:
-        default_batch_fetch_size: 64
-
-fieldops:
-  persistence: jpa
-
----
-spring:
-  config:
-    activate:
-      on-profile: memory
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
-      - org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration
-      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
-      - org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration
-      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
-
-fieldops:
-  persistence: memory
+  application:
+    name: fieldops
+  profiles:
+    # Persistence: sql (PostgreSQL, default) | mongo (MongoDB) | memory (no database).
+    # Add "demo" to load the demonstration data, e.g. --spring.profiles.active=sql,demo
+    default: sql

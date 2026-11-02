@@ -6,10 +6,14 @@ import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.report.OperationalReport;
 import edu.itba.fieldops.domain.usecase.report.ReportExpedition;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class ReportExpeditionInteractor implements ReportExpedition {
+@Service
+@Transactional(readOnly = true)
+public class ReportExpeditionInteractor implements ReportExpedition {
     private final ExpeditionRepository plans;
     private final ExecutionRepository executions;
 

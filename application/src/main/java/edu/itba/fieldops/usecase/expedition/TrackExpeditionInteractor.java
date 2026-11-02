@@ -1,6 +1,5 @@
 package edu.itba.fieldops.usecase.expedition;
 
-import edu.itba.fieldops.domain.catalog.Consumables;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
@@ -10,29 +9,27 @@ import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.expedition.Revisions;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.ObservationText;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class TrackExpeditionInteractor implements TrackExpedition {
+@Service
+@Transactional
+public class TrackExpeditionInteractor implements TrackExpedition {
     private final ExpeditionRepository plans;
     private final ExecutionRepository executions;
     private final ExpeditionTracker tracker;
 
-    public TrackExpeditionInteractor(
-            ExpeditionRepository plans,
-            ExecutionRepository executions,
-            Consumables consumables,
-            Clock clock
-    ) {
+    public TrackExpeditionInteractor(ExpeditionRepository plans, ExecutionRepository executions, ExpeditionTracker tracker) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.executions = Objects.requireNonNull(executions, "executions");
-        this.tracker = new ExpeditionTracker(plans, executions, consumables, clock);
+        this.tracker = Objects.requireNonNull(tracker, "tracker");
     }
 
     @Override
@@ -83,6 +80,7 @@ public final class TrackExpeditionInteractor implements TrackExpedition {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public RunSnapshot run(ExpeditionId expeditionId) {
         Expedition plan = plans.require(expeditionId);
         return executions.find(expeditionId)

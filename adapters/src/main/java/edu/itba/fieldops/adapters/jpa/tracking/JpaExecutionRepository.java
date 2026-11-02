@@ -1,31 +1,36 @@
 package edu.itba.fieldops.adapters.jpa.tracking;
 
+import edu.itba.fieldops.adapters.PersistenceProfiles;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
-import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 import java.util.Optional;
 
-public final class JpaExecutionRepository implements ExecutionRepository {
+@Repository
+@Profile(PersistenceProfiles.SQL)
+@Transactional(readOnly = true)
+public class JpaExecutionRepository implements ExecutionRepository {
     private final RunJpaRepository runs;
-    private final TransactionOperations transactions;
 
-    public JpaExecutionRepository(RunJpaRepository runs, TransactionOperations transactions) {
+    public JpaExecutionRepository(RunJpaRepository runs) {
         this.runs = Objects.requireNonNull(runs, "runs");
-        this.transactions = Objects.requireNonNull(transactions, "transactions");
     }
 
     @Override
+    @Transactional
     public void save(ExpeditionExecution execution) {
         Objects.requireNonNull(execution, "execution");
-        transactions.executeWithoutResult(status -> runs.save(new RunEntity(execution.state())));
+        runs.save(new RunEntity(execution.state()));
     }
 
     @Override
     public Optional<ExpeditionExecution> find(ExpeditionId expeditionId) {
         Objects.requireNonNull(expeditionId, "expedition id");
-        return transactions.execute(status -> runs.findById(expeditionId.value()).map(RunEntity::toDomain));
+        return runs.findById(expeditionId.value()).map(RunEntity::toDomain);
     }
 }

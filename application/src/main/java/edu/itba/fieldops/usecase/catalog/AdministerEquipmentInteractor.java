@@ -15,10 +15,14 @@ import edu.itba.fieldops.domain.identity.InstrumentId;
 import edu.itba.fieldops.domain.identity.VehicleId;
 import edu.itba.fieldops.domain.shared.InstrumentKind;
 import edu.itba.fieldops.domain.usecase.catalog.AdministerEquipment;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
-public final class AdministerEquipmentInteractor implements AdministerEquipment {
+@Service
+@Transactional
+public class AdministerEquipmentInteractor implements AdministerEquipment {
     private final VehicleRegistry vehicles;
     private final InstrumentRegistry instruments;
     private final ConsumableRegistry consumables;
