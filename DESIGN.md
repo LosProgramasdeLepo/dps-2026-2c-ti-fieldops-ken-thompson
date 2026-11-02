@@ -147,7 +147,7 @@ Deuda: los ids de certificación y de consumible que pide una actividad no tiene
 
 Descartado: un documento único con planes, corridas y propuestas (crece sin límite y mezcla agregados que cambian por motivos distintos); referenciar las certificaciones desde la persona (obliga a leer otra colección para cada persona); MongoDB sin transacciones (aprobar una revisión podría dejar el plan anterior sin reemplazar).
 
-Deuda: MongoDB no tiene claves foráneas ni `CHECK`, así que la integridad entre documentos la garantizan solo el dominio y los casos de uso. Guarda milisegundos, así que un instante más preciso se trunca. No hay índices declarados: las consultas por `registrationOrder` y por `originalId` recorren la colección. `plans.all()` sigue cargando todos los planes.
+Deuda: MongoDB no tiene claves foráneas ni `CHECK`, así que la integridad entre documentos la garantizan solo el dominio y los casos de uso. Guarda milisegundos, así que un instante más preciso se trunca. No hay índices declarados: las consultas por `registrationOrder` y por `originalId` recorren la colección. `plans.all()` sigue cargando todos los planes. Se usa MongoDB 7 porque las imágenes de MongoDB 8 no arrancan con kernels de Linux de 6.19 a 7.0.13 (SERVER-121912), como el de los runners de GitHub Actions; se puede volver a 8 cuando el kernel sea 7.0.14 o posterior.
 
 ## Entrega 2
 
