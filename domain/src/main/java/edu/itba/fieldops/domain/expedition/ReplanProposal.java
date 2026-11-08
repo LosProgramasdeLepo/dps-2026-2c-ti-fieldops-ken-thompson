@@ -1,5 +1,9 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.domain.event.DomainEvent;
+import edu.itba.fieldops.domain.event.PendingEvents;
+import edu.itba.fieldops.domain.event.ReplanDecided;
+import edu.itba.fieldops.domain.event.ReplanProposed;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
@@ -7,6 +11,7 @@ import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.tracking.Incident;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -24,8 +29,14 @@ public final class ReplanProposal {
     private Decision decision;
     private PersonId decidedBy;
     private Instant decidedAt;
+    private final PendingEvents events = new PendingEvents();
 
-    ReplanProposal(ProposalId id, Incident incident, Expedition suggested) {
+    ReplanProposal(ReplanTrigger trigger, Expedition suggested) {
+        this(Objects.requireNonNull(trigger, "trigger").id(), trigger.incident(), suggested);
+        events.record(new ReplanProposed(originalId, trigger.at(), id, suggested.id(), incident.id()));
+    }
+
+    private ReplanProposal(ProposalId id, Incident incident, Expedition suggested) {
         this.id = Objects.requireNonNull(id, "proposal id");
         this.incident = Objects.requireNonNull(incident, "incident");
         this.suggested = Objects.requireNonNull(suggested, "suggested plan");
@@ -47,7 +58,7 @@ public final class ReplanProposal {
             throw new InvalidValue("suggested plan does not revise the recorded original");
         }
         if (state.decision() != Decision.PENDING) {
-            proposal.decide(state.decision(), state.decidedBy().orElseThrow(), state.decidedAt().orElseThrow());
+            proposal.settle(state.decision(), state.decidedBy().orElseThrow(), state.decidedAt().orElseThrow());
         }
         return proposal;
     }
@@ -67,6 +78,10 @@ public final class ReplanProposal {
     void reject(Expedition original, PersonId responsible, Instant at) {
         requireResponsible(original, responsible);
         decide(Decision.REJECTED, responsible, at);
+    }
+
+    public List<DomainEvent> pullEvents() {
+        return events.drain();
     }
 
     public ProposalId id() {
@@ -107,6 +122,11 @@ public final class ReplanProposal {
     }
 
     private void decide(Decision next, PersonId responsible, Instant at) {
+        settle(next, responsible, at);
+        events.record(new ReplanDecided(originalId, at, id, next, responsible));
+    }
+
+    private void settle(Decision next, PersonId responsible, Instant at) {
         if (decision != Decision.PENDING) {
             throw new InvalidValue("proposal already decided");
         }

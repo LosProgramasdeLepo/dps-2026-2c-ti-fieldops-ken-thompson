@@ -5,6 +5,7 @@ import edu.itba.fieldops.domain.catalog.Certification;
 import edu.itba.fieldops.domain.catalog.CertificationName;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.PersonName;
+import edu.itba.fieldops.domain.event.ReplanProposed;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -17,6 +18,7 @@ import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.Incidents;
 import edu.itba.fieldops.domain.support.ResourceCatalog;
 import edu.itba.fieldops.domain.support.StoredExpeditions;
 import edu.itba.fieldops.domain.support.StoredPeople;
@@ -40,12 +42,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IncidentResponderTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
+    private static final Instant PROPOSED_AT = DAY.plusSeconds(90);
     private static final WorkZone DELTA = new WorkZone("Delta");
 
     @Test
     void delaysAnUnstartedActivityWhenTheIncidentIsAfterItsWindow() {
         Prepared prepared = approvedSampling();
-        Incident incident = Incident.affecting(prepared.activity.id(), new IncidentDescription("storm on site"), DAY.plus(Duration.ofHours(2)));
+        Incident incident = Incidents.affecting(prepared.activity.id(), new IncidentDescription("storm on site"), DAY.plus(Duration.ofHours(2)));
 
         Expedition revision = proposedPlan(prepared, incident);
 
@@ -58,7 +61,7 @@ class IncidentResponderTest {
         prepared.execution.startActivity(
                 prepared.expedition.startOf(prepared.activity.id(), DAY, List.of(prepared.expedition))
         );
-        Incident incident = Incident.affecting(prepared.activity.id(), new IncidentDescription("equipment failure"), DAY);
+        Incident incident = Incidents.affecting(prepared.activity.id(), new IncidentDescription("equipment failure"), DAY);
 
         Expedition revision = proposedPlan(prepared, incident);
 
@@ -68,7 +71,7 @@ class IncidentResponderTest {
     @Test
     void cancelsWhenTheDelayWouldLeaveThePeriod() {
         Prepared prepared = approvedSampling();
-        Incident incident = Incident.affecting(prepared.activity.id(), new IncidentDescription("storm on site"), DAY.plus(Duration.ofDays(10)));
+        Incident incident = Incidents.affecting(prepared.activity.id(), new IncidentDescription("storm on site"), DAY.plus(Duration.ofDays(10)));
 
         Expedition revision = proposedPlan(prepared, incident);
 
@@ -81,7 +84,7 @@ class IncidentResponderTest {
         Person ada = new Person(new PersonId(UUID.randomUUID()), new PersonName("Ada"), List.of(certification), new Availability(List.of(window(4, 8))));
         Person bob = new Person(new PersonId(UUID.randomUUID()), new PersonName("Bob"), List.of(certification), Availability.always());
         Prepared prepared = approvedSampling(ada, certification, bob);
-        Incident incident = Incident.affecting(prepared.activity.id(), new IncidentDescription("forecast change"), DAY);
+        Incident incident = Incidents.affecting(prepared.activity.id(), new IncidentDescription("forecast change"), DAY);
 
         Expedition revision = proposedPlan(prepared, incident);
 
@@ -94,7 +97,7 @@ class IncidentResponderTest {
     @Test
     void anIncidentWithoutAnActivityGetsNoProposal() {
         Prepared prepared = approvedSampling();
-        Incident general = Incident.of(new IncidentDescription("storm on site"), DAY);
+        Incident general = Incidents.of(new IncidentDescription("storm on site"), DAY);
         prepared.execution.addIncident(general);
 
         assertEquals(Optional.empty(), responderOf(prepared).respondTo(prepared.execution, general, newIds()));
@@ -103,7 +106,7 @@ class IncidentResponderTest {
     @Test
     void anIncidentOnAnActivityOutsideThePlanInForceGetsNoProposal() {
         Prepared prepared = approvedSampling();
-        Incident elsewhere = Incident.affecting(new ActivityId(UUID.randomUUID()), new IncidentDescription("storm on site"), DAY);
+        Incident elsewhere = Incidents.affecting(new ActivityId(UUID.randomUUID()), new IncidentDescription("storm on site"), DAY);
         prepared.execution.addIncident(elsewhere);
 
         assertEquals(Optional.empty(), responderOf(prepared).respondTo(prepared.execution, elsewhere, newIds()));
@@ -112,7 +115,7 @@ class IncidentResponderTest {
     @Test
     void aProposalRevisesThePlanInForceOfTheRun() {
         Prepared prepared = approvedSampling();
-        Incident incident = Incident.affecting(prepared.activity.id(), new IncidentDescription("storm on site"), DAY.plus(Duration.ofHours(2)));
+        Incident incident = Incidents.affecting(prepared.activity.id(), new IncidentDescription("storm on site"), DAY.plus(Duration.ofHours(2)));
         prepared.execution.addIncident(incident);
         ReplanIds ids = newIds();
 
@@ -132,13 +135,27 @@ class IncidentResponderTest {
     @Test
     void aProposalDoesNotAnswerAnIncidentTheRunDidNotRecord() {
         Prepared prepared = approvedSampling();
-        Incident incident = Incident.affecting(prepared.activity.id(), new IncidentDescription("storm on site"), DAY.plus(Duration.ofHours(2)));
+        Incident incident = Incidents.affecting(prepared.activity.id(), new IncidentDescription("storm on site"), DAY.plus(Duration.ofHours(2)));
         IncidentResponder responder = responderOf(prepared);
         ReplanIds ids = newIds();
 
         InvalidValue rejected = assertThrows(InvalidValue.class, () -> responder.respondTo(prepared.execution, incident, ids));
 
         assertEquals("incident is not recorded on the run", rejected.getMessage());
+    }
+
+    @Test
+    void theProposalIsDatedByTheClock() {
+        Prepared prepared = approvedSampling();
+        Incident incident = Incidents.affecting(prepared.activity.id(), new IncidentDescription("storm on site"), DAY.plus(Duration.ofHours(2)));
+        prepared.execution.addIncident(incident);
+
+        ReplanProposal proposal = responderOf(prepared).respondTo(prepared.execution, incident, newIds()).orElseThrow();
+
+        assertEquals(
+                List.of(new ReplanProposed(prepared.expedition.id(), PROPOSED_AT, proposal.id(), proposal.suggested().id(), incident.id())),
+                proposal.pullEvents()
+        );
     }
 
     private Expedition proposedPlan(Prepared prepared, Incident incident) {
@@ -151,7 +168,7 @@ class IncidentResponderTest {
         StoredRuns runs = new StoredRuns();
         runs.save(prepared.execution);
         PlanningContexts contexts = new PlanningContexts(plans, runs, prepared.catalog.catalogs());
-        return new IncidentResponder(plans, new Replanner(new AssignmentSuggester(), contexts));
+        return new IncidentResponder(plans, new Replanner(new AssignmentSuggester(), contexts), () -> PROPOSED_AT);
     }
 
     private static ReplanIds newIds() {

@@ -1,7 +1,6 @@
 package edu.itba.fieldops.domain.expedition;
 
 import edu.itba.fieldops.domain.identity.ActivityId;
-import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.Delay;
 import edu.itba.fieldops.domain.shared.InvalidValue;
@@ -33,11 +32,12 @@ public final class Replanner {
         replaceUnavailable(contextOf(draft));
     }
 
-    ReplanProposal propose(ProposalId id, Expedition revision, Incident incident, ExpeditionExecution execution) {
+    ReplanProposal propose(ReplanTrigger trigger, Expedition revision, ExpeditionExecution execution) {
+        Incident incident = trigger.incident();
         if (!execution.incidents().contains(incident)) {
             throw new InvalidValue("incident is not recorded on the run");
         }
-        ReplanProposal proposal = new ReplanProposal(id, incident, revision);
+        ReplanProposal proposal = new ReplanProposal(trigger, revision);
         respondTo(contextOf(revision), incident, execution);
         return proposal;
     }
