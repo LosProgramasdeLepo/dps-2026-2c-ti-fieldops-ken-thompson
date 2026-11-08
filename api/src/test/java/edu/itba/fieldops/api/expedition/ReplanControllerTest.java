@@ -6,6 +6,7 @@ import edu.itba.fieldops.domain.expedition.Objective;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Delay;
@@ -156,7 +157,12 @@ class ReplanControllerTest {
         return new ProposalSnapshot(
                 new ProposalId(proposalId),
                 new ExpeditionId(expeditionId),
-                Incident.affecting(new ActivityId(UUID.randomUUID()), new IncidentDescription("gear flooded"), Instant.parse("2026-11-01T09:00:00Z")),
+                new Incident(
+                        new IncidentId(UUID.randomUUID()),
+                        new IncidentDescription("gear flooded"),
+                        Instant.parse("2026-11-01T09:00:00Z"),
+                        Optional.of(new ActivityId(UUID.randomUUID()))
+                ),
                 ReplanProposal.Decision.PENDING,
                 Optional.empty(),
                 Optional.empty(),
