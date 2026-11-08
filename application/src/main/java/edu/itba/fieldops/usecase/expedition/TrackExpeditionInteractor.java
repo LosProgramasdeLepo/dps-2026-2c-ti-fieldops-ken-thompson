@@ -1,5 +1,6 @@
 package edu.itba.fieldops.usecase.expedition;
 
+import edu.itba.fieldops.domain.event.EventLog;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
@@ -25,16 +26,25 @@ public class TrackExpeditionInteractor implements TrackExpedition {
     private final ExpeditionRepository plans;
     private final ExecutionRepository executions;
     private final ExpeditionTracker tracker;
+    private final EventLog events;
 
-    public TrackExpeditionInteractor(ExpeditionRepository plans, ExecutionRepository executions, ExpeditionTracker tracker) {
+    public TrackExpeditionInteractor(
+            ExpeditionRepository plans,
+            ExecutionRepository executions,
+            ExpeditionTracker tracker,
+            EventLog events
+    ) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.executions = Objects.requireNonNull(executions, "executions");
         this.tracker = Objects.requireNonNull(tracker, "tracker");
+        this.events = Objects.requireNonNull(events, "event log");
     }
 
     @Override
     public void start(ExpeditionId expeditionId) {
-        executions.save(tracker.start(expeditionId));
+        ExpeditionExecution execution = tracker.start(expeditionId);
+        executions.save(execution);
+        events.append(execution.pullEvents());
     }
 
     @Override
@@ -56,6 +66,7 @@ public class TrackExpeditionInteractor implements TrackExpedition {
         ExpeditionExecution execution = requireRun(expeditionId, "finish");
         tracker.finish(execution);
         executions.save(execution);
+        events.append(execution.pullEvents());
     }
 
     @Override
@@ -63,6 +74,7 @@ public class TrackExpeditionInteractor implements TrackExpedition {
         ExpeditionExecution execution = requireRun(expeditionId, "start activity");
         tracker.startActivity(execution, activityId);
         executions.save(execution);
+        events.append(execution.pullEvents());
     }
 
     @Override
@@ -70,6 +82,7 @@ public class TrackExpeditionInteractor implements TrackExpedition {
         ExpeditionExecution execution = requireRun(expeditionId, "finish activity");
         tracker.finishActivity(execution, activityId, report);
         executions.save(execution);
+        events.append(execution.pullEvents());
     }
 
     @Override
