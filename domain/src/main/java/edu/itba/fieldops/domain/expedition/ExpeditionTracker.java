@@ -9,7 +9,7 @@ import edu.itba.fieldops.domain.shared.Occurrence;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
-import edu.itba.fieldops.domain.tracking.IncidentDescription;
+import edu.itba.fieldops.domain.tracking.IncidentReport;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
 import edu.itba.fieldops.domain.tracking.ObservationText;
@@ -56,18 +56,12 @@ public final class ExpeditionTracker {
     }
 
     public void finish(ExpeditionExecution run) {
-        run.finish(inForce(run));
+        run.finish(inForce(run), now(run, "finish"));
     }
 
-    public Incident reportIncident(ExpeditionExecution run, IncidentDescription description) {
-        Incident incident = Incident.of(description, now(run, "incident").instant());
-        run.addIncident(incident);
-        return incident;
-    }
-
-    public Incident reportIncident(ExpeditionExecution run, ActivityId activityId, IncidentDescription description) {
-        requireInLineage(run, activityId);
-        Incident incident = Incident.affecting(activityId, description, now(run, "incident").instant());
+    public Incident reportIncident(ExpeditionExecution run, IncidentReport report) {
+        report.activityId().ifPresent(activityId -> requireInLineage(run, activityId));
+        Incident incident = Incident.of(report, now(run, "incident").instant());
         run.addIncident(incident);
         return incident;
     }

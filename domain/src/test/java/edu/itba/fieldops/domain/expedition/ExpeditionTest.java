@@ -6,6 +6,7 @@ import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.PersonName;
+import edu.itba.fieldops.domain.event.ExpeditionApproved;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -49,6 +50,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 class ExpeditionTest {
     private static final Instant DAY = Instant.parse("2026-11-01T08:00:00Z");
+    private static final Instant APPROVED_AT = DAY.minusSeconds(3600);
     private static final WorkZone DELTA = new WorkZone("Delta");
 
     @Test
@@ -233,7 +235,7 @@ class ExpeditionTest {
     void approveMovesAnInReviewPlanToApprovedWhenValidationIsClean() {
         Expedition expedition = inReview();
 
-        expedition.approve(result(), contexts(), Optional.empty());
+        expedition.approve(approval(result()), Optional.empty());
 
         assertEquals(ExpeditionStatus.APPROVED, expedition.status());
     }
@@ -242,7 +244,7 @@ class ExpeditionTest {
     void approveRejectsCriticalIssuesAndLeavesThePlanInReview() {
         Expedition expedition = inReview();
 
-        assertThrows(ExpeditionNotApprovable.class, () -> expedition.approve(result(critical()), contexts(), Optional.empty()));
+        assertThrows(ExpeditionNotApprovable.class, () -> expedition.approve(approval(result(critical())), Optional.empty()));
 
         assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
     }
@@ -252,7 +254,7 @@ class ExpeditionTest {
         Expedition expedition = inReview();
         AcceptedWarning warning = acceptedCapacityWarning(expedition);
 
-        assertThrows(ExpeditionNotApprovable.class, () -> expedition.approve(result(warning.issue()), contexts(), Optional.empty()));
+        assertThrows(ExpeditionNotApprovable.class, () -> expedition.approve(approval(result(warning.issue())), Optional.empty()));
 
         assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
     }
@@ -263,7 +265,7 @@ class ExpeditionTest {
         AcceptedWarning warning = acceptedCapacityWarning(expedition);
         accept(expedition, warning);
 
-        expedition.approve(result(warning.issue()), contexts(), Optional.empty());
+        expedition.approve(approval(result(warning.issue())), Optional.empty());
 
         assertEquals(ExpeditionStatus.APPROVED, expedition.status());
     }
@@ -276,7 +278,7 @@ class ExpeditionTest {
 
         InvalidValue rejected = assertThrows(
                 InvalidValue.class,
-                () -> revision.approve(result(), contexts(), Optional.empty())
+                () -> revision.approve(approval(result()), Optional.empty())
         );
 
         assertEquals("approval must supersede the plan this one revises", rejected.getMessage());
@@ -288,7 +290,7 @@ class ExpeditionTest {
         Expedition unrelated = approvedWithSampling();
         Expedition expedition = inReview();
 
-        assertThrows(InvalidValue.class, () -> expedition.approve(result(), contexts(), Optional.of(unrelated)));
+        assertThrows(InvalidValue.class, () -> expedition.approve(approval(result()), Optional.of(unrelated)));
 
         assertEquals(ExpeditionStatus.APPROVED, unrelated.status());
         assertEquals(ExpeditionStatus.IN_REVIEW, expedition.status());
@@ -300,7 +302,7 @@ class ExpeditionTest {
         Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
         submit(revision);
 
-        revision.approve(result(), contexts(), Optional.of(original));
+        revision.approve(approval(result()), Optional.of(original));
 
         assertEquals(ExpeditionStatus.SUPERSEDED, original.status());
         assertEquals(ExpeditionStatus.APPROVED, revision.status());
@@ -314,7 +316,7 @@ class ExpeditionTest {
 
         assertThrows(
                 ExpeditionNotApprovable.class,
-                () -> revision.approve(result(critical()), contexts(), Optional.of(original))
+                () -> revision.approve(approval(result(critical())), Optional.of(original))
         );
 
         assertEquals(ExpeditionStatus.APPROVED, original.status());
@@ -330,7 +332,7 @@ class ExpeditionTest {
 
         assertThrows(
                 InvalidExpeditionTransition.class,
-                () -> revision.approve(result(), contexts(), Optional.of(original))
+                () -> revision.approve(approval(result()), Optional.of(original))
         );
 
         assertEquals(ExpeditionStatus.SUPERSEDED, original.status());
@@ -342,7 +344,7 @@ class ExpeditionTest {
         Expedition expedition = wetlandDraft();
         expedition.addActivity(sampling());
 
-        assertThrows(InvalidExpeditionTransition.class, () -> expedition.approve(result(), contexts(), Optional.empty()));
+        assertThrows(InvalidExpeditionTransition.class, () -> expedition.approve(approval(result()), Optional.empty()));
     }
 
     @Test
@@ -544,6 +546,84 @@ class ExpeditionTest {
         expedition.addActivity(sampling());
         submit(expedition);
         return expedition;
+    }
+
+    @Test
+    void approvingRegistersASingleExpeditionApprovedEvent() {
+        Expedition expedition = inReview();
+
+        expedition.approve(approval(result()), Optional.empty());
+
+        assertEquals(
+                List.of(new ExpeditionApproved(expedition.id(), APPROVED_AT, 1, Optional.empty())),
+                expedition.pullEvents()
+        );
+    }
+
+    @Test
+    void approvingARevisionRegistersTheSupersededPlanAndLeavesTheOriginalSilent() {
+        Expedition original = approvedWithSampling();
+        Expedition revision = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+        submit(revision);
+
+        revision.approve(approval(result()), Optional.of(original));
+
+        assertAll(
+                () -> assertEquals(
+                        List.of(new ExpeditionApproved(revision.id(), APPROVED_AT, 2, Optional.of(original.id()))),
+                        revision.pullEvents()
+                ),
+                () -> assertEquals(List.of(), original.pullEvents())
+        );
+    }
+
+    @Test
+    void aRejectedApprovalRegistersNothing() {
+        Expedition critical = inReview();
+        Expedition unjustified = inReview();
+        AcceptedWarning warning = acceptedCapacityWarning(unjustified);
+        Expedition unrelatedPredecessor = inReview();
+
+        assertThrows(ExpeditionNotApprovable.class, () -> critical.approve(approval(result(critical())), Optional.empty()));
+        assertThrows(ExpeditionNotApprovable.class, () -> unjustified.approve(approval(result(warning.issue())), Optional.empty()));
+        assertThrows(InvalidValue.class, () -> unrelatedPredecessor.approve(approval(result()), Optional.of(approvedWithSampling())));
+
+        assertAll(
+                () -> assertEquals(List.of(), critical.pullEvents()),
+                () -> assertEquals(List.of(), unjustified.pullEvents()),
+                () -> assertEquals(List.of(), unrelatedPredecessor.pullEvents())
+        );
+    }
+
+    @Test
+    void pullingEventsEmptiesThePendingList() {
+        Expedition expedition = inReview();
+        expedition.approve(approval(result()), Optional.empty());
+
+        assertEquals(1, expedition.pullEvents().size());
+        assertEquals(List.of(), expedition.pullEvents());
+    }
+
+    @Test
+    void aRestoredPlanHasNoPendingEvents() {
+        Expedition restored = Expedition.restore(approvedWithSampling().state());
+
+        assertEquals(List.of(), restored.pullEvents());
+    }
+
+    @Test
+    void editingAndReviewingThePlanRegistersNoEvents() {
+        Expedition expedition = wetlandDraft();
+        Activity activity = sampling();
+        expedition.addActivity(activity);
+        submit(expedition);
+        expedition.returnToDraft();
+
+        assertEquals(List.of(), expedition.pullEvents());
+    }
+
+    private static Approval approval(ExpeditionValidator validator) {
+        return new Approval(validator, contexts(), APPROVED_AT);
     }
 
     private static PlanningContexts contexts() {

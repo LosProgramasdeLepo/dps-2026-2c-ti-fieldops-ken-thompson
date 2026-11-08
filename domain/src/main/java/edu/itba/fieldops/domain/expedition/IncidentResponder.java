@@ -1,5 +1,6 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.tracking.Incident;
 
@@ -9,10 +10,12 @@ import java.util.Optional;
 public final class IncidentResponder {
     private final Plans plans;
     private final Replanner replanner;
+    private final Clock clock;
 
-    public IncidentResponder(Plans plans, Replanner replanner) {
+    public IncidentResponder(Plans plans, Replanner replanner, Clock clock) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.replanner = Objects.requireNonNull(replanner, "replanner");
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     public Optional<ReplanProposal> respondTo(ExpeditionExecution run, Incident incident, ReplanIds ids) {
@@ -26,6 +29,6 @@ public final class IncidentResponder {
             return Optional.empty();
         }
         Expedition revision = inForce.reviseAsDraft(ids.revision());
-        return Optional.of(replanner.propose(ids.proposal(), revision, incident, run));
+        return Optional.of(replanner.propose(new ReplanTrigger(ids.proposal(), incident, clock.now()), revision, run));
     }
 }

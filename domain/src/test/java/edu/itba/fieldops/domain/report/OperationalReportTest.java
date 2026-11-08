@@ -26,6 +26,7 @@ import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.Incidents;
 import edu.itba.fieldops.domain.support.ResourceCatalog;
 import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
@@ -156,7 +157,7 @@ class OperationalReportTest {
     @Test
     void includesIncidents() {
         expedition.addActivity(activity(0, 3, RiskLevel.LOW));
-        Incident incident = Incident.of(new IncidentDescription("ventisca en el frente"), START);
+        Incident incident = Incidents.of(new IncidentDescription("ventisca en el frente"), START);
         ExpeditionExecution withIncident = ExpeditionExecution.restore(new ExecutionState(
                 expedition.id(),
                 ExpeditionExecution.Status.IN_PROGRESS,

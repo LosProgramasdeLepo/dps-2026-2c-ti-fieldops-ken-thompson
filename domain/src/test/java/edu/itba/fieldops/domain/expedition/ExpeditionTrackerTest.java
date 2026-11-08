@@ -6,18 +6,26 @@ import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.catalog.Stock;
+import edu.itba.fieldops.domain.event.ActivityCompleted;
+import edu.itba.fieldops.domain.event.ActivityStarted;
+import edu.itba.fieldops.domain.event.IncidentReported;
+import edu.itba.fieldops.domain.event.RunFinished;
+import edu.itba.fieldops.domain.event.RunStarted;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityName;
 import edu.itba.fieldops.domain.itinerary.EstimatedDuration;
 import edu.itba.fieldops.domain.shared.Consumption;
+import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.Incidents;
 import edu.itba.fieldops.domain.support.ResourceCatalog;
 import edu.itba.fieldops.domain.support.StoredExpeditions;
 import edu.itba.fieldops.domain.support.StoredPeople;
@@ -26,6 +34,7 @@ import edu.itba.fieldops.domain.support.StoredRuns;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.IncidentDescription;
+import edu.itba.fieldops.domain.tracking.IncidentReport;
 import edu.itba.fieldops.domain.tracking.InvalidActivityExecution;
 import edu.itba.fieldops.domain.tracking.Observation;
 import edu.itba.fieldops.domain.tracking.ObservationText;
@@ -146,10 +155,15 @@ class ExpeditionTrackerTest {
         ExpeditionExecution run = tracker.start(plan.id());
         now = DAY.plus(Duration.ofHours(1));
 
-        Incident incident = tracker.reportIncident(run, activity, new IncidentDescription("flooded trail"));
+        IncidentId id = Incidents.newId();
+
+        Incident incident = tracker.reportIncident(run, IncidentReport.affecting(id, activity, new IncidentDescription("flooded trail")));
 
         assertAll(
-                () -> assertEquals(Incident.affecting(activity, new IncidentDescription("flooded trail"), DAY.plus(Duration.ofHours(1))), incident),
+                () -> assertEquals(
+                        new Incident(id, new IncidentDescription("flooded trail"), DAY.plus(Duration.ofHours(1)), Optional.of(activity)),
+                        incident
+                ),
                 () -> assertEquals(List.of(incident), run.incidents())
         );
     }
@@ -163,7 +177,7 @@ class ExpeditionTrackerTest {
 
         InvalidActivityExecution rejected = assertThrows(
                 InvalidActivityExecution.class,
-                () -> tracker.reportIncident(run, stranger, new IncidentDescription("flooded trail"))
+                () -> tracker.reportIncident(run, IncidentReport.affecting(Incidents.newId(), stranger, new IncidentDescription("flooded trail")))
         );
 
         assertEquals("unknown activity: " + stranger, rejected.getMessage());
@@ -179,7 +193,7 @@ class ExpeditionTrackerTest {
 
         InvalidActivityExecution rejected = assertThrows(
                 InvalidActivityExecution.class,
-                () -> tracker.reportIncident(run, new IncidentDescription("storm"))
+                () -> tracker.reportIncident(run, IncidentReport.general(Incidents.newId(), new IncidentDescription("storm")))
         );
 
         assertEquals("incident is outside the expedition period", rejected.getMessage());
@@ -200,6 +214,158 @@ class ExpeditionTrackerTest {
                 () -> assertEquals(List.of(new Observation(new ObservationText("heron colony"), DAY.plus(Duration.ofHours(3)))), run.observations()),
                 () -> assertThrows(InvalidActivityExecution.class, () -> tracker.observe(run, new ObservationText("late note")))
         );
+    }
+
+    @Test
+    void startingARunRegistersRunStarted() {
+        Expedition plan = approved();
+
+        ExpeditionExecution run = trackerOf(plan).start(plan.id());
+
+        assertEquals(List.of(new RunStarted(plan.id(), DAY)), run.pullEvents());
+    }
+
+    @Test
+    void startingAnActivityRegistersActivityStarted() {
+        Expedition plan = approved();
+        ActivityId activity = plan.activities().getFirst().id();
+        ExpeditionTracker tracker = trackerOf(plan);
+        ExpeditionExecution run = tracker.start(plan.id());
+        run.pullEvents();
+
+        tracker.startActivity(run, activity);
+
+        assertEquals(List.of(new ActivityStarted(plan.id(), DAY, activity)), run.pullEvents());
+    }
+
+    @Test
+    void finishingAnActivityRegistersTheResultStartAndConsumption() {
+        Consumable fuel = new Consumable(new ConsumableId(UUID.randomUUID()), new ConsumableName("fuel"), new Stock(50));
+        catalog.save(fuel);
+        Expedition plan = approved();
+        ActivityId activity = plan.activities().getFirst().id();
+        ExpeditionTracker tracker = trackerOf(plan);
+        ExpeditionExecution run = tracker.start(plan.id());
+        tracker.startActivity(run, activity);
+        run.pullEvents();
+        now = DAY.plus(Duration.ofHours(2));
+
+        tracker.finishActivity(run, activity, new ActivityReport(new Outcome("site reached"), Map.of(fuel.id(), new Consumption(8))));
+
+        assertEquals(
+                List.of(new ActivityCompleted(
+                        plan.id(), now, activity, DAY, new Outcome("site reached"), Map.of(fuel.id(), new Consumption(8))
+                )),
+                run.pullEvents()
+        );
+    }
+
+    @Test
+    void anUnknownConsumableRegistersNothing() {
+        Expedition plan = approved();
+        ActivityId activity = plan.activities().getFirst().id();
+        ExpeditionTracker tracker = trackerOf(plan);
+        ExpeditionExecution run = tracker.start(plan.id());
+        tracker.startActivity(run, activity);
+        run.pullEvents();
+        ActivityReport report = new ActivityReport(new Outcome("done"), Map.of(new ConsumableId(UUID.randomUUID()), new Consumption(1)));
+
+        assertThrows(UnknownResource.class, () -> tracker.finishActivity(run, activity, report));
+
+        assertEquals(List.of(), run.pullEvents());
+    }
+
+    @Test
+    void reportingAnIncidentRegistersIncidentReportedWithItsId() {
+        Expedition plan = approved();
+        ActivityId activity = plan.activities().getFirst().id();
+        ExpeditionTracker tracker = trackerOf(plan);
+        ExpeditionExecution run = tracker.start(plan.id());
+        run.pullEvents();
+        IncidentId general = Incidents.newId();
+        IncidentId affecting = Incidents.newId();
+
+        tracker.reportIncident(run, IncidentReport.general(general, new IncidentDescription("storm")));
+        tracker.reportIncident(run, IncidentReport.affecting(affecting, activity, new IncidentDescription("flood")));
+
+        assertEquals(
+                List.of(
+                        new IncidentReported(plan.id(), DAY, general, Optional.empty(), new IncidentDescription("storm")),
+                        new IncidentReported(plan.id(), DAY, affecting, Optional.of(activity), new IncidentDescription("flood"))
+                ),
+                run.pullEvents()
+        );
+    }
+
+    @Test
+    void anIncidentThatFailsRegistersNothing() {
+        Expedition plan = approved();
+        ExpeditionTracker tracker = trackerOf(plan);
+        ExpeditionExecution run = tracker.start(plan.id());
+        run.pullEvents();
+        ActivityId stranger = new ActivityId(UUID.randomUUID());
+        now = DAY.plus(Duration.ofDays(6));
+
+        assertThrows(InvalidActivityExecution.class, () -> tracker.reportIncident(run, IncidentReport.general(Incidents.newId(), new IncidentDescription("late"))));
+        now = DAY;
+        assertThrows(InvalidActivityExecution.class, () -> tracker.reportIncident(run, IncidentReport.affecting(Incidents.newId(), stranger, new IncidentDescription("elsewhere"))));
+
+        assertEquals(List.of(), run.pullEvents());
+    }
+
+    @Test
+    void aRepeatedIncidentIdIsRejected() {
+        Expedition plan = approved();
+        ExpeditionTracker tracker = trackerOf(plan);
+        ExpeditionExecution run = tracker.start(plan.id());
+        IncidentId id = Incidents.newId();
+        tracker.reportIncident(run, IncidentReport.general(id, new IncidentDescription("storm")));
+        run.pullEvents();
+
+        assertThrows(InvalidValue.class, () -> tracker.reportIncident(run, IncidentReport.general(id, new IncidentDescription("again"))));
+
+        assertAll(
+                () -> assertEquals(1, run.incidents().size()),
+                () -> assertEquals(List.of(), run.pullEvents())
+        );
+    }
+
+    @Test
+    void finishingTheRunRegistersRunFinished() {
+        Expedition plan = approved();
+        ActivityId activity = plan.activities().getFirst().id();
+        ExpeditionTracker tracker = trackerOf(plan);
+        ExpeditionExecution run = tracker.start(plan.id());
+        tracker.startActivity(run, activity);
+        tracker.finishActivity(run, activity, ActivityReport.of(new Outcome("done")));
+        run.pullEvents();
+        now = DAY.plus(Duration.ofHours(3));
+
+        tracker.finish(run);
+
+        assertEquals(List.of(new RunFinished(plan.id(), now)), run.pullEvents());
+    }
+
+    @Test
+    void aRestoredRunHasNoPendingEvents() {
+        Expedition plan = approved();
+        ExpeditionExecution run = trackerOf(plan).start(plan.id());
+
+        assertEquals(List.of(), ExpeditionExecution.restore(run.state()).pullEvents());
+    }
+
+    @Test
+    void suspendingResumingAndObservingRegisterNoEvents() {
+        Expedition plan = approved();
+        ExpeditionTracker tracker = trackerOf(plan);
+        ExpeditionExecution run = tracker.start(plan.id());
+        run.pullEvents();
+
+        run.suspend();
+        run.resume();
+        tracker.observe(run, new ObservationText("heron colony"));
+
+        assertEquals(List.of(), run.pullEvents());
     }
 
     private ExpeditionTracker trackerOf(Expedition... plans) {
