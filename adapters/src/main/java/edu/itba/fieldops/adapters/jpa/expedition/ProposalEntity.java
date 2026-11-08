@@ -31,6 +31,7 @@ public class ProposalEntity {
     private UUID suggestedId;
 
     @Embedded
+    @AttributeOverride(name = "id", column = @Column(name = "incident_id", nullable = false))
     @AttributeOverride(name = "description", column = @Column(name = "incident_description", nullable = false))
     @AttributeOverride(name = "occurredAt", column = @Column(name = "incident_at", nullable = false))
     @AttributeOverride(name = "activityId", column = @Column(name = "incident_activity_id", nullable = false))

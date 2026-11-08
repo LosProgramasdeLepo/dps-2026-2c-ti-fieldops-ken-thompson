@@ -3,6 +3,7 @@ package edu.itba.fieldops.adapters;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
@@ -10,11 +11,17 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @Profile(PersistenceProfiles.MEMORY)
 public class InMemoryExecutionRepository implements ExecutionRepository {
     private final Map<ExpeditionId, ExpeditionExecution> executions = new LinkedHashMap<>();
+
+    @Override
+    public IncidentId nextIncidentId() {
+        return new IncidentId(UUID.randomUUID());
+    }
 
     @Override
     public synchronized void save(ExpeditionExecution execution) {

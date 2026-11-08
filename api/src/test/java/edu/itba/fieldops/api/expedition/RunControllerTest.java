@@ -4,6 +4,7 @@ import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
@@ -22,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import java.util.UUID;
 
@@ -134,7 +136,7 @@ class RunControllerTest {
                 new ExpeditionId(id),
                 ExpeditionExecution.Status.IN_PROGRESS,
                 List.of(new ActivityExecution(new ActivityId(activityId), start)),
-                List.of(Incident.of(new IncidentDescription("storm on site"), start)),
+                List.of(new Incident(new IncidentId(UUID.randomUUID()), new IncidentDescription("storm on site"), start, Optional.empty())),
                 List.of()
         ));
 

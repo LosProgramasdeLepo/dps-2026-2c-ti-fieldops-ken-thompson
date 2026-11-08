@@ -16,6 +16,7 @@ import edu.itba.fieldops.domain.expedition.ProposalReviewer;
 import edu.itba.fieldops.domain.expedition.ProposalState;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.itinerary.Activity;
@@ -211,7 +212,12 @@ class ReplanProposalRepositoryTest {
     private ReplanProposal proposal(String description) {
         Expedition suggestion = approved.reviseAsDraft(plans.nextId());
         suggestion.delay(soil.id(), new Delay(Duration.ofHours(2)));
-        Incident incident = Incident.affecting(soil.id(), new IncidentDescription(description), DAY.plus(Duration.ofHours(1)));
+        Incident incident = new Incident(
+                new IncidentId(UUID.randomUUID()),
+                new IncidentDescription(description),
+                DAY.plus(Duration.ofHours(1)),
+                Optional.of(soil.id())
+        );
         return ReplanProposal.restore(new ProposalState(
                 proposals.nextId(),
                 approved.id(),

@@ -3,6 +3,8 @@ package edu.itba.fieldops.domain.expedition;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Person;
 import edu.itba.fieldops.domain.catalog.PersonName;
+import edu.itba.fieldops.domain.event.ReplanDecided;
+import edu.itba.fieldops.domain.event.ReplanProposed;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.identity.PersonId;
@@ -14,6 +16,7 @@ import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.Incidents;
 import edu.itba.fieldops.domain.support.StoredExpeditions;
 import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.support.StoredPlans;
@@ -190,24 +193,24 @@ class ReplanProposalTest {
 
     @Test
     void incidentWithoutActivityIsRejected() {
-        Incident general = Incident.of(new IncidentDescription("storm"), DAY);
+        Incident general = Incidents.of(new IncidentDescription("storm"), DAY);
         Expedition revision = revision();
 
-        assertThrows(InvalidValue.class, () -> new ReplanProposal(new ProposalId(UUID.randomUUID()), general, revision));
+        assertThrows(InvalidValue.class, () -> new ReplanProposal(trigger(general), revision));
     }
 
     @Test
     void theSuggestedPlanMustReviseTheOriginal() {
         Expedition original = draft();
 
-        assertThrows(InvalidValue.class, () -> new ReplanProposal(new ProposalId(UUID.randomUUID()), incident(), original));
+        assertThrows(InvalidValue.class, () -> new ReplanProposal(trigger(incident()), original));
     }
 
     @Test
     void theOriginalIsThePlanTheSuggestionRevises() {
         Expedition revision = revision();
 
-        ReplanProposal proposal = new ReplanProposal(new ProposalId(UUID.randomUUID()), incident(), revision);
+        ReplanProposal proposal = new ReplanProposal(trigger(incident()), revision);
 
         assertEquals(revision.supersedes().orElseThrow(), proposal.originalId());
     }
@@ -237,12 +240,99 @@ class ReplanProposalTest {
         assertEquals(ReplanProposal.Decision.PENDING, proposal.decision());
     }
 
+    @Test
+    void creatingAProposalRegistersReplanProposedOnTheOriginal() {
+        Expedition original = approved();
+        Incident incident = incident();
+        ReplanTrigger trigger = trigger(incident);
+        Expedition suggestion = original.reviseAsDraft(new ExpeditionId(UUID.randomUUID()));
+
+        ReplanProposal proposal = new ReplanProposal(trigger, suggestion);
+
+        assertEquals(
+                List.of(new ReplanProposed(original.id(), DAY, trigger.id(), suggestion.id(), incident.id())),
+                proposal.pullEvents()
+        );
+        assertEquals(List.of(), proposal.pullEvents());
+    }
+
+    @Test
+    void acceptingAndRejectingRegisterReplanDecided() {
+        Expedition original = approved();
+        PersonId ada = original.charter().responsibles().getFirst();
+        ReplanProposal accepted = proposalFor(original);
+        ReplanProposal rejected = proposalFor(original);
+        accepted.pullEvents();
+        rejected.pullEvents();
+        Instant decided = DAY.plus(Duration.ofHours(1));
+
+        accepted.accept(original, ada, decided);
+        rejected.reject(original, ada, decided);
+
+        assertEquals(
+                List.of(new ReplanDecided(original.id(), decided, accepted.id(), ReplanProposal.Decision.ACCEPTED, ada)),
+                accepted.pullEvents()
+        );
+        assertEquals(
+                List.of(new ReplanDecided(original.id(), decided, rejected.id(), ReplanProposal.Decision.REJECTED, ada)),
+                rejected.pullEvents()
+        );
+    }
+
+    @Test
+    void decidingTwiceKeepsASingleReplanDecided() {
+        Expedition original = approved();
+        PersonId ada = original.charter().responsibles().getFirst();
+        ReplanProposal proposal = proposalFor(original);
+        proposal.pullEvents();
+        proposal.accept(original, ada, DAY);
+
+        assertThrows(InvalidValue.class, () -> proposal.reject(original, ada, DAY.plus(Duration.ofHours(1))));
+
+        assertEquals(1, proposal.pullEvents().size());
+    }
+
+    @Test
+    void aFailedDecisionRegistersNothing() {
+        Expedition original = approved();
+        ReplanProposal proposal = proposalFor(original);
+        proposal.pullEvents();
+
+        assertThrows(InvalidValue.class, () -> proposal.accept(original, new PersonId(UUID.randomUUID()), DAY));
+
+        assertEquals(List.of(), proposal.pullEvents());
+    }
+
+    @Test
+    void restoringADecidedProposalRegistersNothing() {
+        Expedition original = approved();
+        PersonId ada = original.charter().responsibles().getFirst();
+        ReplanProposal decided = proposalFor(original);
+        decided.accept(original, ada, DAY);
+
+        ReplanProposal restored = ReplanProposal.restore(decided.state(), decided.suggested());
+
+        assertEquals(ReplanProposal.Decision.ACCEPTED, restored.decision());
+        assertEquals(List.of(), restored.pullEvents());
+    }
+
+    @Test
+    void restoringAPendingProposalRegistersNothing() {
+        ReplanProposal pending = proposalFor(approved());
+
+        assertEquals(List.of(), ReplanProposal.restore(pending.state(), pending.suggested()).pullEvents());
+    }
+
+    private static ReplanTrigger trigger(Incident incident) {
+        return new ReplanTrigger(new ProposalId(UUID.randomUUID()), incident, DAY);
+    }
+
     private static ReplanProposal proposalFor(Expedition original) {
-        return new ReplanProposal(new ProposalId(UUID.randomUUID()), incident(), original.reviseAsDraft(new ExpeditionId(UUID.randomUUID())));
+        return new ReplanProposal(trigger(incident()), original.reviseAsDraft(new ExpeditionId(UUID.randomUUID())));
     }
 
     private static Incident incident() {
-        return Incident.affecting(new ActivityId(UUID.randomUUID()), new IncidentDescription("storm on site"), DAY);
+        return Incidents.affecting(new ActivityId(UUID.randomUUID()), new IncidentDescription("storm on site"), DAY);
     }
 
     private static Expedition revision() {

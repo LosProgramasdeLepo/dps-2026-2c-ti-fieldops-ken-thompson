@@ -10,10 +10,14 @@ import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
 import edu.itba.fieldops.domain.catalog.PermitRegistry;
 import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.catalog.VehicleRegistry;
+import edu.itba.fieldops.domain.event.EventLog;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.Expedition;
+import edu.itba.fieldops.domain.expedition.ExpeditionApprover;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionTracker;
 import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
+import edu.itba.fieldops.domain.expedition.IncidentResponder;
 import edu.itba.fieldops.domain.expedition.ProposalReviewer;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.shared.Clock;
@@ -24,6 +28,7 @@ import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPac
 import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.nameMatching;
 import static com.tngtech.archunit.core.domain.properties.HasOwner.Predicates.With.owner;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 @AnalyzeClasses(packages = "edu.itba.fieldops", importOptions = ImportOption.DoNotIncludeTests.class)
@@ -86,6 +91,7 @@ class ArchitectureTest {
                             ExpeditionRepository.class,
                             ExecutionRepository.class,
                             ReplanProposalRepository.class,
+                            EventLog.class,
                             PersonRegistry.class,
                             VehicleRegistry.class,
                             InstrumentRegistry.class,
@@ -98,8 +104,30 @@ class ArchitectureTest {
     @ArchTest
     static final ArchRule onlyTheDomainServicesReadTheClockInTheDomain = noClasses()
             .that().resideInAPackage("edu.itba.fieldops.domain..")
-            .and().doNotBelongToAnyOf(ExpeditionTracker.class, ProposalReviewer.class)
+            .and().doNotBelongToAnyOf(
+                    ExpeditionTracker.class,
+                    ProposalReviewer.class,
+                    ExpeditionApprover.class,
+                    IncidentResponder.class
+            )
             .should().dependOnClassesThat().belongToAnyOf(Clock.class);
+
+    @ArchTest
+    static final ArchRule onlyUseCasesPullTheEventsOfAnAggregate = noClasses()
+            .that().resideOutsideOfPackage("edu.itba.fieldops.usecase..")
+            .should().callMethodWhere(target(nameMatching("pullEvents"))
+                    .and(target(owner(resideInAPackage("edu.itba.fieldops.domain..")))));
+
+    @ArchTest
+    static final ArchRule approvingAPlanIsNotPublic = methods()
+            .that().areDeclaredIn(Expedition.class).and().haveName("approve")
+            .should().notBePublic();
+
+    @ArchTest
+    static final ArchRule onlyTheApproverApprovesAPlan = noClasses()
+            .that().doNotBelongToAnyOf(ExpeditionApprover.class, Expedition.class)
+            .should().callMethodWhere(target(nameMatching("approve"))
+                    .and(target(owner(belongToAnyOf(Expedition.class)))));
 
     @ArchTest
     static final ArchRule onlyTheAdaptersRestoreStoredState = noClasses()

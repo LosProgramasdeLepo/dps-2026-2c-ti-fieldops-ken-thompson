@@ -2,6 +2,7 @@ package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.domain.assessment.ValidationIssue;
 import edu.itba.fieldops.domain.catalog.Availability;
+import edu.itba.fieldops.domain.event.ExpeditionApproved;
 import edu.itba.fieldops.domain.expedition.AcceptedWarning;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
@@ -12,6 +13,7 @@ import edu.itba.fieldops.domain.identity.PersonId;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -89,5 +91,46 @@ class ReviewUseCasesTest extends UseCaseFixture {
         assertThrows(InvalidExpeditionTransition.class, () -> approval.approve(withoutFirst));
 
         assertEquals(ExpeditionStatus.IN_REVIEW, consult.of(withoutFirst).status());
+    }
+
+    @Test
+    void approvingAppendsExpeditionApprovedAtTheClockTime() {
+        Sampling sampling = samplingPlan();
+        review.submit(sampling.expeditionId());
+        int mark = eventMark();
+
+        approval.approve(sampling.expeditionId());
+
+        assertEquals(
+                List.of(new ExpeditionApproved(sampling.expeditionId(), DAY, 1, Optional.empty())),
+                eventsSince(mark)
+        );
+    }
+
+    @Test
+    void approvingARevisionAppendsTheSupersededPlan() {
+        TwoSamplings plan = approvedTwoSamplings();
+        ExpeditionId revision = revisionWithout(plan.expeditionId(), plan.later());
+        review.submit(revision);
+        int mark = eventMark();
+
+        approval.approve(revision);
+
+        assertEquals(
+                List.of(new ExpeditionApproved(revision, DAY, 2, Optional.of(plan.expeditionId()))),
+                eventsSince(mark)
+        );
+    }
+
+    @Test
+    void aRejectedApprovalAppendsNothing() {
+        Sampling sampling = samplingPlan();
+        review.submit(sampling.expeditionId());
+        personnel.changeAvailability(sampling.responsible(), new Availability(List.of()));
+        int mark = eventMark();
+
+        assertThrows(ExpeditionNotApprovable.class, () -> approval.approve(sampling.expeditionId()));
+
+        assertEquals(List.of(), eventsSince(mark));
     }
 }

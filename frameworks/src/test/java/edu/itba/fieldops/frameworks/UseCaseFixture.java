@@ -1,5 +1,6 @@
 package edu.itba.fieldops.frameworks;
 
+import edu.itba.fieldops.adapters.InMemoryEventLog;
 import edu.itba.fieldops.adapters.PersistenceProfiles;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Capacity;
@@ -10,6 +11,7 @@ import edu.itba.fieldops.domain.catalog.PermitRegistry;
 import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.catalog.VehicleRegistry;
+import edu.itba.fieldops.domain.event.DomainEvent;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
@@ -88,6 +90,8 @@ abstract class UseCaseFixture {
     @Autowired
     ExecutionRepository runs;
     @Autowired
+    InMemoryEventLog eventLog;
+    @Autowired
     AdministerPersonnel personnel;
     @Autowired
     AdministerEquipment equipment;
@@ -121,6 +125,14 @@ abstract class UseCaseFixture {
     ReplanExpedition replan;
     @Autowired
     ReportExpedition reports;
+
+    int eventMark() {
+        return eventLog.events().size();
+    }
+
+    List<DomainEvent> eventsSince(int mark) {
+        return eventLog.events().subList(mark, eventLog.events().size());
+    }
 
     ExpeditionId draftResponsibleFor(PersonId responsible) {
         return drafts.draft(new ExpeditionCharter(

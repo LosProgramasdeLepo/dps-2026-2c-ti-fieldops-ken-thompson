@@ -3,10 +3,14 @@ package edu.itba.fieldops.frameworks;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Capacity;
 import edu.itba.fieldops.domain.catalog.PersonName;
+import edu.itba.fieldops.domain.event.IncidentReported;
+import edu.itba.fieldops.domain.event.ReplanDecided;
+import edu.itba.fieldops.domain.event.ReplanProposed;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.identity.PersonId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.identity.VehicleId;
@@ -34,11 +38,14 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         Sampling sampling = runningSampling();
         clock.set(at(2));
 
-        incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
 
         ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
         assertAll(
-                () -> assertEquals(Incident.affecting(sampling.activityId(), new IncidentDescription("storm on site"), at(2)), proposal.incident()),
+                () -> assertEquals(
+                        new Incident(incidentId, new IncidentDescription("storm on site"), at(2), Optional.of(sampling.activityId())),
+                        proposal.incident()
+                ),
                 () -> assertEquals(ReplanProposal.Decision.PENDING, proposal.decision()),
                 () -> assertEquals(hours(2, 6), proposal.suggested().itinerary().getFirst().activities().getFirst().window()),
                 () -> assertEquals(ExpeditionStatus.APPROVED, consult.of(sampling.expeditionId()).status())
@@ -49,10 +56,115 @@ class ReplanningUseCasesTest extends UseCaseFixture {
     void anIncidentWithoutAnActivityIsRecordedWithoutAProposal() {
         Sampling sampling = runningSampling();
 
-        incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"));
+        IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"));
 
         assertTrue(proposalReview.of(sampling.expeditionId(), FIRST_PAGE).items().isEmpty());
-        assertEquals(List.of(Incident.of(new IncidentDescription("storm on site"), DAY)), runs.find(sampling.expeditionId()).orElseThrow().incidents());
+        assertEquals(
+                List.of(new Incident(incidentId, new IncidentDescription("storm on site"), DAY, Optional.empty())),
+                runs.find(sampling.expeditionId()).orElseThrow().incidents()
+        );
+    }
+
+    @Test
+    void anIncidentOnAnActivityAppendsIncidentReportedAndThenReplanProposed() {
+        Sampling sampling = runningSampling();
+        clock.set(at(2));
+        int mark = eventMark();
+
+        IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+
+        ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
+        assertEquals(
+                List.of(
+                        new IncidentReported(
+                                sampling.expeditionId(), at(2), incidentId, Optional.of(sampling.activityId()), new IncidentDescription("storm on site")
+                        ),
+                        new ReplanProposed(sampling.expeditionId(), at(2), proposal.id(), proposal.suggested().id(), incidentId)
+                ),
+                eventsSince(mark)
+        );
+    }
+
+    @Test
+    void anIncidentWithoutAnActivityAppendsOnlyIncidentReported() {
+        Sampling sampling = runningSampling();
+        int mark = eventMark();
+
+        IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"));
+
+        assertEquals(
+                List.of(new IncidentReported(sampling.expeditionId(), DAY, incidentId, Optional.empty(), new IncidentDescription("storm on site"))),
+                eventsSince(mark)
+        );
+    }
+
+    @Test
+    void theIdReturnedByRecordIsTheOneTheRunShows() {
+        Sampling sampling = runningSampling();
+
+        IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+
+        assertEquals(incidentId, runs.find(sampling.expeditionId()).orElseThrow().incidents().getFirst().id());
+    }
+
+    @Test
+    void anIncidentOnAnUnknownActivityAppendsNothing() {
+        Sampling sampling = runningSampling();
+        int mark = eventMark();
+
+        assertThrows(
+                edu.itba.fieldops.domain.tracking.InvalidActivityExecution.class,
+                () -> incidents.record(sampling.expeditionId(), new IncidentDescription("storm"), itinerary.nextActivityId())
+        );
+
+        assertEquals(List.of(), eventsSince(mark));
+    }
+
+    @Test
+    void acceptingAProposalAppendsReplanDecidedAccepted() {
+        Sampling sampling = runningSampling();
+        clock.set(at(2));
+        incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
+        clock.set(at(3));
+        int mark = eventMark();
+
+        proposalReview.accept(proposal.id(), sampling.responsible());
+
+        assertEquals(
+                List.of(new ReplanDecided(sampling.expeditionId(), at(3), proposal.id(), ReplanProposal.Decision.ACCEPTED, sampling.responsible())),
+                eventsSince(mark)
+        );
+    }
+
+    @Test
+    void rejectingAProposalAppendsReplanDecidedRejected() {
+        Sampling sampling = runningSampling();
+        clock.set(at(2));
+        incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
+        clock.set(at(3));
+        int mark = eventMark();
+
+        proposalReview.reject(proposal.id(), sampling.responsible());
+
+        assertEquals(
+                List.of(new ReplanDecided(sampling.expeditionId(), at(3), proposal.id(), ReplanProposal.Decision.REJECTED, sampling.responsible())),
+                eventsSince(mark)
+        );
+    }
+
+    @Test
+    void aDecisionByAStrangerAppendsNothing() {
+        Sampling sampling = runningSampling();
+        incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
+        PersonId stranger = certifiedPerson("Stranger", certification());
+        int mark = eventMark();
+
+        assertThrows(edu.itba.fieldops.domain.shared.InvalidValue.class, () -> proposalReview.accept(proposal.id(), stranger));
+
+        assertEquals(List.of(), eventsSince(mark));
     }
 
     @Test
@@ -139,11 +251,14 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         approval.approve(revision);
         clock.set(at(2));
 
-        incidents.record(sampling.expeditionId(), new IncidentDescription("trail flooded"), sampling.activityId());
+        IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("trail flooded"), sampling.activityId());
 
         ProposalSnapshot proposal = onlyProposalOf(revision);
         assertAll(
-                () -> assertEquals(Incident.affecting(sampling.activityId(), new IncidentDescription("trail flooded"), at(2)), proposal.incident()),
+                () -> assertEquals(
+                        new Incident(incidentId, new IncidentDescription("trail flooded"), at(2), Optional.of(sampling.activityId())),
+                        proposal.incident()
+                ),
                 () -> assertEquals(ReplanProposal.Decision.PENDING, proposal.decision()),
                 () -> assertEquals(ExpeditionStatus.APPROVED, consult.of(revision).status())
         );

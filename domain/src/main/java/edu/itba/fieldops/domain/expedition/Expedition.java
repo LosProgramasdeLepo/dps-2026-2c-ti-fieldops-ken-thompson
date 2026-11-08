@@ -5,6 +5,9 @@ import edu.itba.fieldops.domain.assessment.ValidationResult;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.People;
 import edu.itba.fieldops.domain.catalog.Permits;
+import edu.itba.fieldops.domain.event.DomainEvent;
+import edu.itba.fieldops.domain.event.ExpeditionApproved;
+import edu.itba.fieldops.domain.event.PendingEvents;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -36,6 +39,7 @@ public final class Expedition {
     private final ExpeditionId supersedes;
     private final PlanContent content;
     private final AcceptedWarnings acceptedWarnings = new AcceptedWarnings();
+    private final PendingEvents events = new PendingEvents();
     private ExpeditionStatus status = ExpeditionStatus.DRAFT;
 
     public static Expedition draft(ExpeditionId id, ExpeditionCharter charter, People people) {
@@ -134,7 +138,7 @@ public final class Expedition {
             throw new InvalidExpeditionTransition(status, "start");
         }
         requireWithinPeriod(at, "start");
-        return ExpeditionExecution.begin(id);
+        return ExpeditionExecution.begin(id, charter().period().at(at));
     }
 
     ActivityStart startOf(ActivityId activityId, Instant at, List<Expedition> plans) {
@@ -182,14 +186,19 @@ public final class Expedition {
         acceptedWarnings.clear();
     }
 
-    public void approve(ExpeditionValidator validator, PlanningContexts contexts, Optional<Expedition> predecessor) {
+    void approve(Approval approval, Optional<Expedition> predecessor) {
         requireStatus(ExpeditionStatus.IN_REVIEW, "approve");
         if (!Objects.requireNonNull(predecessor, "predecessor").map(Expedition::id).equals(supersedes())) {
             throw new InvalidValue("approval must supersede the plan this one revises");
         }
-        requireApprovable(Objects.requireNonNull(validator, "validator").validate(contexts.around(this)));
+        requireApprovable(approval.validator().validate(approval.contexts().around(this)));
         predecessor.ifPresent(Expedition::markSuperseded);
         status = ExpeditionStatus.APPROVED;
+        events.record(new ExpeditionApproved(id, approval.at(), version, supersedes()));
+    }
+
+    public List<DomainEvent> pullEvents() {
+        return events.drain();
     }
 
     void markSuperseded() {
