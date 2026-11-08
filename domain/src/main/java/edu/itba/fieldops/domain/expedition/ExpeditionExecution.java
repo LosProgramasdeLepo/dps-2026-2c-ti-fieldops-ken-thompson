@@ -1,9 +1,17 @@
 package edu.itba.fieldops.domain.expedition;
 
+import edu.itba.fieldops.domain.event.ActivityCompleted;
+import edu.itba.fieldops.domain.event.ActivityStarted;
+import edu.itba.fieldops.domain.event.DomainEvent;
+import edu.itba.fieldops.domain.event.IncidentReported;
+import edu.itba.fieldops.domain.event.PendingEvents;
+import edu.itba.fieldops.domain.event.RunFinished;
+import edu.itba.fieldops.domain.event.RunStarted;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
+import edu.itba.fieldops.domain.shared.InvalidValue;
 import edu.itba.fieldops.domain.shared.Occurrence;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
@@ -31,14 +39,17 @@ public final class ExpeditionExecution {
     private final List<ActivityExecution> activities = new ArrayList<>();
     private final List<Incident> incidents = new ArrayList<>();
     private final List<Observation> observations = new ArrayList<>();
+    private final PendingEvents events = new PendingEvents();
 
     private ExpeditionExecution(ExpeditionId expeditionId, Status status) {
         this.expeditionId = Objects.requireNonNull(expeditionId, "expedition id");
         this.status = status;
     }
 
-    static ExpeditionExecution begin(ExpeditionId expeditionId) {
-        return new ExpeditionExecution(expeditionId, Status.IN_PROGRESS);
+    static ExpeditionExecution begin(ExpeditionId expeditionId, Occurrence at) {
+        ExpeditionExecution execution = new ExpeditionExecution(expeditionId, Status.IN_PROGRESS);
+        execution.events.record(new RunStarted(expeditionId, Objects.requireNonNull(at, "occurrence").instant()));
+        return execution;
     }
 
     public static ExpeditionExecution restore(ExecutionState state) {
@@ -69,11 +80,17 @@ public final class ExpeditionExecution {
         status = Status.IN_PROGRESS;
     }
 
-    void finish(Expedition plan) {
+    public List<DomainEvent> pullEvents() {
+        return events.drain();
+    }
+
+    void finish(Expedition plan, Occurrence at) {
         requireStatus(Status.IN_PROGRESS, "finish");
         requireStartedFinished();
         requireFinished(activityIds(plan));
+        Objects.requireNonNull(at, "occurrence");
         status = Status.FINISHED;
+        events.record(new RunFinished(expeditionId, at.instant()));
     }
 
     void startActivity(ActivityStart start) {
@@ -87,6 +104,7 @@ public final class ExpeditionExecution {
         }
         requirePredecessorsFinishedBy(start.predecessors(), start.at().instant());
         activities.add(new ActivityExecution(start.activityId(), start.at().instant()));
+        events.record(new ActivityStarted(expeditionId, start.at().instant(), start.activityId()));
     }
 
     void finishActivity(ActivityId activityId, Occurrence at, ActivityReport report) {
@@ -95,6 +113,14 @@ public final class ExpeditionExecution {
             ActivityExecution execution = activities.get(index);
             if (execution.activityId().equals(activityId)) {
                 activities.set(index, execution.finish(at.instant(), report));
+                events.record(new ActivityCompleted(
+                        expeditionId,
+                        at.instant(),
+                        activityId,
+                        execution.startedAt(),
+                        report.result(),
+                        report.consumed()
+                ));
                 return;
             }
         }
@@ -103,7 +129,12 @@ public final class ExpeditionExecution {
 
     void addIncident(Incident incident) {
         requireActive("record incident");
-        incidents.add(Objects.requireNonNull(incident, "incident"));
+        Objects.requireNonNull(incident, "incident");
+        if (incidents.stream().anyMatch(recorded -> recorded.id().equals(incident.id()))) {
+            throw new InvalidValue("incident already recorded: " + incident.id().value());
+        }
+        incidents.add(incident);
+        events.record(new IncidentReported(expeditionId, incident.at(), incident.id(), incident.activityId(), incident.description()));
     }
 
     void addObservation(Observation observation) {

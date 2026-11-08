@@ -14,6 +14,7 @@ import edu.itba.fieldops.domain.itinerary.InvalidItinerary;
 import edu.itba.fieldops.domain.shared.RiskLevel;
 import edu.itba.fieldops.domain.shared.TimePeriod;
 import edu.itba.fieldops.domain.shared.WorkZone;
+import edu.itba.fieldops.domain.support.Incidents;
 import edu.itba.fieldops.domain.support.StoredPeople;
 import edu.itba.fieldops.domain.support.StoredPlans;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
@@ -99,7 +100,7 @@ class ExpeditionExecutionTest {
         started.run.startActivity(started.plan.startOf(first, DAY, List.of(started.plan)));
         started.run.finishActivity(first, PERIOD.at(hours(1)), ActivityReport.of(new Outcome("samples stored")));
 
-        started.run.finish(started.plan);
+        started.run.finish(started.plan, PERIOD.at(hours(5)));
 
         assertEquals(ExpeditionExecution.Status.FINISHED, started.run.status());
     }
@@ -108,7 +109,7 @@ class ExpeditionExecutionTest {
     void cannotFinishWhileAPlannedActivityHasNotStarted() {
         RunOnPlan started = running(activity(first, 0, 4));
 
-        assertThrows(InvalidActivityExecution.class, () -> started.run.finish(started.plan));
+        assertThrows(InvalidActivityExecution.class, () -> started.run.finish(started.plan, PERIOD.at(hours(5))));
     }
 
     @Test
@@ -116,7 +117,7 @@ class ExpeditionExecutionTest {
         RunOnPlan started = running(activity(first, 0, 4));
         started.run.startActivity(started.plan.startOf(first, DAY, List.of(started.plan)));
 
-        assertThrows(InvalidActivityExecution.class, () -> started.run.finish(started.plan));
+        assertThrows(InvalidActivityExecution.class, () -> started.run.finish(started.plan, PERIOD.at(hours(5))));
     }
 
     @Test
@@ -139,7 +140,7 @@ class ExpeditionExecutionTest {
 
     @Test
     void anEmptyItineraryDoesNotCloseTheRun() {
-        assertThrows(InvalidItinerary.class, () -> execution.finish(draftWithoutActivities(expeditionId)));
+        assertThrows(InvalidItinerary.class, () -> execution.finish(draftWithoutActivities(expeditionId), PERIOD.at(hours(5))));
 
         assertEquals(ExpeditionExecution.Status.IN_PROGRESS, execution.status());
     }
@@ -171,7 +172,7 @@ class ExpeditionExecutionTest {
 
     @Test
     void recordsAnIncident() {
-        Incident incident = Incident.of(new IncidentDescription("rain delay"), DAY);
+        Incident incident = Incidents.of(new IncidentDescription("rain delay"), DAY);
 
         execution.addIncident(incident);
 
@@ -194,7 +195,7 @@ class ExpeditionExecutionTest {
                 new ActivityExecution(first, DAY).finish(hours(4), ActivityReport.of(new Outcome("site reached"))),
                 new ActivityExecution(second, hours(4))
         );
-        withActivities.addIncident(Incident.affecting(second, new IncidentDescription("flooded trail"), hours(5)));
+        withActivities.addIncident(Incidents.affecting(second, new IncidentDescription("flooded trail"), hours(5)));
         withActivities.addObservation(new Observation(new ObservationText("heron colony"), hours(5)));
         withActivities.suspend();
 
