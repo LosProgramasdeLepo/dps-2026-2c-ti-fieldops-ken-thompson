@@ -1,5 +1,6 @@
 package edu.itba.fieldops.usecase.expedition;
 
+import edu.itba.fieldops.domain.event.EventLog;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.ProposalReviewer;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
@@ -23,15 +24,18 @@ public class ReviewReplanProposalInteractor implements ReviewReplanProposal {
     private final ExpeditionRepository plans;
     private final ReplanProposalRepository proposals;
     private final ProposalReviewer reviewer;
+    private final EventLog events;
 
     public ReviewReplanProposalInteractor(
             ExpeditionRepository plans,
             ReplanProposalRepository proposals,
-            ProposalReviewer reviewer
+            ProposalReviewer reviewer,
+            EventLog events
     ) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.proposals = Objects.requireNonNull(proposals, "proposals");
         this.reviewer = Objects.requireNonNull(reviewer, "proposal reviewer");
+        this.events = Objects.requireNonNull(events, "event log");
     }
 
     @Override
@@ -40,6 +44,7 @@ public class ReviewReplanProposalInteractor implements ReviewReplanProposal {
         reviewer.accept(proposal, responsible);
         plans.save(proposal.suggested());
         proposals.save(proposal);
+        events.append(proposal.pullEvents());
     }
 
     @Override
@@ -47,6 +52,7 @@ public class ReviewReplanProposalInteractor implements ReviewReplanProposal {
         ReplanProposal proposal = require(proposalId);
         reviewer.reject(proposal, responsible);
         proposals.save(proposal);
+        events.append(proposal.pullEvents());
     }
 
     @Override
