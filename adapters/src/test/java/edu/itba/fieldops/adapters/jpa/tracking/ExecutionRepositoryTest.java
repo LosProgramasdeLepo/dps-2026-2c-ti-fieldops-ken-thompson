@@ -108,7 +108,10 @@ class ExecutionRepositoryTest {
                         ),
                         new ActivityExecution(ride, hours(4))
                 ),
-                List.of(Incident.affecting(ride, new IncidentDescription("flooded trail"), hours(5)), Incident.of(new IncidentDescription("radio down"), hours(5))),
+                List.of(
+                        new Incident(runs.nextIncidentId(), new IncidentDescription("flooded trail"), hours(5), Optional.of(ride)),
+                        new Incident(runs.nextIncidentId(), new IncidentDescription("radio down"), hours(5), Optional.empty())
+                ),
                 List.of(new Observation(new ObservationText("heron colony"), hours(5)))
         ));
         run.suspend();

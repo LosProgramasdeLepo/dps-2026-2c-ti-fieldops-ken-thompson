@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Document(collection = "runs")
 record RunDocument(
@@ -43,7 +44,9 @@ record RunDocument(
                 new ExpeditionId(UUID.fromString(expeditionId)),
                 ExpeditionExecution.Status.valueOf(status),
                 activities.stream().map(ActivityRun::toDomain).toList(),
-                incidents.stream().map(IncidentDocument::toDomain).toList(),
+                IntStream.range(0, incidents.size())
+                        .mapToObj(position -> incidents.get(position).toDomain(expeditionId + "#" + position))
+                        .toList(),
                 observations.stream().map(ObservationEntry::toDomain).toList()
         ));
     }

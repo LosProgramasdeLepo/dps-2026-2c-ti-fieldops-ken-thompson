@@ -42,6 +42,7 @@ import edu.itba.fieldops.domain.expedition.Restriction;
 import edu.itba.fieldops.domain.expedition.VehicleAssignment;
 import edu.itba.fieldops.domain.identity.CertificationId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.itinerary.Activity;
 import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.ActivityName;
@@ -280,7 +281,12 @@ class MongoPlansTest {
                 proposals.nextId(),
                 approved.id(),
                 suggestion.id(),
-                Incident.affecting(first.id(), new IncidentDescription(description), DAY.plus(Duration.ofHours(1))),
+                new Incident(
+                        new IncidentId(UUID.randomUUID()),
+                        new IncidentDescription(description),
+                        DAY.plus(Duration.ofHours(1)),
+                        Optional.of(first.id())
+                ),
                 ReplanProposal.Decision.PENDING,
                 Optional.empty(),
                 Optional.empty()
