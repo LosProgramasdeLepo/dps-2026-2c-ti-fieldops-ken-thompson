@@ -45,7 +45,7 @@ record ProposalDocument(
                 new ProposalId(UUID.fromString(id)),
                 new ExpeditionId(UUID.fromString(originalId)),
                 new ExpeditionId(UUID.fromString(suggestedId)),
-                incident.toDomain(),
+                incident.toDomain(id + "#incident"),
                 ReplanProposal.Decision.valueOf(decision),
                 Optional.ofNullable(decidedBy).map(UUID::fromString).map(PersonId::new),
                 Optional.ofNullable(decidedAt)

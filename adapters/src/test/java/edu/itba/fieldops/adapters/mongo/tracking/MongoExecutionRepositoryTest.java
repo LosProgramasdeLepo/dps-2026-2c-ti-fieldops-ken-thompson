@@ -6,6 +6,7 @@ import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ConsumableId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.shared.Consumption;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
@@ -28,6 +29,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 @MongoRepositoryTest
 class MongoExecutionRepositoryTest {
@@ -63,8 +65,8 @@ class MongoExecutionRepositoryTest {
                         new ActivityExecution(ride, hours(4))
                 ),
                 List.of(
-                        Incident.affecting(ride, new IncidentDescription("flooded trail"), hours(5)),
-                        Incident.of(new IncidentDescription("radio down"), hours(5))
+                        new Incident(runs.nextIncidentId(), new IncidentDescription("flooded trail"), hours(5), Optional.of(ride)),
+                        new Incident(runs.nextIncidentId(), new IncidentDescription("radio down"), hours(5), Optional.empty())
                 ),
                 List.of(new Observation(new ObservationText("heron colony"), hours(5)))
         ));
@@ -82,6 +84,48 @@ class MongoExecutionRepositoryTest {
                 () -> assertEquals(Optional.empty(), stored.activities().get(1).finishedAt()),
                 () -> assertEquals(run.incidents(), stored.incidents()),
                 () -> assertEquals(run.observations(), stored.observations())
+        );
+    }
+
+    @Test
+    void incidentsComeBackWithTheIdTheyWereStoredWith() {
+        IncidentId first = runs.nextIncidentId();
+        IncidentId second = runs.nextIncidentId();
+        runs.save(ExpeditionExecution.restore(new ExecutionState(
+                expeditionId,
+                ExpeditionExecution.Status.IN_PROGRESS,
+                List.of(),
+                List.of(
+                        new Incident(first, new IncidentDescription("flooded trail"), hours(5), Optional.empty()),
+                        new Incident(second, new IncidentDescription("radio down"), hours(6), Optional.empty())
+                ),
+                List.of()
+        )));
+
+        List<IncidentId> stored = runs.find(expeditionId).orElseThrow().incidents().stream().map(Incident::id).toList();
+
+        assertEquals(List.of(first, second), stored);
+    }
+
+    @Test
+    void aDocumentWrittenBeforeIncidentIdsGetsTheSameIdOnEveryRead() {
+        runDocuments.save(new RunDocument(
+                expeditionId.value().toString(),
+                "IN_PROGRESS",
+                List.of(),
+                List.of(
+                        new IncidentDocument(null, "flooded trail", hours(5), null),
+                        new IncidentDocument(null, "radio down", hours(6), null)
+                ),
+                List.of()
+        ));
+
+        List<Incident> firstRead = runs.find(expeditionId).orElseThrow().incidents();
+        List<Incident> secondRead = runs.find(expeditionId).orElseThrow().incidents();
+
+        assertAll(
+                () -> assertEquals(firstRead, secondRead),
+                () -> assertNotEquals(firstRead.get(0).id(), firstRead.get(1).id())
         );
     }
 
