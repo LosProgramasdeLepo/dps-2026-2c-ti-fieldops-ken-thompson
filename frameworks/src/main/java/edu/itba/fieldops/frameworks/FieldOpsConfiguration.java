@@ -9,6 +9,7 @@ import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.expedition.AssignmentSuggester;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
+import edu.itba.fieldops.domain.expedition.ExpeditionApprover;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionTracker;
 import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
@@ -55,8 +56,13 @@ class FieldOpsConfiguration {
     }
 
     @Bean
-    IncidentResponder incidentResponder(ExpeditionRepository plans, Replanner replanner) {
-        return new IncidentResponder(plans, replanner);
+    IncidentResponder incidentResponder(ExpeditionRepository plans, Replanner replanner, Clock clock) {
+        return new IncidentResponder(plans, replanner, clock);
+    }
+
+    @Bean
+    ExpeditionApprover expeditionApprover(ExpeditionValidator validator, PlanningContexts contexts, Clock clock) {
+        return new ExpeditionApprover(validator, contexts, clock);
     }
 
     @Bean

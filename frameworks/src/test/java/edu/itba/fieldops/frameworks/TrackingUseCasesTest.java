@@ -2,6 +2,11 @@ package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.domain.catalog.ConsumableName;
 import edu.itba.fieldops.domain.catalog.Stock;
+import edu.itba.fieldops.domain.event.ActivityCompleted;
+import edu.itba.fieldops.domain.event.ActivityStarted;
+import edu.itba.fieldops.domain.event.DomainEvent;
+import edu.itba.fieldops.domain.event.RunFinished;
+import edu.itba.fieldops.domain.event.RunStarted;
 import edu.itba.fieldops.domain.expedition.ConsumableAssignment;
 import edu.itba.fieldops.domain.expedition.ExpeditionExecution;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
@@ -242,5 +247,74 @@ class TrackingUseCasesTest extends UseCaseFixture {
 
     private ExpeditionExecution run(ExpeditionId expeditionId) {
         return runs.find(expeditionId).orElseThrow();
+    }
+
+    @Test
+    void aWholeRunAppendsItsEventsInOrder() {
+        Sampling sampling = approvedSampling();
+        int mark = eventMark();
+
+        tracking.start(sampling.expeditionId());
+        tracking.startActivity(sampling.expeditionId(), sampling.activityId());
+        clock.set(at(4));
+        tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), ActivityReport.of(new Outcome("samples stored")));
+        tracking.finish(sampling.expeditionId());
+
+        assertEquals(
+                List.of(
+                        new RunStarted(sampling.expeditionId(), DAY),
+                        new ActivityStarted(sampling.expeditionId(), DAY, sampling.activityId()),
+                        new ActivityCompleted(
+                                sampling.expeditionId(), at(4), sampling.activityId(), DAY, new Outcome("samples stored"), Map.of()
+                        ),
+                        new RunFinished(sampling.expeditionId(), at(4))
+                ),
+                eventsSince(mark)
+        );
+    }
+
+    @Test
+    void suspendingResumingAndObservingAppendNothing() {
+        Sampling sampling = runningSampling();
+        int mark = eventMark();
+
+        tracking.suspend(sampling.expeditionId());
+        tracking.resume(sampling.expeditionId());
+        tracking.addObservation(sampling.expeditionId(), new ObservationText("heron colony"));
+
+        assertEquals(List.<DomainEvent>of(), eventsSince(mark));
+    }
+
+    @Test
+    void anActivityStartedOutsideItsWindowAppendsNothing() {
+        Sampling sampling = runningSampling();
+        clock.set(at(-1));
+        int mark = eventMark();
+
+        assertThrows(InvalidActivityExecution.class, () -> tracking.startActivity(sampling.expeditionId(), sampling.activityId()));
+
+        assertEquals(List.<DomainEvent>of(), eventsSince(mark));
+    }
+
+    @Test
+    void finishingARunWithPendingWorkAppendsNothing() {
+        Sampling sampling = runningSampling();
+        int mark = eventMark();
+
+        assertThrows(InvalidActivityExecution.class, () -> tracking.finish(sampling.expeditionId()));
+
+        assertEquals(List.<DomainEvent>of(), eventsSince(mark));
+    }
+
+    @Test
+    void finishingAnActivityWithAnUnknownConsumableAppendsNothing() {
+        Sampling sampling = runningSampling();
+        tracking.startActivity(sampling.expeditionId(), sampling.activityId());
+        int mark = eventMark();
+        ActivityReport report = new ActivityReport(new Outcome("done"), Map.of(new ConsumableId(java.util.UUID.randomUUID()), new Consumption(1)));
+
+        assertThrows(UnknownResource.class, () -> tracking.finishActivity(sampling.expeditionId(), sampling.activityId(), report));
+
+        assertEquals(List.<DomainEvent>of(), eventsSince(mark));
     }
 }
