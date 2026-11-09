@@ -67,6 +67,24 @@ class ExpeditionFlowTest {
         mvc.perform(get("/v1/expeditions/{id}/report", expeditionId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"));
+        MvcResult history = mvc.perform(get("/v1/expeditions/{id}/events", expeditionId))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("Link"))
+                .andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.items[0].type").value("ExpeditionApproved"))
+                .andExpect(jsonPath("$.items[0].expeditionId").value(expeditionId.toString()))
+                .andExpect(jsonPath("$.items[0].payload.version").value(1))
+                .andReturn();
+        mvc.perform(get("/v1/events")).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(1));
+        mvc.perform(get("/v1/events").param("type", "RunStarted")).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(0));
+        mvc.perform(get("/v1/events/{id}", id(history))).andExpect(status().isOk()).andExpect(jsonPath("$.type").value("ExpeditionApproved"));
+    }
+
+    @Test
+    void unknownEventsAndPlansAreNotFoundAndAnUnknownTypeIsABadRequest() throws Exception {
+        mvc.perform(get("/v1/events/{id}", UUID.randomUUID())).andExpect(status().isNotFound());
+        mvc.perform(get("/v1/expeditions/{id}/events", UUID.randomUUID())).andExpect(status().isNotFound());
+        mvc.perform(get("/v1/events").param("type", "Nope")).andExpect(status().isBadRequest());
     }
 
     @Test

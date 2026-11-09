@@ -8,6 +8,7 @@ import edu.itba.fieldops.domain.itinerary.ActivityBlock;
 import edu.itba.fieldops.domain.itinerary.ItineraryItem;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import edu.itba.fieldops.domain.shared.PermitKind;
+import edu.itba.fieldops.domain.usecase.audit.ConsultEvents;
 import edu.itba.fieldops.domain.usecase.catalog.ConsultPersonnel;
 import edu.itba.fieldops.domain.usecase.expedition.ConsultExpedition;
 import edu.itba.fieldops.domain.usecase.expedition.PlanSnapshot;
@@ -26,6 +27,8 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -51,6 +54,8 @@ class DemoDataTest {
     private TrackExpedition tracking;
     @Autowired
     private ReviewReplanProposal proposalReview;
+    @Autowired
+    private ConsultEvents audit;
 
     @Test
     void loadsAnApprovedSurveyThatRunsAndIsReplannedAfterAnIncident() {
@@ -67,6 +72,27 @@ class DemoDataTest {
                         List.of(ReplanProposal.Decision.PENDING),
                         proposalReview.of(survey.id(), ALL).items().stream().map(ProposalSnapshot::decision).toList()
                 )
+        );
+    }
+
+    @Test
+    void recordsTheEventsOfTheDemoByType() {
+        Map<String, Long> byType = audit.all(Set.of(), ALL).items().stream()
+                .collect(Collectors.groupingBy(item -> item.event().type(), TreeMap::new, Collectors.counting()));
+
+        assertEquals(
+                Map.of("ExpeditionApproved", 1L, "RunStarted", 1L, "IncidentReported", 1L, "ReplanProposed", 1L),
+                byType
+        );
+    }
+
+    @Test
+    void theHistoryOfTheApprovedSurveyShowsItsRunIncidentAndProposal() {
+        PlanSnapshot survey = plan(ExpeditionStatus.APPROVED);
+
+        assertEquals(
+                List.of("ExpeditionApproved", "RunStarted", "IncidentReported", "ReplanProposed"),
+                audit.ofExpedition(survey.id(), Set.of(), ALL).items().stream().map(item -> item.event().type()).toList()
         );
     }
 
