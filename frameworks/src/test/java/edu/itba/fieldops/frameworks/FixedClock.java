@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 public final class FixedClock implements Clock {
-    private Instant now;
+    private volatile Instant now;
 
     public FixedClock(Instant now) {
         this.now = Objects.requireNonNull(now, "now");

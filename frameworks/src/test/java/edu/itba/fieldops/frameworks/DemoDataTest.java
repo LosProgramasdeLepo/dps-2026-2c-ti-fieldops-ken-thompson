@@ -1,6 +1,7 @@
 package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.adapters.PersistenceProfiles;
+import edu.itba.fieldops.adapters.messaging.EventDispatcher;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.itinerary.Activity;
@@ -16,6 +17,7 @@ import edu.itba.fieldops.domain.usecase.expedition.ProposalSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewExpedition;
 import edu.itba.fieldops.domain.usecase.expedition.ReviewReplanProposal;
 import edu.itba.fieldops.domain.usecase.expedition.TrackExpedition;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest(properties = "spring.cloud.config.enabled=false")
+@SpringBootTest(properties = {"spring.cloud.config.enabled=false", "fieldops.events.dispatcher.enabled=false"})
 @ActiveProfiles({PersistenceProfiles.MEMORY, DemoData.PROFILE})
 @Import(DemoDataTest.FixedTime.class)
 class DemoDataTest {
@@ -56,6 +58,13 @@ class DemoDataTest {
     private ReviewReplanProposal proposalReview;
     @Autowired
     private ConsultEvents audit;
+    @Autowired
+    private EventDispatcher dispatcher;
+
+    @BeforeEach
+    void dispatchTheDemoEvents() {
+        dispatcher.dispatchDue();
+    }
 
     @Test
     void loadsAnApprovedSurveyThatRunsAndIsReplannedAfterAnIncident() {

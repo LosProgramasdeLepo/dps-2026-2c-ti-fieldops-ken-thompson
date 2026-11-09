@@ -29,6 +29,7 @@ class AuditUseCasesTest extends UseCaseFixture {
         Sampling sampling = runningSampling();
         clock.set(at(2));
         incidents.record(sampling.expeditionId(), new IncidentDescription("storm"), sampling.activityId());
+        dispatcher.dispatchDue();
         ProposalSnapshot proposal = proposalReview.of(sampling.expeditionId(), FIRST_PAGE).items().getFirst();
         ExpeditionId revision = proposal.suggested().id();
         clock.set(at(3));
@@ -52,6 +53,7 @@ class AuditUseCasesTest extends UseCaseFixture {
     void consultingFromTheRevisionReturnsTheSameFamily() {
         Sampling sampling = runningSampling();
         incidents.record(sampling.expeditionId(), new IncidentDescription("storm"), sampling.activityId());
+        dispatcher.dispatchDue();
         ExpeditionId revision = proposalReview.of(sampling.expeditionId(), FIRST_PAGE).items().getFirst().suggested().id();
         proposalReview.accept(proposalReview.of(sampling.expeditionId(), FIRST_PAGE).items().getFirst().id(), sampling.responsible());
 
