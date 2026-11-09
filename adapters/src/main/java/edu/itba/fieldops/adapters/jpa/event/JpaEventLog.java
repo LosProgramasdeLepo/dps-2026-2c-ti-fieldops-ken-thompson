@@ -1,7 +1,6 @@
 package edu.itba.fieldops.adapters.jpa.event;
 
 import edu.itba.fieldops.adapters.PersistenceProfiles;
-import edu.itba.fieldops.adapters.event.EventPayloadCodec;
 import edu.itba.fieldops.domain.event.DomainEvent;
 import edu.itba.fieldops.domain.event.EventFilter;
 import edu.itba.fieldops.domain.event.EventLog;
@@ -18,13 +17,10 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,14 +29,10 @@ import java.util.UUID;
 @Profile(PersistenceProfiles.SQL)
 @Transactional(readOnly = true)
 public class JpaEventLog implements EventLog {
-    private static final JsonMapper JSON = JsonMapper.builder().build();
-    private static final TypeReference<Map<String, Object>> OBJECT = new TypeReference<>() {
-    };
     private static final Sort IN_SEQUENCE = Sort.by("sequence");
 
     private final EventJpaRepository events;
     private final Clock clock;
-    private final EventPayloadCodec codec = new EventPayloadCodec();
 
     public JpaEventLog(EventJpaRepository events, Clock clock) {
         this.events = Objects.requireNonNull(events, "events");
@@ -52,7 +44,7 @@ public class JpaEventLog implements EventLog {
     public void append(List<DomainEvent> appended) {
         Instant recordedAt = clock.now();
         events.saveAll(List.copyOf(Objects.requireNonNull(appended, "events")).stream()
-                .map(event -> new EventEntity(UUID.randomUUID(), event, recordedAt, JSON.writeValueAsString(codec.encode(event))))
+                .map(event -> new EventEntity(UUID.randomUUID(), event, recordedAt, EventPayloads.encode(event)))
                 .toList());
     }
 
@@ -63,12 +55,12 @@ public class JpaEventLog implements EventLog {
                 matching(filter),
                 org.springframework.data.domain.PageRequest.of(request.number(), request.size(), IN_SEQUENCE)
         );
-        return new Page<>(stored.getContent().stream().map(this::toDomain).toList(), request, stored.getTotalElements());
+        return new Page<>(stored.getContent().stream().map(EventPayloads::decode).toList(), request, stored.getTotalElements());
     }
 
     @Override
     public Optional<RecordedEvent> find(EventId id) {
-        return events.findById(Objects.requireNonNull(id, "event id").value()).map(this::toDomain);
+        return events.findById(Objects.requireNonNull(id, "event id").value()).map(EventPayloads::decode);
     }
 
     private static Specification<EventEntity> matching(EventFilter filter) {
@@ -82,9 +74,5 @@ public class JpaEventLog implements EventLog {
             }
             return builder.and(conditions.toArray(Predicate[]::new));
         };
-    }
-
-    private RecordedEvent toDomain(EventEntity entity) {
-        return entity.toDomain(codec, JSON.readValue(entity.payload(), OBJECT));
     }
 }

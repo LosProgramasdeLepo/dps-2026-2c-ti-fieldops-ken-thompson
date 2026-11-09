@@ -97,6 +97,17 @@ class ReplanProposalRepositoryTest {
     }
 
     @Test
+    void findsAProposalByItsIncident() {
+        ReplanProposal proposal = proposal("flooded trail");
+        proposals.save(proposal);
+
+        assertAll(
+                () -> assertEquals(proposal.id(), proposals.forIncident(proposal.incident().id()).orElseThrow().id()),
+                () -> assertEquals(Optional.empty(), proposals.forIncident(new IncidentId(UUID.randomUUID())))
+        );
+    }
+
+    @Test
     void aPendingProposalKeepsTheIncidentAndTheSuggestedPlan() {
         ReplanProposal proposal = proposal("flooded trail");
 

@@ -61,6 +61,7 @@ import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 
 import java.time.Duration;
@@ -73,7 +74,9 @@ import java.util.UUID;
 
 import static edu.itba.fieldops.adapters.ItineraryDescriptions.describe;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @MongoRepositoryTest
 class MongoPlansTest {
@@ -101,9 +104,9 @@ class MongoPlansTest {
     @BeforeEach
     void connect() {
         mongo.getDb().drop();
-        RegistrationSequence sequence = new RegistrationSequence(mongo);
+        RegistrationSequence sequence = new RegistrationSequence(mongo.getMongoDatabaseFactory());
         plans = new MongoExpeditionRepository(expeditionDocuments, sequence);
-        proposals = new MongoReplanProposalRepository(proposalDocuments, expeditionDocuments, sequence);
+        proposals = new MongoReplanProposalRepository(proposalDocuments, expeditionDocuments, sequence, mongo);
         ada = new Person(people.nextPersonId(), new PersonName("Ada"), List.of(), Availability.always());
         people.save(ada);
     }
@@ -193,6 +196,50 @@ class MongoPlansTest {
     }
 
     @Test
+    void findsAProposalByItsIncident() {
+        Expedition approved = approved(draftWith(transit("Ride", 0, 2)));
+        plans.save(approved);
+        ReplanProposal proposal = proposalFor(approved, "flooded trail");
+        proposals.save(proposal);
+
+        assertAll(
+                () -> assertEquals(proposal.id(), proposals.forIncident(proposal.incident().id()).orElseThrow().id()),
+                () -> assertEquals(Optional.empty(), proposals.forIncident(new IncidentId(UUID.randomUUID())))
+        );
+    }
+
+    @Test
+    void twoProposalsCannotAnswerTheSameIncident() {
+        Expedition approved = approved(draftWith(transit("Ride", 0, 2)));
+        plans.save(approved);
+        IncidentId incident = new IncidentId(UUID.randomUUID());
+        proposals.save(proposalFor(approved, "flooded trail", incident));
+        ReplanProposal repeated = proposalFor(approved, "flooded trail", incident);
+
+        assertThrows(DuplicateKeyException.class, () -> proposals.save(repeated));
+    }
+
+    @Test
+    void savingAProposalAgainIsNotARepeatedIncident() {
+        Expedition approved = approved(draftWith(transit("Ride", 0, 2)));
+        plans.save(approved);
+        ReplanProposal proposal = proposalFor(approved, "flooded trail");
+        proposals.save(proposal);
+
+        assertDoesNotThrow(() -> proposals.save(proposal));
+    }
+
+    @Test
+    void oldProposalsWithoutAnIncidentIdDoNotCollide() {
+        org.bson.Document legacy = new org.bson.Document("incident", new org.bson.Document("description", "old"));
+
+        assertDoesNotThrow(() -> {
+            mongo.getCollection("replan_proposals").insertOne(new org.bson.Document(legacy));
+            mongo.getCollection("replan_proposals").insertOne(new org.bson.Document(legacy));
+        });
+    }
+
+    @Test
     void listsTheProposalsOfAPlanInTheOrderTheyWereMade() {
         Expedition approved = approved(draftWith(transit("Ride", 0, 2)));
         plans.save(approved);
@@ -274,6 +321,10 @@ class MongoPlansTest {
     }
 
     private ReplanProposal proposalFor(Expedition approved, String description) {
+        return proposalFor(approved, description, new IncidentId(UUID.randomUUID()));
+    }
+
+    private ReplanProposal proposalFor(Expedition approved, String description, IncidentId incidentId) {
         Expedition suggestion = approved.reviseAsDraft(plans.nextId());
         Activity first = suggestion.activities().getFirst();
         suggestion.delay(first.id(), new Delay(Duration.ofHours(2)));
@@ -282,7 +333,7 @@ class MongoPlansTest {
                 approved.id(),
                 suggestion.id(),
                 new Incident(
-                        new IncidentId(UUID.randomUUID()),
+                        incidentId,
                         new IncidentDescription(description),
                         DAY.plus(Duration.ofHours(1)),
                         Optional.of(first.id())
