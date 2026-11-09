@@ -72,7 +72,7 @@ class AsyncDispatchTest extends UseCaseFixture {
         blocking.release.countDown();
 
         await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertEquals(
-                java.util.List.of(DeliveryStatus.DELIVERED, DeliveryStatus.DELIVERED),
+                java.util.List.of(DeliveryStatus.DELIVERED, DeliveryStatus.DELIVERED, DeliveryStatus.DELIVERED),
                 incidents.incident(sampling.expeditionId(), incidentId).processing().stream().map(delivery -> delivery.status()).toList()
         ));
         assertTrue(incidents.incident(sampling.expeditionId(), incidentId).proposal().isPresent());

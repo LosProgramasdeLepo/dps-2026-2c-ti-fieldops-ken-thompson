@@ -21,6 +21,7 @@ import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.expedition.IncidentResponder;
 import edu.itba.fieldops.domain.expedition.ProposalReviewer;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
+import edu.itba.fieldops.domain.notification.Notifier;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.usecase.audit.ConsultEventsInteractor;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -98,6 +99,7 @@ class ArchitectureTest {
                             ReplanProposalRepository.class,
                             EventLog.class,
                             EventDeliveries.class,
+                            Notifier.class,
                             PersonRegistry.class,
                             VehicleRegistry.class,
                             InstrumentRegistry.class,
@@ -187,7 +189,8 @@ class ArchitectureTest {
                     "edu.itba.fieldops.domain.itinerary..",
                     "edu.itba.fieldops.domain.tracking..",
                     "edu.itba.fieldops.domain.report..",
-                    "edu.itba.fieldops.domain.validation.."
+                    "edu.itba.fieldops.domain.validation..",
+                    "edu.itba.fieldops.domain.notification.."
             );
 
     @ArchTest

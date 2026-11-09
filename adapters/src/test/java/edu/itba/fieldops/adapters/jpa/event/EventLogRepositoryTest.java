@@ -178,7 +178,7 @@ class EventLogRepositoryTest {
 
     @Test
     void theLogCannotBeTruncated() {
-        assertThrows(DataAccessException.class, () -> jdbc.execute("TRUNCATE domain_events, event_fanout, event_deliveries"));
+        assertThrows(DataAccessException.class, () -> jdbc.execute("TRUNCATE domain_events, event_fanout, event_deliveries, notifications"));
     }
 
     @TestConfiguration(proxyBeanMethods = false)
