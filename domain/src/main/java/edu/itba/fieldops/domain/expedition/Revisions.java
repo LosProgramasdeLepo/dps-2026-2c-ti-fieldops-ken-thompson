@@ -4,6 +4,7 @@ import edu.itba.fieldops.domain.identity.ExpeditionId;
 import edu.itba.fieldops.domain.shared.UnknownResource;
 
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -28,6 +29,19 @@ public final class Revisions {
             previous = find(all, previous.get()).flatMap(Expedition::supersedes);
         }
         return lineage;
+    }
+
+    public static Set<ExpeditionId> family(Expedition plan, List<Expedition> all) {
+        Set<ExpeditionId> family = new LinkedHashSet<>(lineage(plan, all));
+        boolean grew = true;
+        while (grew) {
+            grew = all.stream()
+                    .filter(candidate -> candidate.supersedes().filter(family::contains).isPresent())
+                    .map(Expedition::id)
+                    .map(family::add)
+                    .reduce(false, Boolean::logicalOr);
+        }
+        return family;
     }
 
     private static Expedition approvedRevisionOf(Expedition plan, List<Expedition> all) {
