@@ -11,6 +11,7 @@ import type {
   Estimate,
   Expedition,
   ExpeditionSummary,
+  IncidentDetail,
   Issue,
   IsoDuration,
   Proposal,
@@ -55,7 +56,8 @@ export const expeditionsApi = {
     http.post(`${run(id)}/activities/${activityId}/completion`, { result, consumption }),
   observe: (id: Uuid, text: string) => http.post(`${run(id)}/observations`, { text }),
   recordIncident: (id: Uuid, description: string, activityId?: Uuid) =>
-    http.post(`${expedition(id)}/incidents`, { description, activityId }),
+    http.post<Created>(`${expedition(id)}/incidents`, { description, activityId }),
+  incident: (id: Uuid, incidentId: Uuid) => http.get<IncidentDetail>(`${expedition(id)}/incidents/${incidentId}`),
 
   revise: (id: Uuid) => http.post<Created>(`${expedition(id)}/revisions`),
   cancelActivity: (id: Uuid, activityId: Uuid) => http.delete(`${expedition(id)}/activities/${activityId}`),

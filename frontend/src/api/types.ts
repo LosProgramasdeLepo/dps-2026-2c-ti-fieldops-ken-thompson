@@ -152,6 +152,7 @@ export interface Estimate {
 }
 
 export interface Incident {
+  id: Uuid;
   description: string;
   at: Instant;
   activityId?: Uuid;
@@ -232,4 +233,47 @@ export type ItineraryNodeRequest =
 export interface BlockRequest {
   arrangement: Arrangement;
   parts: ItineraryNodeRequest[];
+}
+
+export type DeliveryStatus = 'PENDING' | 'RETRYING' | 'DELIVERED' | 'FAILED';
+
+export interface Delivery {
+  consumer: string;
+  status: DeliveryStatus;
+  attempts: number;
+  lastAttemptAt?: Instant;
+  lastError?: string;
+}
+
+export interface IncidentDetail extends Incident {
+  proposalId?: Uuid;
+  processing: Delivery[];
+}
+
+export type EventType =
+  | 'ExpeditionApproved'
+  | 'RunStarted'
+  | 'ActivityStarted'
+  | 'ActivityCompleted'
+  | 'IncidentReported'
+  | 'RunFinished'
+  | 'ReplanProposed'
+  | 'ReplanDecided';
+
+export interface RecordedEvent {
+  id: Uuid;
+  sequence: number;
+  type: EventType;
+  expeditionId: Uuid;
+  occurredAt: Instant;
+  recordedAt: Instant;
+  payload: Record<string, unknown>;
+  deliveries: Delivery[];
+}
+
+export interface Notification {
+  eventId: Uuid;
+  type: EventType;
+  expeditionId: Uuid;
+  sentAt: Instant;
 }

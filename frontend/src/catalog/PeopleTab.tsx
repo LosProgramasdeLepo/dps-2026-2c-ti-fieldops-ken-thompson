@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { certificationsApi, peopleApi } from '../api/catalog';
+import { notificationsApi } from '../api/notifications';
 import type { Availability, Person } from '../api/types';
 import { AvailabilityEditor } from '../components/AvailabilityEditor';
 import { AvailabilityInput } from '../components/AvailabilityInput';
@@ -16,7 +18,8 @@ import { Panel } from '../components/Panel';
 import { useAction } from '../hooks/useAction';
 import { useLoad } from '../hooks/useLoad';
 import { usePaged } from '../hooks/usePaged';
-import { defaultPeriod } from '../time';
+import { EVENT_LABELS } from '../labels';
+import { defaultPeriod, formatInstant } from '../time';
 
 export function PeopleTab() {
   const people = usePaged(peopleApi.page);
@@ -106,6 +109,7 @@ interface PersonRowProps {
 
 function PersonRow({ person, certifications, onDone }: PersonRowProps) {
   const [editing, setEditing] = useState(false);
+  const [reading, setReading] = useState(false);
 
   return (
     <>
@@ -130,9 +134,17 @@ function PersonRow({ person, certifications, onDone }: PersonRowProps) {
           <AvailabilityText availability={person.availability} />
         </td>
         <td className="end">
-          <button type="button" className="secondary small" onClick={() => setEditing(!editing)}>
-            {editing ? 'Cerrar' : 'Editar'}
-          </button>
+          <div className="actions">
+            <button type="button" className="secondary small" onClick={() => setReading(true)}>
+              Notificaciones
+            </button>
+            <button type="button" className="secondary small" onClick={() => setEditing(!editing)}>
+              {editing ? 'Cerrar' : 'Editar'}
+            </button>
+          </div>
+          <Drawer title={`Notificaciones de ${person.name}`} open={reading} onClose={() => setReading(false)}>
+            <Inbox personId={person.id} />
+          </Drawer>
         </td>
       </tr>
       {editing && (
@@ -176,5 +188,32 @@ function Certify({ person, certifications, onDone }: PersonRowProps) {
       <button disabled={action.busy}>Certificar</button>
       <ErrorNotice error={action.error} />
     </form>
+  );
+}
+
+function Inbox({ personId }: { personId: string }) {
+  const inbox = usePaged((page) => notificationsApi.ofPerson(personId, page));
+
+  return (
+    <>
+      <p className="muted">Avisos de los planes donde es responsable: aprobaciones, incidentes y propuestas de replanificación.</p>
+      <ErrorNotice error={inbox.error} />
+      {inbox.data && inbox.data.totalItems === 0 && <Empty>Sin notificaciones.</Empty>}
+      {inbox.data && inbox.data.totalItems > 0 && (
+        <>
+          <ul className="list">
+            {inbox.data.items.map((notification) => (
+              <li key={notification.eventId}>
+                <span className="when">{formatInstant(notification.sentAt)}</span>
+                <span className="grow">
+                  <Link to={`/expeditions/${notification.expeditionId}?tab=audit`}>{EVENT_LABELS[notification.type]}</Link>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <Pager page={inbox.data} onChange={inbox.setPage} />
+        </>
+      )}
+    </>
   );
 }
