@@ -1,10 +1,13 @@
 package edu.itba.fieldops.frameworks.persistence;
 
+import edu.itba.fieldops.domain.event.EventLog;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.util.AopTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -13,7 +16,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static org.hamcrest.Matchers.contains;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -26,8 +34,10 @@ abstract class PersistentFlow {
     @Autowired
     private MockMvc mvc;
 
-    @Test
-    void plansApprovesRunsAndReplansAnExpedition() throws Exception {
+    @MockitoSpyBean
+    private EventLog eventLog;
+
+    private PlanInReview planInReview() throws Exception {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         String period = period(now.minus(Duration.ofDays(1)), now.plus(Duration.ofDays(4)));
         UUID certificationId = created(post("/v1/certifications"), "{\"name\":\"Sampling\"}");
@@ -48,6 +58,15 @@ abstract class PersistentFlow {
                 """.formatted(activityId, personId));
         mvc.perform(put("/v1/expeditions/{id}/permits/{permitId}", expeditionId, permitId)).andExpect(status().isNoContent());
         mvc.perform(post("/v1/expeditions/{id}/submission", expeditionId)).andExpect(status().isNoContent());
+        return new PlanInReview(personId, expeditionId, activityId);
+    }
+
+    @Test
+    void plansApprovesRunsAndReplansAnExpedition() throws Exception {
+        PlanInReview plan = planInReview();
+        UUID personId = plan.personId();
+        UUID expeditionId = plan.expeditionId();
+        UUID activityId = plan.activityId();
         mvc.perform(post("/v1/expeditions/{id}/approval", expeditionId)).andExpect(status().isNoContent());
         mvc.perform(post("/v1/expeditions/{id}/run", expeditionId)).andExpect(status().isNoContent());
         noContent(post("/v1/expeditions/{id}/incidents", expeditionId), """
@@ -76,6 +95,47 @@ abstract class PersistentFlow {
         mvc.perform(get("/v1/expeditions/{id}/run", expeditionId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.incidents[0].description").value("Flooded trail"));
+        mvc.perform(get("/v1/expeditions/{id}/events", expeditionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems").value(5))
+                .andExpect(jsonPath("$.items[*].type", contains(
+                        "ExpeditionApproved", "RunStarted", "IncidentReported", "ReplanProposed", "ReplanDecided"
+                )))
+                .andExpect(jsonPath("$.items[0].payload.version").value(1))
+                .andExpect(jsonPath("$.items[2].payload.description").value("Flooded trail"))
+                .andExpect(jsonPath("$.items[4].payload.decision").value("ACCEPTED"));
+        MvcResult listed = mvc.perform(get("/v1/events").param("type", "ReplanDecided"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems").value(1))
+                .andReturn();
+        mvc.perform(get("/v1/events/{id}", id(listed)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.type").value("ReplanDecided"))
+                .andExpect(jsonPath("$.payload.decidedBy").value(personId.toString()));
+    }
+
+    @Test
+    void anApprovalThatFailsAfterAppendingItsEventLeavesNeitherTheEventNorTheApproval() throws Exception {
+        PlanInReview plan = planInReview();
+        AtomicBoolean appended = new AtomicBoolean();
+        doAnswer(invocation -> {
+            invocation.callRealMethod();
+            appended.set(true);
+            throw new IllegalStateException("fails after the event was appended");
+        }).when(AopTestUtils.<EventLog>getUltimateTargetObject(eventLog)).append(any());
+
+        mvc.perform(post("/v1/expeditions/{id}/approval", plan.expeditionId())).andExpect(status().isInternalServerError());
+
+        assertTrue(appended.get(), "the event must have been written before the failure");
+        mvc.perform(get("/v1/expeditions/{id}", plan.expeditionId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_REVIEW"));
+        mvc.perform(get("/v1/events").param("type", "ExpeditionApproved"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalItems").value(0));
+    }
+
+    private record PlanInReview(UUID personId, UUID expeditionId, UUID activityId) {
     }
 
     private UUID created(
