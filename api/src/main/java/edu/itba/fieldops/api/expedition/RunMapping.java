@@ -2,16 +2,20 @@ package edu.itba.fieldops.api.expedition;
 
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.FinishActivityRequest;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ActivityExecutionResponse;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.IncidentDetailResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.IncidentResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.ObservationResponse;
 import edu.itba.fieldops.api.expedition.ExpeditionResponses.RunResponse;
 import edu.itba.fieldops.api.json.Consumptions;
+import edu.itba.fieldops.api.json.DeliveryResponse;
 import edu.itba.fieldops.domain.identity.ActivityId;
+import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.tracking.ActivityExecution;
 import edu.itba.fieldops.domain.tracking.ActivityReport;
 import edu.itba.fieldops.domain.tracking.Incident;
 import edu.itba.fieldops.domain.tracking.Observation;
 import edu.itba.fieldops.domain.tracking.Outcome;
+import edu.itba.fieldops.domain.usecase.expedition.IncidentSnapshot;
 import edu.itba.fieldops.domain.usecase.expedition.RunSnapshot;
 
 final class RunMapping {
@@ -38,9 +42,22 @@ final class RunMapping {
 
     static IncidentResponse incident(Incident incident) {
         return new IncidentResponse(
+                incident.id().value(),
                 incident.description().text(),
                 incident.at(),
                 incident.activityId().map(ActivityId::value).orElse(null)
+        );
+    }
+
+    static IncidentDetailResponse incidentDetail(IncidentSnapshot snapshot) {
+        Incident incident = snapshot.incident();
+        return new IncidentDetailResponse(
+                incident.id().value(),
+                incident.description().text(),
+                incident.at(),
+                incident.activityId().map(ActivityId::value).orElse(null),
+                snapshot.proposal().map(ProposalId::value).orElse(null),
+                snapshot.processing().stream().map(DeliveryResponse::of).toList()
         );
     }
 

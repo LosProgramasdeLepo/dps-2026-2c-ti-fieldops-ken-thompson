@@ -2,9 +2,12 @@ package edu.itba.fieldops.api.event;
 
 import edu.itba.fieldops.domain.event.ActivityCompleted;
 import edu.itba.fieldops.domain.event.ActivityStarted;
+import edu.itba.fieldops.domain.event.Delivery;
+import edu.itba.fieldops.domain.event.DeliveryStatus;
 import edu.itba.fieldops.domain.event.DomainEvent;
 import edu.itba.fieldops.domain.event.ExpeditionApproved;
 import edu.itba.fieldops.domain.event.IncidentReported;
+import edu.itba.fieldops.domain.event.InvalidDeliveryTransition;
 import edu.itba.fieldops.domain.event.RecordedEvent;
 import edu.itba.fieldops.domain.event.ReplanDecided;
 import edu.itba.fieldops.domain.event.ReplanProposed;
@@ -25,6 +28,7 @@ import edu.itba.fieldops.domain.shared.UnknownResource;
 import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.tracking.Outcome;
 import edu.itba.fieldops.domain.usecase.audit.ConsultEvents;
+import edu.itba.fieldops.domain.usecase.audit.ManageEventDeliveries;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -43,8 +47,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -66,6 +73,9 @@ class EventsControllerTest {
 
     @MockitoBean
     private ConsultEvents events;
+
+    @MockitoBean
+    private ManageEventDeliveries deliveries;
 
     static Stream<DomainEvent> examples() {
         return Stream.of(
@@ -179,6 +189,81 @@ class EventsControllerTest {
     void rejectsAnInvalidQuery(String query) throws Exception {
         mvc.perform(get("/v1/events?" + query)).andExpect(status().isBadRequest());
         mvc.perform(get("/v1/expeditions/{id}/events?" + query, UUID.randomUUID())).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rendersTheDeliveriesOfAnEvent() throws Exception {
+        RecordedEvent recorded = new RecordedEvent(new EventId(UUID.randomUUID()), 1, RECORDED_AT, new RunStarted(PLAN, AT));
+        when(events.event(recorded.id())).thenReturn(recorded);
+        when(events.deliveries(recorded.id())).thenReturn(List.of(
+                new Delivery("replan-on-incident", DeliveryStatus.RETRYING, 2, Optional.of(AT), Optional.of("java.lang.IllegalStateException: boom")),
+                new Delivery("audit", DeliveryStatus.PENDING, 0, Optional.empty(), Optional.empty())
+        ));
+
+        mvc.perform(get("/v1/events/{id}", recorded.id().value()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deliveries.length()").value(2))
+                .andExpect(jsonPath("$.deliveries[0].consumer").value("replan-on-incident"))
+                .andExpect(jsonPath("$.deliveries[0].status").value("RETRYING"))
+                .andExpect(jsonPath("$.deliveries[0].attempts").value(2))
+                .andExpect(jsonPath("$.deliveries[0].lastAttemptAt").value("2026-11-01T08:00:00Z"))
+                .andExpect(jsonPath("$.deliveries[0].lastError").value("java.lang.IllegalStateException: boom"))
+                .andExpect(jsonPath("$.deliveries[1].lastAttemptAt").doesNotExist())
+                .andExpect(jsonPath("$.deliveries[1].lastError").doesNotExist());
+    }
+
+    @Test
+    void eachEventOfAPageCarriesItsDeliveries() throws Exception {
+        PageRequest request = new PageRequest(0, 20);
+        RecordedEvent recorded = new RecordedEvent(new EventId(UUID.randomUUID()), 1, RECORDED_AT, new RunStarted(PLAN, AT));
+        when(events.all(Set.of(), request)).thenReturn(new Page<>(List.of(recorded), request, 1));
+        when(events.deliveries(recorded.id())).thenReturn(List.of(
+                new Delivery("replan-on-incident", DeliveryStatus.DELIVERED, 1, Optional.of(AT), Optional.empty())
+        ));
+
+        mvc.perform(get("/v1/events"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].deliveries[0].status").value("DELIVERED"));
+    }
+
+    @Test
+    void anEventWithoutDeliveriesHasAnEmptyList() throws Exception {
+        RecordedEvent recorded = new RecordedEvent(new EventId(UUID.randomUUID()), 1, RECORDED_AT, new RunStarted(PLAN, AT));
+        when(events.event(recorded.id())).thenReturn(recorded);
+
+        mvc.perform(get("/v1/events/{id}", recorded.id().value()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deliveries").isArray())
+                .andExpect(jsonPath("$.deliveries").isEmpty());
+    }
+
+    @Test
+    void retriesAFailedDelivery() throws Exception {
+        UUID event = UUID.randomUUID();
+
+        mvc.perform(post("/v1/events/{id}/deliveries/{consumer}/retry", event, "replan-on-incident"))
+                .andExpect(status().isNoContent());
+
+        verify(deliveries).retry(new EventId(event), "replan-on-incident");
+    }
+
+    @Test
+    void retryingAnUnknownDeliveryIs404() throws Exception {
+        UUID event = UUID.randomUUID();
+        doThrow(new UnknownResource("delivery", "ghost")).when(deliveries).retry(new EventId(event), "ghost");
+
+        mvc.perform(post("/v1/events/{id}/deliveries/{consumer}/retry", event, "ghost"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void retryingADeliveryThatDidNotFailIs409() throws Exception {
+        UUID event = UUID.randomUUID();
+        doThrow(new InvalidDeliveryTransition("replan-on-incident", DeliveryStatus.DELIVERED))
+                .when(deliveries).retry(new EventId(event), "replan-on-incident");
+
+        mvc.perform(post("/v1/events/{id}/deliveries/{consumer}/retry", event, "replan-on-incident"))
+                .andExpect(status().isConflict());
     }
 
     @Test
