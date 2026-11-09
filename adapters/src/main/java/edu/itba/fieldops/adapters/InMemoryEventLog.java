@@ -19,7 +19,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
-@Profile("!" + PersistenceProfiles.SQL)
+@Profile(PersistenceProfiles.MEMORY)
 public class InMemoryEventLog implements EventLog {
     private final List<RecordedEvent> recorded = new ArrayList<>();
     private final AtomicLong sequence = new AtomicLong();
