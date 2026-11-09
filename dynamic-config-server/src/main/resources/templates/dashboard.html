@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>FieldOps · Configuración</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f3f5f4">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" th:href="@{/fieldops.css}">
+</head>
+<body>
+<div class="shell">
+    <aside class="sidebar">
+        <a class="brand" href="/">
+            <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+                <rect width="32" height="32" rx="9" fill="#0e6b5a"/>
+                <g fill="none" stroke="#e3f1ec" stroke-width="1.6">
+                    <path d="M6 21c3-6 8-9 13-8s7 5 7 8"/>
+                    <path d="M10 22c2-4 5-6 8.5-5.5S23 19 23 22" opacity=".75"/>
+                    <path d="M14 23c1-2 2.5-3 4-2.8s2 1.3 2 2.8" opacity=".5"/>
+                </g>
+                <circle cx="21" cy="9" r="2.4" fill="#e8590c"/>
+            </svg>
+            <div>
+                <strong>FieldOps</strong>
+                <span>Configuración dinámica</span>
+            </div>
+        </a>
+        <nav class="nav-group" aria-label="Configuración">
+            <a href="/">Propiedades</a>
+        </nav>
+    </aside>
+    <main class="content">
+        <header class="page-header">
+            <h1>Propiedades</h1>
+            <p class="lede">Valores de <strong>fieldops</strong> que el backend lee al arrancar y con <code>POST /actuator/refresh</code>.</p>
+        </header>
+
+        <div th:if="${success}" class="notice" th:text="${success}"></div>
+        <div th:if="${error}" class="error" role="alert" th:text="${error}"></div>
+
+        <section class="panel">
+            <header>
+                <div>
+                    <h2>Variables</h2>
+                    <p class="muted">Valores posibles de FieldOps. Un clic los copia al formulario.</p>
+                </div>
+            </header>
+            <div class="panel-body flush">
+                <ul class="catalog">
+                    <li class="catalog-item" th:each="known : ${knownProperties}">
+                        <div class="catalog-head">
+                            <button type="button" class="link key"
+                                    th:text="${known.key}"
+                                    th:onclick="useProperty([[${known.key}]], [[${known.defaultValue}]])"></button>
+                            <span class="muted small" th:text="${known.refresh} ? 'refresh' : 'al arrancar'"></span>
+                        </div>
+                        <div class="catalog-values">
+                            <div class="chips" th:if="${!known.values.isEmpty()}">
+                                <button type="button" class="chip"
+                                        th:each="option : ${known.values}"
+                                        th:text="${option}"
+                                        th:onclick="useProperty([[${known.key}]], [[${option}]])"></button>
+                            </div>
+                            <span class="muted small" th:if="${known.values.isEmpty()}" th:text="${known.hint}"></span>
+                            <span class="muted small">defecto</span>
+                            <button type="button" class="chip"
+                                    th:text="${known.defaultValue}"
+                                    th:onclick="useProperty([[${known.key}]], [[${known.defaultValue}]])"></button>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="panel">
+            <header>
+                <div>
+                    <h2 th:text="${newProperty.id} ? 'Editar propiedad' : 'Nueva propiedad'">Nueva propiedad</h2>
+                    <p class="muted">Si la clave ya existe, se actualiza.</p>
+                </div>
+            </header>
+            <div class="panel-body">
+                <form class="form" th:action="@{/save}" th:object="${newProperty}" method="post">
+                    <input type="hidden" th:field="*{id}" />
+                    <input type="hidden" id="application" th:field="*{application}" />
+                    <input type="hidden" id="profile" th:field="*{profile}" />
+                    <input type="hidden" id="label" th:field="*{label}" />
+                    <div class="form-grid">
+                        <label class="field span">
+                            <span>Clave</span>
+                            <input id="key" th:field="*{key}" required list="known-keys" placeholder="fieldops.notifications.simulate-failure">
+                            <datalist id="known-keys">
+                                <option th:each="known : ${knownProperties}" th:value="${known.key}"></option>
+                            </datalist>
+                        </label>
+                        <label class="field span">
+                            <span>Valor</span>
+                            <textarea id="value" th:field="*{value}" rows="3" placeholder="true"></textarea>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <section class="panel">
+            <header>
+                <div>
+                    <h2>Guardadas</h2>
+                    <p class="muted">Perfil <code>default</code>, etiqueta <code>main</code>.</p>
+                </div>
+            </header>
+            <div class="panel-body flush">
+                <p th:if="${#lists.isEmpty(properties)}" class="empty">Todavía no hay propiedades.</p>
+                <table th:if="${!#lists.isEmpty(properties)}">
+                    <thead>
+                    <tr>
+                        <th>Clave</th>
+                        <th>Valor</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="prop : ${properties}">
+                        <td><strong th:text="${prop.key}"></strong></td>
+                        <td class="muted" th:text="${#strings.abbreviate(prop.value, 80)}"></td>
+                        <td class="end">
+                            <div class="row end">
+                                <button type="button" class="link" th:onclick="editProperty([[${prop}]])">Editar</button>
+                                <a class="button danger small"
+                                   th:href="@{/delete/{id}(id=${prop.id})}"
+                                   onclick="return confirm('¿Quitar esta propiedad?');">Quitar</a>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+</div>
+<script th:inline="javascript">
+    function useProperty(key, value) {
+        document.getElementById('id').value = '';
+        document.getElementById('key').value = key;
+        document.getElementById('value').value = value;
+        document.getElementById('key').closest('form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('value').focus();
+    }
+
+    function editProperty(prop) {
+        document.getElementById('id').value = prop.id;
+        document.getElementById('key').value = prop.key;
+        document.getElementById('value').value = prop.value;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
+</body>
+</html>

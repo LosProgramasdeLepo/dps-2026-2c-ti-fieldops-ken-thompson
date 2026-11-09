@@ -4,45 +4,74 @@ Plataforma de expediciones científicas y operaciones de campo.
 
 ## Build
 
-Requiere JDK 25. El Maven Wrapper baja Maven 3.9.11 la primera vez.
+JDK 25. El Maven Wrapper baja Maven 3.9.11 la primera vez. En Windows: `mvnw.cmd` y `curl.exe`.
 
 ```
 ./mvnw verify
 ```
 
-En Windows (cmd o PowerShell): `mvnw.cmd verify`.
-
-Los tests de persistencia levantan PostgreSQL y MongoDB con Testcontainers, así que `verify` necesita Docker corriendo.
+Los tests de persistencia levantan PostgreSQL y MongoDB con Testcontainers: hace falta Docker.
 
 ## Ejecutar
 
-### Backend
+Cuatro terminales, en este orden. JDK 25, Node 22, Docker abierto.
 
-El perfil de Spring elige dónde guarda el backend: `sql` (PostgreSQL, por defecto), `mongo` (MongoDB) o `memory` (en memoria, sin base). `compose.yaml` levanta PostgreSQL (base, usuario y contraseña `fieldops`, puerto 5432) y MongoDB como replica set `rs0` (puerto 27017):
+**1. Bases** — PostgreSQL 5432 y MongoDB 27017 (`rs0`). `--wait` espera a que Mongo inicie el replica set; sin eso el perfil `mongo` falla al arrancar.
 
 ```
 docker compose up -d --wait
-./mvnw package -DskipTests
-java -jar frameworks/target/fieldops-frameworks-1.0-SNAPSHOT.jar
 ```
 
-`--wait` espera a que MongoDB termine de iniciar el replica set (`rs0`); sin eso el perfil `mongo` falla al arrancar.
+**2. Config server** — `http://localhost:8888`
 
-Con `sql`, Flyway crea o actualiza el esquema al arrancar. La API queda en `http://localhost:8080/v1`. Otro puerto: `--server.port=9090`. Otra base: `FIELDOPS_DB_URL`, `FIELDOPS_DB_USER` y `FIELDOPS_DB_PASSWORD` para PostgreSQL, `FIELDOPS_MONGO_URI` para MongoDB.
+```
+./mvnw -f dynamic-config-server/pom.xml spring-boot:run
+```
 
-Perfiles (se activa uno de almacenamiento y, si se quiere, `demo`):
+**3. Backend** — `http://localhost:8080/v1`. `-DskipTests` arma el jar sin repetir la suite de `verify`.
+
+```
+./mvnw package -DskipTests
+java -jar frameworks/target/fieldops-frameworks-1.0-SNAPSHOT.jar --spring.profiles.active=sql,demo
+```
+
+**4. Frontend** — `http://localhost:5173`
+
+```
+cd frontend
+npm install
+npm run dev
+```
+
+De cero: `docker compose down -v` y otra vez desde 1.
+
+### Backend
+
+El perfil elige el almacenamiento: `sql` (PostgreSQL, por defecto; usuario, contraseña y base `fieldops`), `mongo` o `memory` (sin base; los datos se pierden al cerrar). Con `sql`, Flyway crea o actualiza el esquema al arrancar. Otro puerto: `--server.port=9090`. Otra base: `FIELDOPS_DB_URL`, `FIELDOPS_DB_USER` y `FIELDOPS_DB_PASSWORD`, o `FIELDOPS_MONGO_URI`.
 
 - `--spring.profiles.active=mongo` guarda en MongoDB.
-- `--spring.profiles.active=sql,demo` (o `mongo,demo`) carga los datos de demostración si no hay planes: un relevamiento aprobado con doce actividades de los seis tipos, un bloque compuesto, recursos compartidos, una advertencia aceptada, la corrida iniciada, un incidente cuya propuesta de replanificación aparece después del primer despacho de eventos, y un plan en borrador con errores críticos. Se puede repetir: si ya hay planes, no carga nada.
-- `--spring.profiles.active=memory` guarda en memoria y no necesita base; los datos se pierden al cerrar.
+- `--spring.profiles.active=sql,demo` (o `mongo,demo`) carga los datos de demostración si no hay planes: un relevamiento aprobado con doce actividades de los seis tipos, un bloque compuesto, recursos compartidos, una advertencia aceptada, la corrida iniciada, un incidente cuya propuesta de replanificación aparece después del primer despacho de eventos, y un plan en borrador con errores críticos. Si ya hay planes, no carga nada.
+- `--spring.profiles.active=memory` no necesita Docker.
 
 Activar solo `demo` deja la aplicación sin almacenamiento: el perfil por defecto (`sql`) se usa únicamente cuando no hay ninguno activo.
 
-Para empezar de cero: `docker compose down -v`.
+### Frontend
+
+La UI redirige `/v1` al backend. La pestaña "Eventos y auditoría" de un plan muestra sus eventos y el estado de cada entrega, y permite reintentar una fallida; en Personas, "Notificaciones" abre la bandeja de cada una. Horarios en UTC. Otro puerto del backend: `FIELDOPS_API=http://localhost:9090 npm run dev`.
+
+`npm run build` verifica los tipos y genera `frontend/dist`; `npm run preview` la sirve con el mismo redireccionamiento.
 
 ### Configuración dinámica
 
-Al arrancar, el backend pide propiedades extra al config server de la materia (`dynamic-config-server`, puerto 8888) para la aplicación `fieldops` y sus perfiles. Es opcional: si no está corriendo, arranca con los valores por defecto. Otra URL: `FIELDOPS_CONFIG_SERVER_URL`. Después de cambiar un valor en el server, `POST /actuator/refresh` lo aplica sin reiniciar y devuelve las claves que cambiaron.
+Al arrancar, el backend pide al config server (paso 2) propiedades extra para la aplicación `fieldops`. Si el server no está, arranca con los valores por defecto. Otra URL: `FIELDOPS_CONFIG_SERVER_URL`. El server guarda en H2 en memoria: al apagarlo se pierden las propiedades.
+
+En `http://localhost:8888` agregar o editar (`fieldops`, perfil `default`, etiqueta `main`) y aplicar sin reiniciar:
+
+```
+curl -X POST http://localhost:8080/actuator/refresh
+```
+
+La respuesta lista las claves que cambiaron. `/actuator/health` sigue respondiendo en mantenimiento, así que siempre se puede apagar.
 
 | Propiedad | Por defecto | Efecto |
 |---|---|---|
@@ -51,8 +80,6 @@ Al arrancar, el backend pide propiedades extra al config server de la materia (`
 | `fieldops.maintenance.message` | (texto) | Detalle del 503 |
 | `fieldops.maintenance.retry-after-seconds` | `60` | Encabezado `Retry-After` del 503 |
 | `fieldops.notifications.simulate-failure` | `false` | Herramienta de demo: con `true`, el consumidor `notify-responsibles` falla a propósito y sus entregas quedan `RETRYING` y después `FAILED`; `replan-on-incident` sigue funcionando |
-
-Demo: levantar primero `dynamic-config-server` y después el backend; en `http://localhost:8888` agregar una propiedad para la aplicación `fieldops` (perfil `default`), aplicar con `curl -X POST http://localhost:8080/actuator/refresh` y probar la API. `/actuator/health` sigue respondiendo en mantenimiento, así que siempre se puede apagar.
 
 ### Despacho de eventos
 
@@ -76,23 +103,7 @@ Consumidores:
 
 ### Demo de la Entrega 3
 
-El guion, con preparación, lo que muestra cada paso y las preguntas probables, está en [docs/presentacion-entrega-3.md](docs/presentacion-entrega-3.md). Hay que arrancar de cero (`docker compose down -v`) y, para el paso de reintentos, tener el config server en 8888. Las actividades del relevamiento de demo tienen ventana desde mañana: no se inician; se registran incidentes sobre la corrida que ya está abierta.
-
-### Frontend
-
-Requiere Node 22.
-
-```
-cd frontend
-npm install
-npm run dev
-```
-
-La aplicación queda en `http://localhost:5173` y redirige `/v1` al backend. La pestaña "Eventos y auditoría" de un plan muestra sus eventos y el estado de cada entrega, y permite reintentar una fallida; en Personas, "Notificaciones" abre la bandeja de cada una. Si el backend corre en otro puerto: `FIELDOPS_API=http://localhost:9090 npm run dev`.
-
-`npm run build` verifica los tipos y genera `frontend/dist`; `npm run preview` la sirve con el mismo redireccionamiento.
-
-Los instantes se cargan y se muestran en UTC.
+Guion, preparación y preguntas: [docs/presentacion-entrega-3.md](docs/presentacion-entrega-3.md). De cero y los cuatro pasos de **Ejecutar**. Las actividades del relevamiento de demo tienen ventana desde mañana: no se inician; se registran incidentes sobre la corrida que ya está abierta.
 
 ## Contrato de la API
 
