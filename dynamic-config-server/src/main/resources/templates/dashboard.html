@@ -39,107 +39,113 @@
         <div th:if="${success}" class="notice" th:text="${success}"></div>
         <div th:if="${error}" class="error" role="alert" th:text="${error}"></div>
 
-        <section class="panel">
-            <header>
-                <div>
-                    <h2>Variables</h2>
-                    <p class="muted">Valores posibles de FieldOps. Un clic los copia al formulario.</p>
-                </div>
-            </header>
-            <div class="panel-body flush">
-                <ul class="catalog">
-                    <li class="catalog-item" th:each="known : ${knownProperties}">
-                        <div class="catalog-head">
-                            <button type="button" class="link key"
-                                    th:text="${known.key}"
-                                    th:onclick="useProperty([[${known.key}]], [[${known.defaultValue}]])"></button>
-                            <span class="muted small" th:text="${known.refresh} ? 'refresh' : 'al arrancar'"></span>
+        <div class="workspace">
+            <div class="workspace-main">
+                <section class="panel">
+                    <header>
+                        <div>
+                            <h2 th:text="${newProperty.id} ? 'Editar propiedad' : 'Nueva propiedad'">Nueva propiedad</h2>
+                            <p class="muted">Si la clave ya existe, se actualiza.</p>
                         </div>
-                        <div class="catalog-values">
-                            <div class="chips" th:if="${!known.values.isEmpty()}">
-                                <button type="button" class="chip"
-                                        th:each="option : ${known.values}"
-                                        th:text="${option}"
-                                        th:onclick="useProperty([[${known.key}]], [[${option}]])"></button>
+                    </header>
+                    <div class="panel-body">
+                        <form class="form" id="property-form" th:action="@{/save}" th:object="${newProperty}" method="post">
+                            <input type="hidden" th:field="*{id}" />
+                            <input type="hidden" id="application" th:field="*{application}" />
+                            <input type="hidden" id="profile" th:field="*{profile}" />
+                            <input type="hidden" id="label" th:field="*{label}" />
+                            <div class="form-grid">
+                                <label class="field">
+                                    <span>Clave</span>
+                                    <input id="key" th:field="*{key}" required list="known-keys" placeholder="fieldops.notifications.simulate-failure">
+                                    <datalist id="known-keys">
+                                        <option th:each="known : ${knownProperties}" th:value="${known.key}"></option>
+                                    </datalist>
+                                </label>
+                                <label class="field">
+                                    <span>Valor</span>
+                                    <input id="value" th:field="*{value}" placeholder="true">
+                                </label>
                             </div>
-                            <span class="muted small" th:if="${known.values.isEmpty()}" th:text="${known.hint}"></span>
-                            <span class="muted small">defecto</span>
-                            <button type="button" class="chip"
-                                    th:text="${known.defaultValue}"
-                                    th:onclick="useProperty([[${known.key}]], [[${known.defaultValue}]])"></button>
+                            <div class="form-actions">
+                                <button type="submit">Guardar</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <header>
+                        <div>
+                            <h2>Guardadas</h2>
+                            <p class="muted">Perfil <code>default</code>, etiqueta <code>main</code>.</p>
                         </div>
-                    </li>
-                </ul>
-            </div>
-        </section>
-
-        <section class="panel">
-            <header>
-                <div>
-                    <h2 th:text="${newProperty.id} ? 'Editar propiedad' : 'Nueva propiedad'">Nueva propiedad</h2>
-                    <p class="muted">Si la clave ya existe, se actualiza.</p>
-                </div>
-            </header>
-            <div class="panel-body">
-                <form class="form" th:action="@{/save}" th:object="${newProperty}" method="post">
-                    <input type="hidden" th:field="*{id}" />
-                    <input type="hidden" id="application" th:field="*{application}" />
-                    <input type="hidden" id="profile" th:field="*{profile}" />
-                    <input type="hidden" id="label" th:field="*{label}" />
-                    <div class="form-grid">
-                        <label class="field span">
-                            <span>Clave</span>
-                            <input id="key" th:field="*{key}" required list="known-keys" placeholder="fieldops.notifications.simulate-failure">
-                            <datalist id="known-keys">
-                                <option th:each="known : ${knownProperties}" th:value="${known.key}"></option>
-                            </datalist>
-                        </label>
-                        <label class="field span">
-                            <span>Valor</span>
-                            <textarea id="value" th:field="*{value}" rows="3" placeholder="true"></textarea>
-                        </label>
+                    </header>
+                    <div class="panel-body flush">
+                        <p th:if="${#lists.isEmpty(properties)}" class="empty">Todavía no hay propiedades.</p>
+                        <table th:if="${!#lists.isEmpty(properties)}">
+                            <thead>
+                            <tr>
+                                <th>Clave</th>
+                                <th>Valor</th>
+                                <th></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="prop : ${properties}">
+                                <td><code th:text="${prop.key}"></code></td>
+                                <td class="muted" th:text="${#strings.abbreviate(prop.value, 48)}"></td>
+                                <td class="end">
+                                    <div class="row end">
+                                        <button type="button" class="link" th:onclick="editProperty([[${prop}]])">Editar</button>
+                                        <a class="button danger small"
+                                           th:href="@{/delete/{id}(id=${prop.id})}"
+                                           onclick="return confirm('¿Quitar esta propiedad?');">Quitar</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="form-actions">
-                        <button type="submit">Guardar</button>
-                    </div>
-                </form>
+                </section>
             </div>
-        </section>
 
-        <section class="panel">
-            <header>
-                <div>
-                    <h2>Guardadas</h2>
-                    <p class="muted">Perfil <code>default</code>, etiqueta <code>main</code>.</p>
-                </div>
-            </header>
-            <div class="panel-body flush">
-                <p th:if="${#lists.isEmpty(properties)}" class="empty">Todavía no hay propiedades.</p>
-                <table th:if="${!#lists.isEmpty(properties)}">
-                    <thead>
-                    <tr>
-                        <th>Clave</th>
-                        <th>Valor</th>
-                        <th></th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr th:each="prop : ${properties}">
-                        <td><strong th:text="${prop.key}"></strong></td>
-                        <td class="muted" th:text="${#strings.abbreviate(prop.value, 80)}"></td>
-                        <td class="end">
-                            <div class="row end">
-                                <button type="button" class="link" th:onclick="editProperty([[${prop}]])">Editar</button>
-                                <a class="button danger small"
-                                   th:href="@{/delete/{id}(id=${prop.id})}"
-                                   onclick="return confirm('¿Quitar esta propiedad?');">Quitar</a>
-                            </div>
-                        </td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+            <aside class="workspace-catalog">
+                <section class="panel catalog-panel">
+                    <header>
+                        <div>
+                            <h2>Variables</h2>
+                            <p class="muted">Clic copia clave y valor al formulario.</p>
+                        </div>
+                    </header>
+                    <div class="panel-body flush">
+                        <ul class="catalog">
+                            <li class="catalog-item" th:each="known : ${knownProperties}">
+                                <button type="button" class="link key"
+                                        th:text="${known.shortKey}"
+                                        th:title="${known.key}"
+                                        th:onclick="useProperty([[${known.key}]], [[${known.defaultValue}]])"></button>
+                                <div class="chips" th:if="${!known.values.isEmpty()}">
+                                    <button type="button" class="chip"
+                                            th:each="option : ${known.values}"
+                                            th:classappend="${option == known.defaultValue} ? ' active'"
+                                            th:text="${option}"
+                                            th:onclick="useProperty([[${known.key}]], [[${option}]])"></button>
+                                </div>
+                                <div class="chips" th:if="${known.values.isEmpty()}">
+                                    <span class="muted small" th:text="${known.hint}"></span>
+                                    <button type="button" class="chip active"
+                                            th:if="${#strings.length(known.defaultValue) <= 8}"
+                                            th:text="${known.defaultValue}"
+                                            th:onclick="useProperty([[${known.key}]], [[${known.defaultValue}]])"></button>
+                                </div>
+                                <span class="when" th:text="${known.refresh} ? 'refresh' : 'arrancar'"></span>
+                            </li>
+                        </ul>
+                    </div>
+                </section>
+            </aside>
+        </div>
     </main>
 </div>
 <script th:inline="javascript">
@@ -147,7 +153,6 @@
         document.getElementById('id').value = '';
         document.getElementById('key').value = key;
         document.getElementById('value').value = value;
-        document.getElementById('key').closest('form').scrollIntoView({ behavior: 'smooth', block: 'center' });
         document.getElementById('value').focus();
     }
 
@@ -155,7 +160,7 @@
         document.getElementById('id').value = prop.id;
         document.getElementById('key').value = prop.key;
         document.getElementById('value').value = prop.value;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.getElementById('value').focus();
     }
 </script>
 </body>
