@@ -6,6 +6,7 @@ import edu.itba.fieldops.adapters.mongo.RegistrationSequence;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
@@ -54,6 +55,11 @@ public class MongoReplanProposalRepository implements ReplanProposalRepository {
     @Override
     public Optional<ReplanProposal> find(ProposalId id) {
         return proposals.findById(Objects.requireNonNull(id, "proposal id").value().toString()).map(this::toDomain);
+    }
+
+    @Override
+    public Optional<ReplanProposal> forIncident(IncidentId id) {
+        return proposals.findByIncidentId(Objects.requireNonNull(id, "incident id").value().toString()).map(this::toDomain);
     }
 
     @Override

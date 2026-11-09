@@ -1,5 +1,7 @@
 package edu.itba.fieldops.usecase.audit;
 
+import edu.itba.fieldops.domain.event.Deliveries;
+import edu.itba.fieldops.domain.event.Delivery;
 import edu.itba.fieldops.domain.event.EventFilter;
 import edu.itba.fieldops.domain.event.Events;
 import edu.itba.fieldops.domain.event.RecordedEvent;
@@ -14,6 +16,7 @@ import edu.itba.fieldops.domain.usecase.audit.ConsultEvents;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -22,10 +25,12 @@ import java.util.Set;
 public class ConsultEventsInteractor implements ConsultEvents {
     private final Plans plans;
     private final Events events;
+    private final Deliveries deliveries;
 
-    public ConsultEventsInteractor(Plans plans, Events events) {
+    public ConsultEventsInteractor(Plans plans, Events events, Deliveries deliveries) {
         this.plans = Objects.requireNonNull(plans, "plans");
         this.events = Objects.requireNonNull(events, "events");
+        this.deliveries = Objects.requireNonNull(deliveries, "deliveries");
     }
 
     @Override
@@ -43,5 +48,10 @@ public class ConsultEventsInteractor implements ConsultEvents {
     @Override
     public RecordedEvent event(EventId eventId) {
         return events.require(eventId);
+    }
+
+    @Override
+    public List<Delivery> deliveries(EventId eventId) {
+        return deliveries.of(eventId);
     }
 }

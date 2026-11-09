@@ -16,6 +16,7 @@ import edu.itba.fieldops.domain.expedition.ExpeditionValidator;
 import edu.itba.fieldops.domain.expedition.IncidentResponder;
 import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.expedition.ProposalReviewer;
+import edu.itba.fieldops.domain.expedition.Proposals;
 import edu.itba.fieldops.domain.expedition.Replanner;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.validation.RuleBasedValidator;
@@ -56,8 +57,8 @@ class FieldOpsConfiguration {
     }
 
     @Bean
-    IncidentResponder incidentResponder(ExpeditionRepository plans, Replanner replanner, Clock clock) {
-        return new IncidentResponder(plans, replanner, clock);
+    IncidentResponder incidentResponder(ExpeditionRepository plans, Proposals proposals, Replanner replanner, Clock clock) {
+        return new IncidentResponder(plans, proposals, replanner, clock);
     }
 
     @Bean

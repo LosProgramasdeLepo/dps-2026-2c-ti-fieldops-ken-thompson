@@ -7,7 +7,7 @@ import edu.itba.fieldops.domain.shared.PageRequest;
 
 import java.util.Optional;
 
-public interface ReplanProposalRepository {
+public interface ReplanProposalRepository extends Proposals {
     ProposalId nextId();
 
     void save(ReplanProposal proposal);
