@@ -8,6 +8,7 @@ import edu.itba.fieldops.domain.identity.EventId;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Repository
+@Profile("!" + PersistenceProfiles.SQL)
 public class InMemoryEventLog implements EventLog {
     private final List<RecordedEvent> recorded = new ArrayList<>();
     private final AtomicLong sequence = new AtomicLong();
