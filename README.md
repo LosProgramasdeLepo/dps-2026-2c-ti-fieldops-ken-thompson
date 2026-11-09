@@ -31,7 +31,7 @@ Con `sql`, Flyway crea o actualiza el esquema al arrancar. La API queda en `http
 Perfiles (se activa uno de almacenamiento y, si se quiere, `demo`):
 
 - `--spring.profiles.active=mongo` guarda en MongoDB.
-- `--spring.profiles.active=sql,demo` (o `mongo,demo`) carga los datos de demostración si no hay planes: un relevamiento aprobado con doce actividades de los seis tipos, un bloque compuesto, recursos compartidos, una advertencia aceptada, la corrida iniciada y una propuesta de replanificación por un incidente, y un plan en borrador con errores críticos. Se puede repetir: si ya hay planes, no carga nada.
+- `--spring.profiles.active=sql,demo` (o `mongo,demo`) carga los datos de demostración si no hay planes: un relevamiento aprobado con doce actividades de los seis tipos, un bloque compuesto, recursos compartidos, una advertencia aceptada, la corrida iniciada, un incidente cuya propuesta de replanificación aparece después del primer despacho de eventos, y un plan en borrador con errores críticos. Se puede repetir: si ya hay planes, no carga nada.
 - `--spring.profiles.active=memory` guarda en memoria y no necesita base; los datos se pierden al cerrar.
 
 Activar solo `demo` deja la aplicación sin almacenamiento: el perfil por defecto (`sql`) se usa únicamente cuando no hay ninguno activo.
@@ -50,6 +50,19 @@ Al arrancar, el backend pide propiedades extra al config server de la materia (`
 | `fieldops.maintenance.retry-after-seconds` | `60` | Encabezado `Retry-After` del 503 |
 
 Demo: levantar primero `dynamic-config-server` y después el backend; en `http://localhost:8888` agregar una propiedad para la aplicación `fieldops` (perfil `default`), aplicar con `curl -X POST http://localhost:8080/actuator/refresh` y probar la API. `/actuator/health` sigue respondiendo en mantenimiento, así que siempre se puede apagar.
+
+### Despacho de eventos
+
+Un despachador corre dentro del backend, lee el registro de eventos y entrega cada evento a sus consumidores, fuera del request. Estas propiedades se leen al arrancar:
+
+| Propiedad | Por defecto | Efecto |
+|---|---|---|
+| `fieldops.events.dispatcher.enabled` | `true` | Con `false` no hay disparo periódico: los tests lo apagan y despachan a mano |
+| `fieldops.events.dispatch-delay` | `500ms` | Pausa entre pasadas |
+| `fieldops.events.batch-size` | `50` | Eventos o entregas por pasada, desde 1 |
+| `fieldops.events.max-attempts` | `5` | Intentos antes de `FAILED`, desde 1 |
+| `fieldops.events.backoff-base` | `1s` | Espera después del primer fallo; se duplica en cada intento |
+| `fieldops.events.backoff-max` | `1m` | Tope de la espera |
 
 ### Frontend
 
@@ -76,7 +89,7 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 - JSON mal formado, UUID inválido, body que no pasa la validación, o `page`/`size` inválidos: 400
 - id del path desconocido: 404. `GET /expeditions/{desconocido}` es 404
 - referencia del body desconocida, valor inválido, itinerario o asignación inválidos, u otra regla de dominio: 422. `POST /expeditions` con un responsable inexistente es 422
-- transición de plan o de corrida inválida, o plan que no se puede aprobar: 409
+- transición de plan o de corrida inválida, plan que no se puede aprobar, o reintento de una entrega que no está `FAILED`: 409
 - sugerencias de asignación apagadas por configuración: 404
 - modo mantenimiento: 503, con `Retry-After`
 - cualquier otro error: 500, detalle genérico, sin mensaje interno ni stack trace
@@ -114,7 +127,15 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 
 ### Incidentes y replanificación
 
-`POST /expeditions/{id}/incidents` recibe `{description, activityId}`. `activityId` es opcional; si viene y es una actividad del plan vigente aprobado, queda una propuesta sobre una revisión de ese plan. `POST /expeditions/{id}/revisions` responde 201, `{id}` y `Location` del borrador. En ese borrador, `DELETE /expeditions/{id}/activities/{activityId}` cancela, `POST .../activities/{activityId}/delays` recibe `{delay}`, una duración ISO-8601 positiva (cero o negativa: 422) y `POST /expeditions/{id}/replacements` reemplaza lo que no está disponible.
+`POST /expeditions/{id}/incidents` recibe `{description, activityId}`, con `activityId` opcional. Responde 201, `{id}` y `Location` `/v1/expeditions/{id}/incidents/{incidentId}`, o los errores de siempre: 404 si el plan no existe, 409 sin corrida en curso, 422 si la actividad o la descripción no valen.
+
+**Consistencia eventual.** La respuesta confirma que el incidente quedó registrado; la propuesta se prepara después, fuera del request. Si `activityId` es una actividad del plan vigente aprobado, el consumidor `replan-on-incident` crea una sola propuesta sobre una revisión de ese plan. Un fallo del consumidor no deshace el incidente: se reintenta con espera creciente y, si se agotan los intentos, la entrega queda `FAILED` hasta un reintento manual.
+
+`GET /expeditions/{id}/incidents/{incidentId}` devuelve `{id, description, at, activityId?, proposalId?, processing}`; 404 si no existe la corrida o el incidente. `processing` es `[{consumer, status, attempts, lastAttemptAt?, lastError?}]`, con los estados `PENDING`, `RETRYING`, `DELIVERED` y `FAILED`. Un `processing` vacío es válido: el incidente no afecta una actividad o todavía no se repartió.
+
+Para esperar la propuesta, consultar este `GET` hasta que **haya `proposalId`** o **todas las entregas de `processing` estén en un estado terminal** (`DELIVERED` o `FAILED`). Una entrega `DELIVERED` sin `proposalId` es un resultado final: el plan vigente cambió antes de procesar el incidente, ya no está aprobado o ya no incluye la actividad, y no corresponde una propuesta. Con `processing` vacío y sin `activityId` tampoco hay nada que esperar.
+
+`POST /expeditions/{id}/revisions` responde 201, `{id}` y `Location` del borrador. En ese borrador, `DELETE /expeditions/{id}/activities/{activityId}` cancela, `POST .../activities/{activityId}/delays` recibe `{delay}`, una duración ISO-8601 positiva (cero o negativa: 422) y `POST /expeditions/{id}/replacements` reemplaza lo que no está disponible.
 
 `GET /expeditions/{id}/replan-proposals` pagina; 404 si el plan no existe. `GET /replan-proposals/{id}` trae el incidente, la decisión (`PENDING`, `ACCEPTED`, `REJECTED`), quién decidió, cuándo y el plan sugerido. `POST /replan-proposals/{id}/acceptance` y `POST .../rejection` reciben `{responsible}`.
 
@@ -125,6 +146,7 @@ Cada hecho del negocio queda registrado, en el mismo momento y en la misma trans
 - `GET /expeditions/{id}/events` devuelve el historial del plan: los eventos del original, de todas sus revisiones (también borradores) y de sus propuestas, en orden. Consultar por el id de una revisión da el mismo resultado que por el del original. 404 si el plan no existe.
 - `GET /events` devuelve los eventos de todos los planes.
 - `GET /events/{eventId}` devuelve uno. 404 si no existe.
+- `POST /events/{eventId}/deliveries/{consumer}/retry` vuelve a poner en cola una entrega `FAILED`: responde 204, y el despachador la intenta en la próxima pasada con los intentos en cero. 404 si la entrega no existe, 409 si no está `FAILED`.
 
 Los dos primeros paginan (`page`, `size`, `Link`, como el resto) en orden ascendente de `sequence` y aceptan `type`, que se puede repetir (`?type=RunStarted&type=RunFinished`) y filtra por tipo. Un `type` que no es uno de los ocho nombres de abajo, o un `page` o `size` inválidos, responden 400.
 
@@ -139,6 +161,7 @@ Los dos primeros paginan (`page`, `size`, `Link`, como el resto) en orden ascend
 | `occurredAt` | ISO-8601 | Cuándo ocurrió el hecho |
 | `recordedAt` | ISO-8601 | Cuándo se registró |
 | `payload` | objeto | Depende de `type`; una clave opcional ausente no se envía |
+| `deliveries` | lista | `[{consumer, status, attempts, lastAttemptAt?, lastError?}]`: una por consumidor suscripto. Vacía si el evento no tiene suscriptores o todavía no se repartió. `lastError` es el último error observado (clase y mensaje, sin stack trace) y se conserva aunque un intento posterior tenga éxito |
 
 | `type` | `payload` |
 |---|---|
@@ -162,7 +185,8 @@ Ejemplo: `GET /v1/events?type=ReplanDecided&size=1`
     "expeditionId": "6a106ecf-6f82-417b-ae90-3712d19d5969",
     "occurredAt": "2026-11-09T00:22:33.201Z",
     "recordedAt": "2026-11-09T00:22:33.205Z",
-    "payload": {"proposalId": "…", "decision": "ACCEPTED", "decidedBy": "…"}
+    "payload": {"proposalId": "…", "decision": "ACCEPTED", "decidedBy": "…"},
+    "deliveries": []
   }],
   "page": 0, "size": 1, "totalItems": 1, "totalPages": 1
 }
