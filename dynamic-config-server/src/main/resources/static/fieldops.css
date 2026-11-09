@@ -79,7 +79,14 @@ a { color: var(--pine); text-underline-offset: 3px; }
 }
 
 .content { min-width: 0; padding: 1.75rem 1.75rem 3rem; }
-.page-header { margin-bottom: 1.25rem; }
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.page-header button { flex: none; white-space: nowrap; }
 .lede { margin-top: 0.35rem; max-width: 80ch; color: var(--lichen); }
 
 .workspace {

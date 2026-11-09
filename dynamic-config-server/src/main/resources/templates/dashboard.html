@@ -32,8 +32,13 @@
     </aside>
     <main class="content">
         <header class="page-header">
-            <h1>Propiedades</h1>
-            <p class="lede">Valores de <strong>fieldops</strong> que el backend lee al arrancar y con <code>POST /actuator/refresh</code>.</p>
+            <div>
+                <h1>Propiedades</h1>
+                <p class="lede">Guardá acá y después aplicá al backend. Las marcadas <em>arrancar</em> piden reiniciar.</p>
+            </div>
+            <form th:action="@{/refresh-client}" method="post">
+                <button type="submit">Aplicar al backend</button>
+            </form>
         </header>
 
         <div th:if="${success}" class="notice" th:text="${success}"></div>
