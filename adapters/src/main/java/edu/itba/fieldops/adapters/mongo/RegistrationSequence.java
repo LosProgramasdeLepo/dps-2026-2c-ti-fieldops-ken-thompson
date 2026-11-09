@@ -3,8 +3,10 @@ package edu.itba.fieldops.adapters.mongo;
 import edu.itba.fieldops.adapters.PersistenceProfiles;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.SessionSynchronization;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
-import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -16,14 +18,15 @@ import java.util.Objects;
 @Component
 @Profile(PersistenceProfiles.MONGO)
 public class RegistrationSequence {
-    private final MongoOperations operations;
+    private final MongoTemplate outsideTransactions;
 
-    public RegistrationSequence(MongoOperations operations) {
-        this.operations = Objects.requireNonNull(operations, "operations");
+    public RegistrationSequence(MongoDatabaseFactory databases) {
+        this.outsideTransactions = new MongoTemplate(Objects.requireNonNull(databases, "databases"));
+        this.outsideTransactions.setSessionSynchronization(SessionSynchronization.NEVER);
     }
 
     public long next(String collection) {
-        Counter counter = operations.findAndModify(
+        Counter counter = outsideTransactions.findAndModify(
                 Query.query(Criteria.where("_id").is(collection)),
                 new Update().inc("value", 1),
                 FindAndModifyOptions.options().returnNew(true).upsert(true),

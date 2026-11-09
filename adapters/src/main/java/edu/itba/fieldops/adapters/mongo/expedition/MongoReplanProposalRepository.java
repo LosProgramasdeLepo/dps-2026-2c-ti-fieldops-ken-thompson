@@ -11,6 +11,9 @@ import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
 import org.springframework.context.annotation.Profile;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,11 +32,17 @@ public class MongoReplanProposalRepository implements ReplanProposalRepository {
     MongoReplanProposalRepository(
             ProposalMongoRepository proposals,
             ExpeditionMongoRepository expeditions,
-            RegistrationSequence sequence
+            RegistrationSequence sequence,
+            MongoOperations operations
     ) {
         this.proposals = Objects.requireNonNull(proposals, "proposals");
         this.stored = new StoredExpeditions(expeditions, sequence);
         this.sequence = Objects.requireNonNull(sequence, "sequence");
+        operations.indexOps(ProposalDocument.class).createIndex(new Index()
+                .on("incident._id", Sort.Direction.ASC)
+                .unique()
+                .sparse()
+                .named("incident_unique"));
     }
 
     @Override
