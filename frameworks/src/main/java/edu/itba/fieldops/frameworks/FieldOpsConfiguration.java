@@ -1,5 +1,6 @@
 package edu.itba.fieldops.frameworks;
 
+import edu.itba.fieldops.adapters.messaging.EventsProperties;
 import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
@@ -20,10 +21,14 @@ import edu.itba.fieldops.domain.expedition.Proposals;
 import edu.itba.fieldops.domain.expedition.Replanner;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.validation.RuleBasedValidator;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration(proxyBeanMethods = false)
+@EnableScheduling
+@EnableConfigurationProperties(EventsProperties.class)
 class FieldOpsConfiguration {
     @Bean
     Catalogs catalogs(

@@ -39,6 +39,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         clock.set(at(2));
 
         IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        dispatcher.dispatchDue();
 
         ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
         assertAll(
@@ -72,6 +73,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         int mark = eventMark();
 
         IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        dispatcher.dispatchDue();
 
         ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
         assertEquals(
@@ -103,6 +105,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         Sampling sampling = runningSampling();
 
         IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        dispatcher.dispatchDue();
 
         assertEquals(incidentId, runs.find(sampling.expeditionId()).orElseThrow().incidents().getFirst().id());
     }
@@ -125,6 +128,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         Sampling sampling = runningSampling();
         clock.set(at(2));
         incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        dispatcher.dispatchDue();
         ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
         clock.set(at(3));
         int mark = eventMark();
@@ -142,6 +146,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         Sampling sampling = runningSampling();
         clock.set(at(2));
         incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        dispatcher.dispatchDue();
         ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
         clock.set(at(3));
         int mark = eventMark();
@@ -158,6 +163,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
     void aDecisionByAStrangerAppendsNothing() {
         Sampling sampling = runningSampling();
         incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        dispatcher.dispatchDue();
         ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
         PersonId stranger = certifiedPerson("Stranger", certification());
         int mark = eventMark();
@@ -171,6 +177,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
     void acceptingAProposalKeepsItsPlanAsADraftRevision() {
         Sampling sampling = runningSampling();
         incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        dispatcher.dispatchDue();
         ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
 
         proposalReview.accept(proposal.id(), sampling.responsible());
@@ -187,6 +194,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
     void rejectingAProposalDiscardsItsPlan() {
         Sampling sampling = runningSampling();
         incidents.record(sampling.expeditionId(), new IncidentDescription("equipment failure"), sampling.activityId());
+        dispatcher.dispatchDue();
         ProposalSnapshot proposal = onlyProposalOf(sampling.expeditionId());
 
         proposalReview.reject(proposal.id(), sampling.responsible());
@@ -245,6 +253,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         Sampling sampling = runningSampling();
         clock.set(at(1));
         incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        dispatcher.dispatchDue();
         ExpeditionId revision = onlyProposalOf(sampling.expeditionId()).suggested().id();
         proposalReview.accept(onlyProposalOf(sampling.expeditionId()).id(), sampling.responsible());
         review.submit(revision);
@@ -252,6 +261,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
         clock.set(at(2));
 
         IncidentId incidentId = incidents.record(sampling.expeditionId(), new IncidentDescription("trail flooded"), sampling.activityId());
+        dispatcher.dispatchDue();
 
         ProposalSnapshot proposal = onlyProposalOf(revision);
         assertAll(
@@ -268,6 +278,7 @@ class ReplanningUseCasesTest extends UseCaseFixture {
     void consultsAProposalByItsId() {
         Sampling sampling = runningSampling();
         incidents.record(sampling.expeditionId(), new IncidentDescription("storm on site"), sampling.activityId());
+        dispatcher.dispatchDue();
         ProposalSnapshot listed = onlyProposalOf(sampling.expeditionId());
 
         ProposalSnapshot found = proposalReview.of(listed.id());

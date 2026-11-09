@@ -1,6 +1,7 @@
 package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.adapters.PersistenceProfiles;
+import edu.itba.fieldops.adapters.messaging.EventDispatcher;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Capacity;
 import edu.itba.fieldops.domain.catalog.CertificationName;
@@ -65,7 +66,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
-@SpringBootTest(properties = "spring.cloud.config.enabled=false")
+@SpringBootTest(properties = {"spring.cloud.config.enabled=false", "fieldops.events.dispatcher.enabled=false"})
 @ActiveProfiles(PersistenceProfiles.MEMORY)
 @Import(UseCaseFixture.FixedTime.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
@@ -93,6 +94,8 @@ abstract class UseCaseFixture {
     ExecutionRepository runs;
     @Autowired
     Events eventLog;
+    @Autowired
+    EventDispatcher dispatcher;
     @Autowired
     AdministerPersonnel personnel;
     @Autowired
