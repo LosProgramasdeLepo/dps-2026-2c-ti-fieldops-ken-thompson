@@ -103,7 +103,7 @@ Consumidores:
 
 ### Demo de la Entrega 3
 
-Guion, preparación y preguntas: [docs/presentacion-entrega-3.md](docs/presentacion-entrega-3.md). De cero y los cuatro pasos de **Ejecutar**. Las actividades del relevamiento de demo tienen ventana desde mañana: no se inician; se registran incidentes sobre la corrida que ya está abierta.
+De cero y los cuatro pasos de **Ejecutar**. Las actividades del relevamiento de demo tienen ventana desde mañana: no se inician; se registran incidentes sobre la corrida que ya está abierta.
 
 ## Contrato de la API
 
