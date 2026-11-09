@@ -5,6 +5,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 @ActiveProfiles(PersistenceProfiles.MONGO)
-@Import(MongoContainerConfiguration.class)
+@Import({MongoContainerConfiguration.class, PersistentFlow.FailingConsumer.class})
 class MongoFlowTest extends PersistentFlow {
 }
