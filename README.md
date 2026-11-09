@@ -21,10 +21,12 @@ Los tests de persistencia levantan PostgreSQL y MongoDB con Testcontainers, así
 El perfil de Spring elige dónde guarda el backend: `sql` (PostgreSQL, por defecto), `mongo` (MongoDB) o `memory` (en memoria, sin base). `compose.yaml` levanta PostgreSQL (base, usuario y contraseña `fieldops`, puerto 5432) y MongoDB como replica set `rs0` (puerto 27017):
 
 ```
-docker compose up -d
+docker compose up -d --wait
 ./mvnw package -DskipTests
 java -jar frameworks/target/fieldops-frameworks-1.0-SNAPSHOT.jar
 ```
+
+`--wait` espera a que MongoDB termine de iniciar el replica set (`rs0`); sin eso el perfil `mongo` falla al arrancar.
 
 Con `sql`, Flyway crea o actualiza el esquema al arrancar. La API queda en `http://localhost:8080/v1`. Otro puerto: `--server.port=9090`. Otra base: `FIELDOPS_DB_URL`, `FIELDOPS_DB_USER` y `FIELDOPS_DB_PASSWORD` para PostgreSQL, `FIELDOPS_MONGO_URI` para MongoDB.
 
@@ -74,7 +76,7 @@ Consumidores:
 
 ### Demo de la Entrega 3
 
-El guion de la presentación, con los pasos, lo que muestra cada uno y las preguntas probables, está en [docs/presentacion-entrega-3.md](docs/presentacion-entrega-3.md).
+El guion, con preparación, lo que muestra cada paso y las preguntas probables, está en [docs/presentacion-entrega-3.md](docs/presentacion-entrega-3.md). Hay que arrancar de cero (`docker compose down -v`) y, para el paso de reintentos, tener el config server en 8888. Las actividades del relevamiento de demo tienen ventana desde mañana: no se inician; se registran incidentes sobre la corrida que ya está abierta.
 
 ### Frontend
 
@@ -129,7 +131,7 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 
 `POST /expeditions/{id}/blocks` responde 201 con el bloque y `Location` `/v1/expeditions/{id}`. `node` `BLOCK`: `arrangement` `SEQUENTIAL` o `PARALLEL`, y `parts` (al menos dos). `node` `ACTIVITY`: `activity` con la forma de arriba.
 
-`PUT /expeditions/{id}/activities/{activityId}/predecessors/{predecessorId}` agrega una precedencia. `POST /expeditions/{id}/assignments`. `type` `PERSON` (`activityId`, `personId`), `VEHICLE` (`activityId`, `vehicleId`), `INSTRUMENT` (`activityId`, `instrumentId`) o `CONSUMABLE` (`activityId`, `consumableId`, `quantity` desde 1). `PUT /expeditions/{id}/permits/{permitId}`. Repetir ese `PUT`, el de una certificación o el de una precedencia responde 204: el vínculo ya está. `GET /expeditions/{id}/assignment-suggestions` devuelve la lista.
+`PUT /expeditions/{id}/activities/{activityId}/predecessors/{predecessorId}` agrega una precedencia. `POST /expeditions/{id}/assignments`. `type` `PERSON` (`activityId`, `personId`), `VEHICLE` (`activityId`, `vehicleId`), `INSTRUMENT` (`activityId`, `instrumentId`) o `CONSUMABLE` (`activityId`, `consumableId`, `quantity` desde 1). `PUT /expeditions/{id}/permits/{permitId}` responde 204; repetirlo, o repetir el `PUT` de una certificación o de una precedencia, es 422 (el vínculo ya está: `duplicate permit`, `person already holds certification`, `duplicate predecessor`). `GET /expeditions/{id}/assignment-suggestions` devuelve la lista.
 
 `POST /expeditions/{id}/submission` pasa a revisión. `DELETE` de esa ruta vuelve a borrador. `GET /expeditions/{id}/validation`: `{expeditionId, version, issues[]}`, cada issue con `severity`, `code` y `message`. `POST /expeditions/{id}/accepted-warnings`: `{issue, justification, acceptedBy}`; el issue es el de la validación vigente. `POST /expeditions/{id}/approval`.
 
