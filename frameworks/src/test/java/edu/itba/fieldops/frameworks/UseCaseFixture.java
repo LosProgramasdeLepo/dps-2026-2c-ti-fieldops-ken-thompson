@@ -1,6 +1,5 @@
 package edu.itba.fieldops.frameworks;
 
-import edu.itba.fieldops.adapters.InMemoryEventLog;
 import edu.itba.fieldops.adapters.PersistenceProfiles;
 import edu.itba.fieldops.domain.catalog.Availability;
 import edu.itba.fieldops.domain.catalog.Capacity;
@@ -12,6 +11,9 @@ import edu.itba.fieldops.domain.catalog.PersonName;
 import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.catalog.VehicleRegistry;
 import edu.itba.fieldops.domain.event.DomainEvent;
+import edu.itba.fieldops.domain.event.EventFilter;
+import edu.itba.fieldops.domain.event.Events;
+import edu.itba.fieldops.domain.event.RecordedEvent;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.ExpeditionCharter;
 import edu.itba.fieldops.domain.expedition.ExpeditionRepository;
@@ -90,7 +92,7 @@ abstract class UseCaseFixture {
     @Autowired
     ExecutionRepository runs;
     @Autowired
-    InMemoryEventLog eventLog;
+    Events eventLog;
     @Autowired
     AdministerPersonnel personnel;
     @Autowired
@@ -127,11 +129,18 @@ abstract class UseCaseFixture {
     ReportExpedition reports;
 
     int eventMark() {
-        return eventLog.events().size();
+        return allEvents().size();
     }
 
     List<DomainEvent> eventsSince(int mark) {
-        return eventLog.events().subList(mark, eventLog.events().size());
+        List<DomainEvent> all = allEvents();
+        return all.subList(mark, all.size());
+    }
+
+    List<DomainEvent> allEvents() {
+        return eventLog.page(EventFilter.all(), new PageRequest(0, PageRequest.MAX_SIZE)).items().stream()
+                .map(RecordedEvent::event)
+                .toList();
     }
 
     ExpeditionId draftResponsibleFor(PersonId responsible) {
