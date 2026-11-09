@@ -5,6 +5,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 @ActiveProfiles(PersistenceProfiles.SQL)
-@Import(PostgresContainerConfiguration.class)
+@Import({PostgresContainerConfiguration.class, PersistentFlow.FailingConsumer.class})
 class PostgresFlowTest extends PersistentFlow {
 }

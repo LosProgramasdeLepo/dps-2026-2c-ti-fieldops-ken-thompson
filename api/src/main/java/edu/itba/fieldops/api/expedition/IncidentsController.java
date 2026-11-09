@@ -1,13 +1,17 @@
 package edu.itba.fieldops.api.expedition;
 
 import edu.itba.fieldops.api.expedition.ExpeditionRequests.IncidentRequest;
+import edu.itba.fieldops.api.expedition.ExpeditionResponses.IncidentDetailResponse;
+import edu.itba.fieldops.api.json.ResourceIdResponse;
 import edu.itba.fieldops.api.json.Responses;
 import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.tracking.IncidentDescription;
 import edu.itba.fieldops.domain.usecase.expedition.RecordIncident;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,13 +28,17 @@ public final class IncidentsController {
     }
 
     @PostMapping("/v1/expeditions/{id}/incidents")
-    public ResponseEntity<Void> record(@PathVariable UUID id, @Valid @RequestBody IncidentRequest request) {
+    public ResponseEntity<ResourceIdResponse> record(@PathVariable UUID id, @Valid @RequestBody IncidentRequest request) {
         ExpeditionId expeditionId = new ExpeditionId(id);
-        if (request.activityId() == null) {
-            incidents.record(expeditionId, new IncidentDescription(request.description()));
-        } else {
-            incidents.record(expeditionId, new IncidentDescription(request.description()), new ActivityId(request.activityId()));
-        }
-        return Responses.noContent();
+        IncidentDescription description = new IncidentDescription(request.description());
+        IncidentId incidentId = request.activityId() == null
+                ? incidents.record(expeditionId, description)
+                : incidents.record(expeditionId, description, new ActivityId(request.activityId()));
+        return Responses.created("/v1/expeditions/" + id + "/incidents", incidentId.value());
+    }
+
+    @GetMapping("/v1/expeditions/{id}/incidents/{incidentId}")
+    public IncidentDetailResponse incident(@PathVariable UUID id, @PathVariable UUID incidentId) {
+        return RunMapping.incidentDetail(incidents.incident(new ExpeditionId(id), new IncidentId(incidentId)));
     }
 }

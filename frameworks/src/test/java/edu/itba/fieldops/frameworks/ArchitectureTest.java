@@ -10,6 +10,7 @@ import edu.itba.fieldops.domain.catalog.InstrumentRegistry;
 import edu.itba.fieldops.domain.catalog.PermitRegistry;
 import edu.itba.fieldops.domain.catalog.PersonRegistry;
 import edu.itba.fieldops.domain.catalog.VehicleRegistry;
+import edu.itba.fieldops.domain.event.EventDeliveries;
 import edu.itba.fieldops.domain.event.EventLog;
 import edu.itba.fieldops.domain.expedition.ExecutionRepository;
 import edu.itba.fieldops.domain.expedition.Expedition;
@@ -21,6 +22,8 @@ import edu.itba.fieldops.domain.expedition.IncidentResponder;
 import edu.itba.fieldops.domain.expedition.ProposalReviewer;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.shared.Clock;
+import edu.itba.fieldops.usecase.audit.ConsultEventsInteractor;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.assignableTo;
@@ -31,6 +34,7 @@ import static com.tngtech.archunit.core.domain.properties.HasOwner.Predicates.Wi
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
 @AnalyzeClasses(packages = "edu.itba.fieldops", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
@@ -93,6 +97,7 @@ class ArchitectureTest {
                             ExecutionRepository.class,
                             ReplanProposalRepository.class,
                             EventLog.class,
+                            EventDeliveries.class,
                             PersonRegistry.class,
                             VehicleRegistry.class,
                             InstrumentRegistry.class,
@@ -165,6 +170,30 @@ class ArchitectureTest {
     static final ArchRule consultingEventsOnlyReadsThem = noClasses()
             .that().resideInAPackage("edu.itba.fieldops.usecase.audit..")
             .should().dependOnClassesThat().belongToAnyOf(EventLog.class);
+
+    @ArchTest
+    static final ArchRule consultingEventsDoesNotManageDeliveries = noClasses()
+            .that().belongToAnyOf(ConsultEventsInteractor.class)
+            .should().dependOnClassesThat().belongToAnyOf(EventDeliveries.class);
+
+    @ArchTest
+    static final ArchRule theConsumersOnlyReachTheDomainThroughUseCasesAndEvents = noClasses()
+            .that().resideInAPackage("edu.itba.fieldops.adapters.messaging..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "edu.itba.fieldops.adapters.jpa..",
+                    "edu.itba.fieldops.adapters.mongo..",
+                    "edu.itba.fieldops.domain.expedition..",
+                    "edu.itba.fieldops.domain.catalog..",
+                    "edu.itba.fieldops.domain.itinerary..",
+                    "edu.itba.fieldops.domain.tracking..",
+                    "edu.itba.fieldops.domain.report..",
+                    "edu.itba.fieldops.domain.validation.."
+            );
+
+    @ArchTest
+    static final ArchRule onlyMessagingIsScheduled = noMethods()
+            .that().areDeclaredInClassesThat().resideOutsideOfPackage("edu.itba.fieldops.adapters.messaging..")
+            .should().beAnnotatedWith(Scheduled.class);
 
     @ArchTest
     static final ArchRule theEventCodecIsPlainJava = noClasses()

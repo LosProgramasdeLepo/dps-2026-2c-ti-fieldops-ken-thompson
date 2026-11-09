@@ -1,5 +1,6 @@
 package edu.itba.fieldops.api.expedition;
 
+import edu.itba.fieldops.api.json.DeliveryResponse;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import edu.itba.fieldops.api.json.PeriodResponse;
@@ -112,7 +113,17 @@ public final class ExpeditionResponses {
     public record EstimateResponse(String duration, String risk, Map<String, Integer> consumption) {
     }
 
-    public record IncidentResponse(String description, Instant at, UUID activityId) {
+    public record IncidentDetailResponse(
+            UUID id,
+            String description,
+            Instant at,
+            UUID activityId,
+            UUID proposalId,
+            List<DeliveryResponse> processing
+    ) {
+    }
+
+    public record IncidentResponse(UUID id, String description, Instant at, UUID activityId) {
     }
 
     public record ObservationResponse(String text, Instant at) {

@@ -53,6 +53,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -198,6 +203,40 @@ class MongoEventLogTest {
 
     private static List<String> fields(IndexInfo index) {
         return index.getIndexFields().stream().map(IndexField::getKey).toList();
+    }
+
+    @Test
+    void twoTransactionsCanAppendAtTheSameTime() throws Exception {
+        CyclicBarrier bothAppended = new CyclicBarrier(2);
+        List<Throwable> failures = new CopyOnWriteArrayList<>();
+        Runnable appendAndWait = () -> {
+            try {
+                transaction.executeWithoutResult(status -> {
+                    log.append(List.of(new RunStarted(PLAN, AT)));
+                    awaitBoth(bothAppended);
+                });
+            } catch (RuntimeException failure) {
+                failures.add(failure);
+            }
+        };
+
+        Thread request = Thread.ofPlatform().start(appendAndWait);
+        Thread dispatcher = Thread.ofPlatform().start(appendAndWait);
+        request.join();
+        dispatcher.join();
+
+        assertAll(
+                () -> assertEquals(List.of(), failures),
+                () -> assertEquals(2, log.page(EventFilter.forExpeditions(Set.of(PLAN)), FIRST).totalItems())
+        );
+    }
+
+    private static void awaitBoth(CyclicBarrier barrier) {
+        try {
+            barrier.await(5, TimeUnit.SECONDS);
+        } catch (InterruptedException | BrokenBarrierException | TimeoutException interrupted) {
+            throw new IllegalStateException("the other transaction never appended", interrupted);
+        }
     }
 
     @TestConfiguration(proxyBeanMethods = false)

@@ -66,7 +66,7 @@ class MongoCatalogTest {
     @BeforeEach
     void connect() {
         mongo.getDb().drop();
-        RegistrationSequence sequence = new RegistrationSequence(mongo);
+        RegistrationSequence sequence = new RegistrationSequence(mongo.getMongoDatabaseFactory());
         certifications = new MongoCertificationRegistry(certificationDocuments, sequence);
         people = new MongoPersonRegistry(personDocuments, sequence);
         vehicles = new MongoVehicleRegistry(vehicleDocuments, sequence);

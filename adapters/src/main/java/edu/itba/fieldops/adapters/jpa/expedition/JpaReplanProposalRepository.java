@@ -5,6 +5,7 @@ import edu.itba.fieldops.adapters.jpa.JpaPages;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
@@ -47,6 +48,12 @@ public class JpaReplanProposalRepository implements ReplanProposalRepository {
     public Optional<ReplanProposal> find(ProposalId id) {
         Objects.requireNonNull(id, "proposal id");
         return proposals.findById(id.value()).map(this::toDomain);
+    }
+
+    @Override
+    public Optional<ReplanProposal> forIncident(IncidentId id) {
+        Objects.requireNonNull(id, "incident id");
+        return proposals.findByIncidentId(id.value()).map(this::toDomain);
     }
 
     @Override

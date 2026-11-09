@@ -2,8 +2,10 @@ package edu.itba.fieldops.api.event;
 
 import edu.itba.fieldops.api.event.EventResponses.EventResponse;
 import edu.itba.fieldops.api.json.Consumptions;
+import edu.itba.fieldops.api.json.DeliveryResponse;
 import edu.itba.fieldops.domain.event.ActivityCompleted;
 import edu.itba.fieldops.domain.event.ActivityStarted;
+import edu.itba.fieldops.domain.event.Delivery;
 import edu.itba.fieldops.domain.event.DomainEvent;
 import edu.itba.fieldops.domain.event.ExpeditionApproved;
 import edu.itba.fieldops.domain.event.IncidentReported;
@@ -16,13 +18,14 @@ import edu.itba.fieldops.domain.identity.ActivityId;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 final class EventMapping {
     private EventMapping() {
     }
 
-    static EventResponse event(RecordedEvent recorded) {
+    static EventResponse event(RecordedEvent recorded, List<Delivery> deliveries) {
         DomainEvent event = recorded.event();
         return new EventResponse(
                 recorded.id().value(),
@@ -31,7 +34,8 @@ final class EventMapping {
                 event.expeditionId().value(),
                 event.occurredAt(),
                 recorded.recordedAt(),
-                payload(event)
+                payload(event),
+                deliveries.stream().map(DeliveryResponse::of).toList()
         );
     }
 
