@@ -3,6 +3,7 @@ package edu.itba.fieldops.adapters;
 import edu.itba.fieldops.domain.expedition.ReplanProposal;
 import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
+import edu.itba.fieldops.domain.identity.IncidentId;
 import edu.itba.fieldops.domain.identity.ProposalId;
 import edu.itba.fieldops.domain.shared.Page;
 import edu.itba.fieldops.domain.shared.PageRequest;
@@ -35,6 +36,12 @@ public class InMemoryReplanProposalRepository implements ReplanProposalRepositor
     public synchronized Optional<ReplanProposal> find(ProposalId id) {
         Objects.requireNonNull(id, "proposal id");
         return Optional.ofNullable(proposals.get(id));
+    }
+
+    @Override
+    public synchronized Optional<ReplanProposal> forIncident(IncidentId id) {
+        Objects.requireNonNull(id, "incident id");
+        return proposals.values().stream().filter(proposal -> proposal.incident().id().equals(id)).findFirst();
     }
 
     @Override

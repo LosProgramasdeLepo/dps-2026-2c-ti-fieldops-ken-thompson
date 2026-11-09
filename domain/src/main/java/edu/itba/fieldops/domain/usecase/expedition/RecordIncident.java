@@ -9,4 +9,6 @@ public interface RecordIncident {
     IncidentId record(ExpeditionId expeditionId, IncidentDescription description);
 
     IncidentId record(ExpeditionId expeditionId, IncidentDescription description, ActivityId activityId);
+
+    IncidentSnapshot incident(ExpeditionId runId, IncidentId incidentId);
 }
