@@ -106,8 +106,7 @@ abstract class PersistentFlow {
                         get("/v1/expeditions/{id}/incidents/{incidentId}", expeditionId, incidentId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.proposalId", notNullValue()))
-                .andExpect(jsonPath("$.processing[0].consumer").value(REPLAN))
-                .andExpect(jsonPath("$.processing[0].status").value("DELIVERED")));
+                .andExpect(jsonPath("$.processing[?(@.consumer=='" + REPLAN + "')].status", contains("DELIVERED"))));
 
         MvcResult proposals = mvc.perform(get("/v1/expeditions/{id}/replan-proposals", expeditionId))
                 .andExpect(status().isOk())
@@ -140,7 +139,10 @@ abstract class PersistentFlow {
                 .andExpect(jsonPath("$.items[0].payload.version").value(1))
                 .andExpect(jsonPath("$.items[2].payload.description").value("Flooded trail"))
                 .andExpect(jsonPath("$.items[4].payload.decision").value("ACCEPTED"))
-                .andExpect(jsonPath("$.items[2].deliveries[0].status").value("DELIVERED"));
+                .andExpect(jsonPath("$.items[2].deliveries[?(@.consumer=='" + REPLAN + "')].status", contains("DELIVERED")));
+        await().atMost(PATIENCE).untilAsserted(() -> mvc.perform(get("/v1/people/{id}/notifications", personId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].type", contains("ReplanProposed", "IncidentReported", "ExpeditionApproved"))));
         MvcResult listed = mvc.perform(get("/v1/expeditions/{id}/events", expeditionId).param("type", "ReplanDecided"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalItems").value(1))

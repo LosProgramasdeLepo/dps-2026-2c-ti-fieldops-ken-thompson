@@ -1,5 +1,6 @@
 package edu.itba.fieldops.frameworks;
 
+import edu.itba.fieldops.adapters.messaging.NotifyResponsiblesConsumer;
 import edu.itba.fieldops.adapters.messaging.ReplanOnIncident;
 import edu.itba.fieldops.domain.event.Delivery;
 import edu.itba.fieldops.domain.event.DeliveryStatus;
@@ -76,9 +77,17 @@ class EventDeliveryUseCasesTest extends UseCaseFixture {
     }
 
     private Delivery deliveryOf(Sampling sampling, IncidentId incidentId) {
-        List<Delivery> processing = incidents.incident(sampling.expeditionId(), incidentId).processing();
-        assertEquals(1, processing.size());
-        return processing.getFirst();
+        return replanning(incidents.incident(sampling.expeditionId(), incidentId).processing());
+    }
+
+    private static Delivery replanning(List<Delivery> processing) {
+        List<Delivery> replans = processing.stream().filter(delivery -> delivery.consumer().equals(ReplanOnIncident.NAME)).toList();
+        assertEquals(1, replans.size());
+        return replans.getFirst();
+    }
+
+    private static List<String> consumersOf(List<Delivery> processing) {
+        return processing.stream().map(Delivery::consumer).toList();
     }
 
     private void afterTheBackoff(Duration wait) {
@@ -262,7 +271,7 @@ class EventDeliveryUseCasesTest extends UseCaseFixture {
         IncidentSnapshot snapshot = incidents.incident(plan.expeditionId(), incidentId);
         assertAll(
                 () -> assertEquals(Optional.empty(), snapshot.proposal()),
-                () -> assertEquals(DeliveryStatus.DELIVERED, snapshot.processing().getFirst().status()),
+                () -> assertEquals(DeliveryStatus.DELIVERED, replanning(snapshot.processing()).status()),
                 () -> assertEquals(List.of(), proposalsOf(plan.expeditionId())),
                 () -> assertEquals(List.of(), proposalsOf(revision))
         );
@@ -293,14 +302,14 @@ class EventDeliveryUseCasesTest extends UseCaseFixture {
         assertAll(
                 () -> assertEquals(Optional.of(proposalsOf(sampling.expeditionId()).getFirst().id()), snapshot.proposal()),
                 () -> assertEquals(
-                        List.of(new Delivery(ReplanOnIncident.NAME, DeliveryStatus.DELIVERED, 1, Optional.of(at(2)), Optional.empty())),
-                        snapshot.processing()
+                        new Delivery(ReplanOnIncident.NAME, DeliveryStatus.DELIVERED, 1, Optional.of(at(2)), Optional.empty()),
+                        replanning(snapshot.processing())
                 )
         );
     }
 
     @Test
-    void aGeneralIncidentHasNoProcessingAfterTheDispatch() {
+    void aGeneralIncidentIsOnlyNotifiedAfterTheDispatch() {
         Sampling sampling = runningSampling();
         IncidentId incidentId = incidents.record(sampling.expeditionId(), STORM);
 
@@ -309,7 +318,7 @@ class EventDeliveryUseCasesTest extends UseCaseFixture {
         IncidentSnapshot snapshot = incidents.incident(sampling.expeditionId(), incidentId);
         assertAll(
                 () -> assertEquals(Optional.empty(), snapshot.proposal()),
-                () -> assertEquals(List.of(), snapshot.processing())
+                () -> assertEquals(List.of(NotifyResponsiblesConsumer.NAME), consumersOf(snapshot.processing()))
         );
     }
 
@@ -340,7 +349,10 @@ class EventDeliveryUseCasesTest extends UseCaseFixture {
             dispatcher.dispatchDue();
         }
 
-        assertEquals(1, incidents.incident(sampling.expeditionId(), beyond).processing().size());
+        assertEquals(
+                List.of(NotifyResponsiblesConsumer.NAME, ReplanOnIncident.NAME),
+                consumersOf(incidents.incident(sampling.expeditionId(), beyond).processing())
+        );
     }
 
     @Test
@@ -350,8 +362,8 @@ class EventDeliveryUseCasesTest extends UseCaseFixture {
         dispatcher.dispatchDue();
 
         assertEquals(
-                List.of(ReplanOnIncident.NAME),
-                audit.deliveries(reported(sampling).id()).stream().map(Delivery::consumer).toList()
+                List.of(NotifyResponsiblesConsumer.NAME, ReplanOnIncident.NAME),
+                consumersOf(audit.deliveries(reported(sampling).id()))
         );
     }
 

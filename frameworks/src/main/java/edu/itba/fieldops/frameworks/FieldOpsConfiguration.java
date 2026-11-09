@@ -1,6 +1,7 @@
 package edu.itba.fieldops.frameworks;
 
 import edu.itba.fieldops.adapters.messaging.EventsProperties;
+import edu.itba.fieldops.adapters.notification.NotificationProperties;
 import edu.itba.fieldops.domain.catalog.BookableResources;
 import edu.itba.fieldops.domain.catalog.Catalogs;
 import edu.itba.fieldops.domain.catalog.ConsumableRegistry;
@@ -19,6 +20,7 @@ import edu.itba.fieldops.domain.expedition.PlanningContexts;
 import edu.itba.fieldops.domain.expedition.ProposalReviewer;
 import edu.itba.fieldops.domain.expedition.Proposals;
 import edu.itba.fieldops.domain.expedition.Replanner;
+import edu.itba.fieldops.domain.notification.ResponsiblesToNotify;
 import edu.itba.fieldops.domain.shared.Clock;
 import edu.itba.fieldops.domain.validation.RuleBasedValidator;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -28,7 +30,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration(proxyBeanMethods = false)
 @EnableScheduling
-@EnableConfigurationProperties(EventsProperties.class)
+@EnableConfigurationProperties({EventsProperties.class, NotificationProperties.class})
 class FieldOpsConfiguration {
     @Bean
     Catalogs catalogs(
@@ -79,5 +81,10 @@ class FieldOpsConfiguration {
     @Bean
     ProposalReviewer proposalReviewer(ExpeditionRepository plans, Clock clock) {
         return new ProposalReviewer(plans, clock);
+    }
+
+    @Bean
+    ResponsiblesToNotify responsiblesToNotify(ExpeditionRepository plans) {
+        return new ResponsiblesToNotify(plans);
     }
 }

@@ -7,6 +7,7 @@ import { Tabs } from '../components/Tabs';
 import { EMPTY_CATALOG, useCatalog, type Catalog } from '../hooks/useCatalog';
 import { useLoad } from '../hooks/useLoad';
 import { formatSpan } from '../time';
+import { AuditTab } from './AuditTab';
 import { personName } from './describe';
 import { Lifecycle } from './Lifecycle';
 import { PlanTab } from './PlanTab';
@@ -23,6 +24,7 @@ const TABS = [
   { id: 'run', label: 'Ejecución', content: RunTab },
   { id: 'replan', label: 'Replanificación', content: ReplanTab },
   { id: 'report', label: 'Informes', content: ReportTab },
+  { id: 'audit', label: 'Eventos y auditoría', content: AuditTab },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];

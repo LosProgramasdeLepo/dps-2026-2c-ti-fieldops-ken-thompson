@@ -1314,3 +1314,42 @@ dialog.drawer > header {
   background: rgba(14, 107, 90, 0.14);
   border: none;
 }
+
+.pill-delivered {
+  color: var(--pine);
+  background: var(--pine-wash);
+}
+
+.pill-retrying {
+  color: var(--amber);
+  background: var(--amber-wash);
+}
+
+.pill-failed {
+  color: var(--danger);
+  background: var(--danger-wash);
+}
+
+.stack-tight > * + * {
+  margin-top: 0.45rem;
+}
+
+.deliveries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.deliveries > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.2rem 0;
+}
+
+.error-text {
+  flex-basis: 100%;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}

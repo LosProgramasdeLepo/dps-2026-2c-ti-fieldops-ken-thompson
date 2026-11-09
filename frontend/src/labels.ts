@@ -1,4 +1,4 @@
-import type { ActivityKind, Arrangement, Assignment, Decision, OperationalStatus, RiskLevel, Severity } from './api/types';
+import type { ActivityKind, Arrangement, Assignment, Decision, DeliveryStatus, EventType, OperationalStatus, RiskLevel, Severity } from './api/types';
 
 export const STATUS_LABELS: Record<OperationalStatus, string> = {
   DRAFT: 'Borrador',
@@ -31,6 +31,35 @@ export const DECISION_LABELS: Record<Decision, string> = {
   ACCEPTED: 'Aceptada',
   REJECTED: 'Rechazada',
 };
+
+export const EVENT_LABELS: Record<EventType, string> = {
+  ExpeditionApproved: 'Plan aprobado',
+  RunStarted: 'Corrida iniciada',
+  ActivityStarted: 'Actividad iniciada',
+  ActivityCompleted: 'Actividad finalizada',
+  IncidentReported: 'Incidente registrado',
+  RunFinished: 'Corrida finalizada',
+  ReplanProposed: 'Replanificación propuesta',
+  ReplanDecided: 'Propuesta decidida',
+};
+
+export const DELIVERY_LABELS: Record<DeliveryStatus, string> = {
+  PENDING: 'Pendiente',
+  RETRYING: 'Reintentando',
+  DELIVERED: 'Entregado',
+  FAILED: 'Fallido',
+};
+
+export const REPLAN_CONSUMER = 'replan-on-incident';
+
+const CONSUMER_LABELS: Record<string, string> = {
+  [REPLAN_CONSUMER]: 'Propuesta de replanificación',
+  'notify-responsibles': 'Aviso a responsables',
+};
+
+export function consumerLabel(consumer: string): string {
+  return CONSUMER_LABELS[consumer] ?? consumer;
+}
 
 export const ASSIGNMENT_LABELS: Record<Assignment['type'], string> = {
   PERSON: 'Persona',

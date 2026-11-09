@@ -109,7 +109,7 @@ Deuda: no hay autenticación ni autorización. `ReviewExpedition.acceptWarning` 
 
 ## Frontend
 
-`frontend/` es una SPA mínima (React, TypeScript y Vite) que solo habla con la API REST: no comparte código con el backend ni lo necesita para compilar. En desarrollo Vite redirige `/v1` al backend, así que el backend no habilita CORS. Cubre cada funcionalidad: el catálogo (altas, certificaciones, disponibilidad, stock y permisos), la planificación (charter, itinerario con bloques anidados y dependencias, asignaciones manuales y sugeridas, permisos), la revisión (validación, advertencias aceptadas con justificación, aprobación), el seguimiento (corrida, actividades, observaciones e incidentes), la replanificación (propuestas, revisiones, cancelar, retrasar y reasignar) y los informes.
+`frontend/` es una SPA mínima (React, TypeScript y Vite) que solo habla con la API REST: no comparte código con el backend ni lo necesita para compilar. En desarrollo Vite redirige `/v1` al backend, así que el backend no habilita CORS. Cubre cada funcionalidad: el catálogo (altas, certificaciones, disponibilidad, stock y permisos), la planificación (charter, itinerario con bloques anidados y dependencias, asignaciones manuales y sugeridas, permisos), la revisión (validación, advertencias aceptadas con justificación, aprobación), el seguimiento (corrida, actividades, observaciones e incidentes), la replanificación (propuestas, revisiones, cancelar, retrasar y reasignar), los informes, los eventos con el estado de sus entregas y la bandeja de notificaciones de cada persona (D4.7).
 
 `src/api` tipa el contrato y traduce `problem+json` a `ApiError`; las pantallas no llaman a `fetch`. Las reglas quedan en el backend: la interfaz habilita acciones según el estado del plan y muestra el error que devuelve la API. Los instantes se cargan y se muestran en UTC, como los guarda el dominio.
 
@@ -380,4 +380,120 @@ Descartado: reintentar `TransientTransactionError` en cada caso de uso (más có
 
 Costo: `GET /events` hace una consulta de entregas por evento de la página (hasta 100). `undispatched` recorre el registro desde el principio con un anti-join, así que se encarece a medida que crece; `event_fanout` y el registro no tienen retención. El incidente se busca recorriendo las páginas de `IncidentReported` de su corrida.
 
-Deuda: una sola instancia del despachador (D3.11). En `memory` no hay transacción, así que un consumidor que falla a la mitad deja lo que ya escribió; la idempotencia sigue valiendo por `forIncident`. Los agregados en memoria son instancias compartidas sin aislamiento entre el request y el despachador. El frontend todavía no consulta el incidente: la propuesta aparece al refrescar (fase 4).
+Deuda: una sola instancia del despachador (D3.11). En `memory` no hay transacción, así que un consumidor que falla a la mitad deja lo que ya escribió; la idempotencia sigue valiendo por `forIncident`. Los agregados en memoria son instancias compartidas sin aislamiento entre el request y el despachador. El frontend consulta el incidente desde la fase 4 (ver "Notificaciones a responsables").
+
+## Notificaciones a responsables
+
+Entrega 3, fase 4: un segundo consumidor muestra el valor de la propuesta. Un mismo evento tiene varios interesados, y el fallo de uno no afecta al otro. `notify-responsibles` deja una notificación por responsable del plan vigente cuando se aprueba un plan, se registra un incidente o se propone una replanificación, y cada persona la ve en su bandeja.
+
+| Rol | Elementos | Regla |
+|---|---|---|
+| Dominio | `Notification`, `ResponsiblesToNotify`, `EventType`; puertos `Notifier` (escritura) y `Notifications` (lectura) | Qué eventos interesan a los responsables, a quiénes (los del charter del plan vigente) y qué notificación arma cada uno |
+| Casos de uso | `NotifyResponsibles` (`concerns`, `about`), `ConsultNotifications` | El interactor pide la hora a `Clock`, llama al dominio y envía cada notificación. La consulta exige que la persona exista |
+| Adaptador de entrada | `NotifyResponsiblesConsumer`, `NotificationsController` | El consumidor pregunta al caso de uso si le interesa el evento y se lo pasa; no conoce el modelo |
+| Adaptadores de salida | `StoredNotifier` sobre `NotificationInbox`: `InMemoryNotificationInbox`, `JpaNotificationInbox`, `MongoNotificationInbox` | Un contrato común los prueba (`NotificationInboxContract`) |
+| Raíz de composición | `FieldOpsConfiguration` | Bean de `ResponsiblesToNotify` y `NotificationProperties` |
+
+| Almacenamiento | Estructura |
+|---|---|
+| PostgreSQL (`V9__notifications.sql`) | `notifications(event_id → domain_events, person_id → people, type, expedition_id, sent_at, registration_order IDENTITY, PK (event_id, person_id))`, índice `(person_id, registration_order DESC)` |
+| MongoDB | `notifications` con `_id: {eventId, personId}` y `registrationOrder` de `RegistrationSequence`; índice `inbox` `(_id.personId, registrationOrder desc)`, creado al iniciar `MongoNotificationInbox` |
+| Memoria | `LinkedHashMap` sincronizado por `(evento, persona)` |
+
+**D4.1 Bandeja guardada, no correo.** Se puede mostrar y probar, y no suma proveedores externos. Mandar correos sería otra implementación de `Notifier`, sin tocar el dominio ni el consumidor.
+
+**D4.2 Quién recibe lo decide el dominio.** `ResponsiblesToNotify` busca el plan vigente del evento con `Revisions.inForce`, así que un incidente sobre la raíz avisa a los responsables de la revisión que rige. También decide qué eventos interesan (`ExpeditionApproved`, `IncidentReported`, `ReplanProposed`) con un conjunto de clases, sin `instanceof`, y arma las notificaciones. El interactor solo carga, llama y envía, y el consumidor se suscribe preguntándole al caso de uso (`concerns`), como `ReplanOnIncident` traduce a `RespondToIncident`. `ArchitectureTest` impide que `adapters.messaging` dependa de `domain.notification`, igual que del resto del modelo (D3.7).
+
+**D4.3 Falla simulada con configuración dinámica.** `fieldops.notifications.simulate-failure` reusa Spring Cloud Config y `/actuator/refresh`. `NotificationProperties` es un JavaBean mutable con un campo `volatile`, como `FieldOpsProperties`, para que el refresh lo vuelva a enlazar sin recrear beans. `StoredNotifier` es un decorador sobre la bandeja de cada perfil: con la falla prendida lanza `SimulatedNotificationFailure` antes de guardar. Es una herramienta de demo y vive en el adaptador, nunca en el dominio.
+
+**D4.4 Idempotente por `(evento, persona)`.** La entrega es al menos una vez (D3.4), así que repetir un evento no puede duplicar el aviso. Lo garantiza la clave primaria en PostgreSQL, el `_id` compuesto en MongoDB y la clave del mapa en memoria; el adaptador ignora una segunda copia. Como el aviso y la marca de entregado van en la misma transacción, en `sql` y `mongo` el aviso queda una sola vez.
+
+**D4.5 `EventType` como value object.** La notificación guarda el tipo del evento que la causó, y ese tipo solo puede ser uno de los que el dominio conoce (`EventTypes.known()`). Se usa en las notificaciones; el registro de eventos sigue guardando el tipo como texto, igual que en las fases 1 a 3.
+
+**D4.6 La bandeja, de la más nueva a la más vieja.** Ordena por orden de alta descendente (`registration_order` o `registrationOrder`), no por `sentAt`: con un reloj fijo varias notificaciones comparten la hora, y el orden de alta es estable en los tres perfiles.
+
+**D4.7 Frontend.** La pestaña "Eventos y auditoría" lista los eventos de la familia del plan con el estado de cada entrega, se refresca cada 2 s mientras haya alguna `PENDING` o `RETRYING` y permite reintentar una `FAILED`. Al registrar un incidente sobre una actividad, `RunTab` consulta el incidente cada 2 s hasta tener la propuesta, una entrega `FAILED` de `replan-on-incident` o una `DELIVERED` sin propuesta (D3.10). Cada persona muestra su bandeja. La CI suma el job `frontend` (`npm ci` y `npm run build`, que corre `tsc --noEmit`). Sin tests de componentes: la consigna evalúa el backend, y ya figura como deuda.
+
+**Desvíos del plan.**
+- Clave foránea `notifications.event_id → domain_events`, que el plan no pedía: una notificación siempre es sobre un evento registrado. Por eso `theLogCannotBeTruncated` trunca también `notifications`.
+- Los tests de la falla simulada están en `NotificationUseCasesTest` y no en `DynamicConfigurationTest`: ahí el reloj es fijo y el despachador se maneja a mano, así que no son intermitentes. Cambian la propiedad con el mismo `EnvironmentChangeEvent` que dispara el refresh.
+- `EventDeliveryUseCasesTest`, `AsyncDispatchTest` y `PersistentFlow` suponían un consumidor por incidente: ahora eligen la entrega de `replan-on-incident` por nombre, y `PersistentFlow` también lee la bandeja del responsable en PostgreSQL y en MongoDB.
+
+Descartado: guardar la notificación desde el consumidor (pondría la regla de quién recibe en un adaptador); un consumidor por tipo de evento (tres consumidores con la misma regla); `@RefreshScope` en el notificador (recrea el bean, y volver a enlazar las propiedades alcanza).
+
+Deuda: el adaptador JPA y el de MongoDB preguntan si existe y después guardan. Con un solo despachador (D3.11) no hay carrera; con varios, la clave primaria rechazaría el segundo, la entrega se reintentaría y en el siguiente intento encontraría el aviso ya guardado. `ResponsiblesToNotify` recorre `plans.all()`, como `inForce`. No hay "marcar como leída" ni retención de la bandeja.
+
+## Entrega 3: arquitectura orientada a eventos
+
+**Problema.** En una expedición, una aprobación, un incidente o el cierre de una actividad interesan a varias partes a la vez: la auditoría, la replanificación y los responsables. Antes, registrar un incidente llamaba a la replanificación en el mismo request: el emisor conocía al interesado, una propuesta costosa o fallida hacía fallar el registro, y sumar un interesado más obligaba a tocar el caso de uso.
+
+**Solución.** El dominio registra el hecho, el caso de uso lo guarda en el registro de eventos en la misma transacción que el agregado, y un despachador lo entrega a cada consumidor fuera del request, con reintentos, cola de fallidos y auditoría. Quien produce el hecho no conoce a sus consumidores.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Responsable
+    participant API as IncidentsController
+    participant UC as RecordIncidentInteractor
+    participant Run as ExpeditionExecution
+    participant Log as EventLog (outbox)
+    participant D as EventDispatcher
+    participant R as replan-on-incident
+    participant N as notify-responsibles
+    Responsable->>API: POST /incidents {description, activityId}
+    API->>UC: record
+    UC->>Run: reportIncident (registra IncidentReported)
+    UC->>Log: save + append, una transacción
+    API-->>Responsable: 201 {id}
+    loop cada 500 ms
+        D->>Log: undispatched: reparte a los suscriptos (PENDING)
+        D->>Log: due: entregas vencidas en orden de sequence
+    end
+    D->>R: consume, en REQUIRES_NEW
+    R->>R: RespondToIncident: propuesta + ReplanProposed
+    D->>N: consume, en REQUIRES_NEW
+    N->>N: NotifyResponsibles: un aviso por responsable
+    Note over D,N: Si un consumidor lanza: RETRYING con espera creciente, FAILED al agotar los intentos. El otro no se entera.
+    Responsable->>API: GET /incidents/{id} cada 2 s
+    API-->>Responsable: proposalId y estado de cada entrega
+```
+
+**Patrones aplicados.**
+
+| Patrón | Dónde | Por qué |
+|---|---|---|
+| Domain Event | `domain.event`, ocho records `sealed` | El hecho es del negocio y nace en la transición que tiene éxito (D1.1, D1.2) |
+| Transactional Outbox | `EventLog.append` en la transacción del caso de uso | Se guardan el agregado y el evento, o ninguno (D2.1) |
+| Polling Publisher | `EventDispatcher` y `ScheduledEventDispatch` | Asincronía en proceso, sin broker (D3.1) |
+| Publish-Subscribe | `EventConsumer.subscribesTo` y el reparto del despachador | El productor no conoce a los consumidores (D3.2) |
+| Idempotent Consumer | `Proposals.forIncident`, clave `(evento, persona)` de la bandeja | La entrega es al menos una vez (D3.4, D4.4) |
+| Retry con espera exponencial | `RetryPolicy` | Un fallo transitorio se recupera solo (D3.5) |
+| Dead Letter y reintento manual | Estado `FAILED` y `POST …/retry` | Un fallo permanente queda visible y se repara a mano (D3.5) |
+| Adaptador de entrada | `ReplanOnIncident`, `NotifyResponsiblesConsumer` | Los consumidores traducen a un caso de uso, sin reglas (D3.7) |
+| Decorator | `StoredNotifier` sobre `NotificationInbox` | La falla simulada no toca los tres almacenamientos (D4.3) |
+
+**Qué es sincrónico y qué no.** Sincrónico, porque la respuesta lo necesita: validar, enviar a revisión, aprobar, las transiciones de la corrida y registrar el incidente, que responden 409 o 422 en el momento, y registrar el evento, en la misma transacción. Asincrónico: la propuesta de replanificación, que es costosa y puede fallar sola, y las notificaciones, que no cambian la respuesta (D3.8).
+
+**Garantías.**
+- **Consistencia eventual:** `POST /incidents` responde 201 antes de que exista la propuesta. El cliente consulta el incidente hasta tener `proposalId` o una entrega terminal (D3.9). La interfaz lo muestra como "Propuesta en preparación…".
+- **Entrega al menos una vez:** un evento registrado no se pierde, aunque el proceso se caiga entre el commit y el despacho: sigue en el outbox y se reparte en la próxima pasada. Por eso cada consumidor es idempotente.
+- **Duplicados:** una propuesta por incidente (invariante del dominio y `UNIQUE (incident_id)`) y un aviso por evento y persona (clave primaria). Volver a entregar no cambia nada.
+- **Orden:** lo mejor posible por `sequence`. Tras un fallo, un evento posterior puede procesarse antes que uno que espera su reintento. Los consumidores lo toleran porque deciden con la hora del hecho y el estado actual (D3.6, D3.10).
+- **Reintentos y aislamiento:** cada entrega es una fila por evento y consumidor, con su transacción; el fallo de `notify-responsibles` no frena a `replan-on-incident` ni deshace la operación original.
+
+**Patrones no aplicados.**
+
+| Patrón | Por qué no | Consecuencia |
+|---|---|---|
+| Event Sourcing | El estado sigue en los agregados y el registro no los reconstruye (D2.2) | La auditoría muestra hechos, pero no se puede reconstruir un plan a una fecha |
+| Saga | No hay transacciones distribuidas: todo vive en una base | Una propuesta que no se crea no deshace el incidente; queda `FAILED` y visible |
+| CQRS con proyecciones | El informe se calcula al pedirlo | Leer es simple y siempre está al día, pero se recalcula en cada pedido |
+| Broker (Kafka, RabbitMQ) | Suma infraestructura y CI, y necesita el outbox igual (D3.1) | Una sola instancia del despachador (D3.11). Cambiar a un broker es reemplazar la entrega local, sin tocar a los productores |
+| Competing Consumers | Hace falta reclamar las entregas entre instancias | Escalar a varias instancias pide `FOR UPDATE SKIP LOCKED` o `findAndModify` con plazo |
+| `@TransactionalEventListener` con `@Async` | No es durable ni reintenta (D3.1) | Se necesita el despachador propio |
+
+**Costo.** Desde la entrega 2 se agregaron 98 clases de producción y 37 de test, y se modificaron 34 y 26. Hay cuatro migraciones nuevas (`V6` a `V9`), un despachador con su política de reintentos y una pantalla nueva en el frontend. La interfaz y los tests ahora esperan, porque la propuesta llega después. Agregar un evento obliga a tocar el codec y la API, y el compilador lo señala por el `sealed`.
+
+**Valor.** Agregar un interesado es escribir un consumidor y un caso de uso: `notify-responsibles` no tocó a ningún productor ni a `replan-on-incident`. Un fallo queda aislado, se reintenta solo y, si persiste, se ve en la auditoría y se repara con un clic. Cada hecho queda registrado con su hora y su estado de entrega, consultable por plan, revisión y tipo.
+
+**Cómo se agrega un evento o un consumidor.** Un evento: un record nuevo en el `sealed` de `DomainEvent`, registrado por el agregado en la transición; el compilador marca el codec y el `switch` de la API. Un consumidor: una clase que implementa `EventConsumer` en `adapters.messaging`, con un nombre estable, que traduce a un caso de uso; el despachador la encuentra como bean y le reparte los eventos nuevos.

@@ -1,5 +1,6 @@
-import type { ActivityItem, Assignment, Consumption, Expedition, ItineraryItem, Uuid } from '../api/types';
+import type { ActivityItem, Assignment, Consumption, Decision, Expedition, ItineraryItem, RecordedEvent, Uuid } from '../api/types';
 import { nameOf, shortId, type Catalog } from '../hooks/useCatalog';
+import { DECISION_LABELS } from '../labels';
 import { formatPeriod } from '../time';
 
 export interface PlanTabProps {
@@ -71,4 +72,35 @@ export function changesBetween(original: Expedition, suggested: Expedition): str
     changes.push(`Reasigna recursos: libera ${released} y suma ${added}`);
   }
   return changes.length > 0 ? changes : ['Sin cambios sobre el plan vigente'];
+}
+
+function text(payload: Record<string, unknown>, key: string): string | undefined {
+  const value = payload[key];
+  return typeof value === 'string' ? value : undefined;
+}
+
+export function eventSummary(event: RecordedEvent, plan: Expedition, catalog: Catalog): string {
+  const payload = event.payload;
+  const activity = text(payload, 'activityId');
+  const onActivity = activity ? ` en «${activityName(plan, activity)}»` : '';
+  switch (event.type) {
+    case 'ExpeditionApproved':
+      return text(payload, 'supersededId') ? `Versión ${String(payload.version)}, reemplaza al plan anterior` : `Versión ${String(payload.version)}`;
+    case 'ActivityStarted':
+      return `«${activity ? activityName(plan, activity) : ''}»`;
+    case 'ActivityCompleted':
+      return `«${activity ? activityName(plan, activity) : ''}»: ${text(payload, 'result') ?? ''}`;
+    case 'IncidentReported':
+      return `«${text(payload, 'description') ?? ''}»${onActivity}`;
+    case 'ReplanProposed':
+      return 'Propuesta lista para revisar';
+    case 'ReplanDecided': {
+      const decision = text(payload, 'decision') as Decision | undefined;
+      const decidedBy = text(payload, 'decidedBy');
+      return `${decision ? DECISION_LABELS[decision] : ''}${decidedBy ? ` por ${personName(catalog, decidedBy)}` : ''}`;
+    }
+    case 'RunStarted':
+    case 'RunFinished':
+      return '';
+  }
 }

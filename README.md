@@ -48,6 +48,7 @@ Al arrancar, el backend pide propiedades extra al config server de la materia (`
 | `fieldops.maintenance.enabled` | `false` | Modo mantenimiento: toda la API (`/v1/**`) responde 503 |
 | `fieldops.maintenance.message` | (texto) | Detalle del 503 |
 | `fieldops.maintenance.retry-after-seconds` | `60` | Encabezado `Retry-After` del 503 |
+| `fieldops.notifications.simulate-failure` | `false` | Herramienta de demo: con `true`, el consumidor `notify-responsibles` falla a propósito y sus entregas quedan `RETRYING` y después `FAILED`; `replan-on-incident` sigue funcionando |
 
 Demo: levantar primero `dynamic-config-server` y después el backend; en `http://localhost:8888` agregar una propiedad para la aplicación `fieldops` (perfil `default`), aplicar con `curl -X POST http://localhost:8080/actuator/refresh` y probar la API. `/actuator/health` sigue respondiendo en mantenimiento, así que siempre se puede apagar.
 
@@ -64,6 +65,17 @@ Un despachador corre dentro del backend, lee el registro de eventos y entrega ca
 | `fieldops.events.backoff-base` | `1s` | Espera después del primer fallo; se duplica en cada intento |
 | `fieldops.events.backoff-max` | `1m` | Tope de la espera |
 
+Consumidores:
+
+| Consumidor | Eventos | Efecto |
+|---|---|---|
+| `replan-on-incident` | `IncidentReported` con `activityId` | Crea una propuesta de replanificación, una por incidente |
+| `notify-responsibles` | `ExpeditionApproved`, `IncidentReported`, `ReplanProposed` | Deja una notificación por responsable del plan vigente, una por evento y persona |
+
+### Demo de la Entrega 3
+
+El guion de la presentación, con los pasos, lo que muestra cada uno y las preguntas probables, está en [docs/presentacion-entrega-3.md](docs/presentacion-entrega-3.md).
+
 ### Frontend
 
 Requiere Node 22.
@@ -74,7 +86,7 @@ npm install
 npm run dev
 ```
 
-La aplicación queda en `http://localhost:5173` y redirige `/v1` al backend. Si el backend corre en otro puerto: `FIELDOPS_API=http://localhost:9090 npm run dev`.
+La aplicación queda en `http://localhost:5173` y redirige `/v1` al backend. La pestaña "Eventos y auditoría" de un plan muestra sus eventos y el estado de cada entrega, y permite reintentar una fallida; en Personas, "Notificaciones" abre la bandeja de cada una. Si el backend corre en otro puerto: `FIELDOPS_API=http://localhost:9090 npm run dev`.
 
 `npm run build` verifica los tipos y genera `frontend/dist`; `npm run preview` la sirve con el mismo redireccionamiento.
 
@@ -84,7 +96,7 @@ Los instantes se cargan y se muestran en UTC.
 
 `http://localhost:8080/v1`, JSON. Instantes y duraciones en ISO-8601 (`PT2H`). Un período es `{start, end}`. Jackson rechaza propiedades que no conoce. Un alta responde 201 con `Location` y `{id}`. Las demás escrituras responden 204. Los errores son `application/problem+json` (RFC 9457).
 
-Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/vehicles`, `/instruments`, `/consumables`, `/permits`, `/expeditions/{id}/replan-proposals`, `/expeditions/{id}/events` y `/events`. `page` desde 0 (por defecto 0), `size` de 1 a 100 (por defecto 20). Cuerpo: `{items, page, size, totalItems, totalPages}`. `Link` (RFC 8288): `first`, `prev` si `page` > 0, `next` si no es la última, `last`. Las sugerencias de asignación y la validación no paginan.
+Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/vehicles`, `/instruments`, `/consumables`, `/permits`, `/expeditions/{id}/replan-proposals`, `/expeditions/{id}/events`, `/events` y `/people/{id}/notifications` (esta última, de la más nueva a la más vieja). `page` desde 0 (por defecto 0), `size` de 1 a 100 (por defecto 20). Cuerpo: `{items, page, size, totalItems, totalPages}`. `Link` (RFC 8288): `first`, `prev` si `page` > 0, `next` si no es la última, `last`. Las sugerencias de asignación y la validación no paginan.
 
 - JSON mal formado, UUID inválido, body que no pasa la validación, o `page`/`size` inválidos: 400
 - id del path desconocido: 404. `GET /expeditions/{desconocido}` es 404
@@ -104,6 +116,8 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 - `/instruments`: `{kind, availability}`. `PUT /instruments/{id}/availability`
 - `/consumables`: `{name, stock}`. `PUT /consumables/{id}/stock` con `{stock}`
 - `/permits`: `{kind, zone, validity}`
+
+`GET /people/{id}/notifications` es la bandeja de la persona: `[{eventId, type, expeditionId, sentAt}]`, una por evento que la alcanzó como responsable del plan vigente (aprobación, incidente o propuesta). La deja el consumidor `notify-responsibles`, así que aparece después del despacho. 404 si la persona no existe.
 
 `availability` es `{periods: [{start, end}]}`. El `kind` de un permiso es `zone` o `night operation`. `capacity` es un entero positivo y `stock` uno no negativo.
 

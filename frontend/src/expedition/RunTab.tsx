@@ -11,6 +11,8 @@ import { StatusBadge } from '../components/StatusBadge';
 import { useAction } from '../hooks/useAction';
 import type { Catalog } from '../hooks/useCatalog';
 import { useLoad } from '../hooks/useLoad';
+import { usePolling } from '../hooks/usePolling';
+import { REPLAN_CONSUMER } from '../labels';
 import { formatInstant, formatPeriod } from '../time';
 import { activitiesOf, activityName, consumptionOf, type PlanTabProps } from './describe';
 
@@ -148,7 +150,7 @@ export function RunTab({ plan, catalog, onChange }: PlanTabProps) {
         </table>
       </Panel>
       {active && (
-        <Panel title="Registrar en la bitácora" description="Un incidente sobre una actividad de un plan aprobado genera una propuesta de replanificación.">
+        <Panel title="Registrar en la bitácora" description="Un incidente sobre una actividad de un plan aprobado genera, en segundo plano, una propuesta de replanificación.">
           <RecordObservation plan={plan} onDone={refresh} />
           <RecordIncident plan={plan} inForce={inForce} onDone={refresh} />
         </Panel>
@@ -258,13 +260,21 @@ function RecordObservation({ plan, onDone }: { plan: Expedition; onDone: () => v
 function RecordIncident({ plan, inForce, onDone }: { plan: Expedition; inForce: Expedition; onDone: () => void }) {
   const [description, setDescription] = useState('');
   const [activityId, setActivityId] = useState('');
+  const [awaited, setAwaited] = useState<string>();
   const action = useAction(() => {
     setDescription('');
+    setActivityId('');
     onDone();
   });
 
+  async function record() {
+    const affected = activityId || undefined;
+    const created = await expeditionsApi.recordIncident(plan.id, description, affected);
+    setAwaited(affected ? created.id : undefined);
+  }
+
   return (
-    <form className="form inline" onSubmit={action.onSubmit(() => expeditionsApi.recordIncident(plan.id, description, activityId || undefined))}>
+    <form className="form inline" onSubmit={action.onSubmit(record)}>
       <Field label="Incidente">
         <input required value={description} onChange={(event) => setDescription(event.target.value)} />
       </Field>
@@ -282,6 +292,51 @@ function RecordIncident({ plan, inForce, onDone }: { plan: Expedition; inForce: 
         Registrar incidente
       </button>
       <ErrorNotice error={action.error} />
+      {awaited && <ProposalProgress key={awaited} plan={plan} inForce={inForce} incidentId={awaited} />}
     </form>
+  );
+}
+
+function ProposalProgress({ plan, inForce, incidentId }: { plan: Expedition; inForce: Expedition; incidentId: string }) {
+  const incident = useLoad(() => expeditionsApi.incident(plan.id, incidentId), [plan.id, incidentId]);
+  const replan = incident.data?.processing.find((delivery) => delivery.consumer === REPLAN_CONSUMER);
+  const settled = incident.error !== undefined || incident.data?.proposalId !== undefined || replan?.status === 'FAILED' || replan?.status === 'DELIVERED';
+  usePolling(incident.reload, !settled);
+
+  if (incident.error) {
+    return <ErrorNotice error={incident.error} />;
+  }
+  if (incident.data?.proposalId) {
+    return (
+      <p className="notice" role="status">
+        La propuesta de replanificación está lista: <Link to={`/expeditions/${inForce.id}?tab=replan`}>revisarla</Link>.
+      </p>
+    );
+  }
+  if (replan?.status === 'FAILED') {
+    return (
+      <div className="error" role="alert">
+        <div>
+          <strong>No se pudo preparar la propuesta después de {replan.attempts} intentos.</strong>
+          {replan.lastError && <p className="small">{replan.lastError}</p>}
+          <p className="small">
+            Se puede reintentar desde <Link to={`/expeditions/${plan.id}?tab=audit`}>Eventos y auditoría</Link>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  if (replan?.status === 'DELIVERED') {
+    return (
+      <p className="muted" role="status">
+        El plan cambió antes de procesar el incidente: no hace falta una propuesta.
+      </p>
+    );
+  }
+  return (
+    <p className="muted" role="status">
+      Propuesta en preparación…
+      {replan?.status === 'RETRYING' && ` Reintentando (intento ${replan.attempts + 1}).`}
+    </p>
   );
 }
