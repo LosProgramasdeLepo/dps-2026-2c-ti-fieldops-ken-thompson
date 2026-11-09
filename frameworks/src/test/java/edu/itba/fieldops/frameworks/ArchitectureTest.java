@@ -23,6 +23,7 @@ import edu.itba.fieldops.domain.expedition.ReplanProposalRepository;
 import edu.itba.fieldops.domain.shared.Clock;
 
 import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.assignableTo;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.nameMatching;
@@ -153,4 +154,24 @@ class ArchitectureTest {
     static final ArchRule apiDoesNotDependOnAdapters = noClasses()
             .that().resideInAPackage("edu.itba.fieldops.api..")
             .should().dependOnClassesThat().resideInAPackage("edu.itba.fieldops.adapters..");
+
+    @ArchTest
+    static final ArchRule onlyUseCasesAppendToTheEventLog = noClasses()
+            .that().resideOutsideOfPackage("edu.itba.fieldops.usecase..")
+            .should().callMethodWhere(target(nameMatching("append"))
+                    .and(target(owner(assignableTo(EventLog.class)))));
+
+    @ArchTest
+    static final ArchRule consultingEventsOnlyReadsThem = noClasses()
+            .that().resideInAPackage("edu.itba.fieldops.usecase.audit..")
+            .should().dependOnClassesThat().belongToAnyOf(EventLog.class);
+
+    @ArchTest
+    static final ArchRule theEventCodecIsPlainJava = noClasses()
+            .that().resideInAPackage("edu.itba.fieldops.adapters.event..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    "org.springframework..",
+                    "tools.jackson..",
+                    "com.fasterxml.jackson.."
+            );
 }

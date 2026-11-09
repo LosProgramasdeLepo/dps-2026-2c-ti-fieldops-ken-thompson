@@ -71,7 +71,7 @@ Los instantes se cargan y se muestran en UTC.
 
 `http://localhost:8080/v1`, JSON. Instantes y duraciones en ISO-8601 (`PT2H`). Un período es `{start, end}`. Jackson rechaza propiedades que no conoce. Un alta responde 201 con `Location` y `{id}`. Las demás escrituras responden 204. Los errores son `application/problem+json` (RFC 9457).
 
-Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/vehicles`, `/instruments`, `/consumables`, `/permits` y `/expeditions/{id}/replan-proposals`. `page` desde 0 (por defecto 0), `size` de 1 a 100 (por defecto 20). Cuerpo: `{items, page, size, totalItems, totalPages}`. `Link` (RFC 8288): `first`, `prev` si `page` > 0, `next` si no es la última, `last`. Las sugerencias de asignación y la validación no paginan.
+Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/vehicles`, `/instruments`, `/consumables`, `/permits`, `/expeditions/{id}/replan-proposals`, `/expeditions/{id}/events` y `/events`. `page` desde 0 (por defecto 0), `size` de 1 a 100 (por defecto 20). Cuerpo: `{items, page, size, totalItems, totalPages}`. `Link` (RFC 8288): `first`, `prev` si `page` > 0, `next` si no es la última, `last`. Las sugerencias de asignación y la validación no paginan.
 
 - JSON mal formado, UUID inválido, body que no pasa la validación, o `page`/`size` inválidos: 400
 - id del path desconocido: 404. `GET /expeditions/{desconocido}` es 404
@@ -117,3 +117,55 @@ Paginan, en orden de alta, `GET /expeditions`, `/people`, `/certifications`, `/v
 `POST /expeditions/{id}/incidents` recibe `{description, activityId}`. `activityId` es opcional; si viene y es una actividad del plan vigente aprobado, queda una propuesta sobre una revisión de ese plan. `POST /expeditions/{id}/revisions` responde 201, `{id}` y `Location` del borrador. En ese borrador, `DELETE /expeditions/{id}/activities/{activityId}` cancela, `POST .../activities/{activityId}/delays` recibe `{delay}`, una duración ISO-8601 positiva (cero o negativa: 422) y `POST /expeditions/{id}/replacements` reemplaza lo que no está disponible.
 
 `GET /expeditions/{id}/replan-proposals` pagina; 404 si el plan no existe. `GET /replan-proposals/{id}` trae el incidente, la decisión (`PENDING`, `ACCEPTED`, `REJECTED`), quién decidió, cuándo y el plan sugerido. `POST /replan-proposals/{id}/acceptance` y `POST .../rejection` reciben `{responsible}`.
+
+### Eventos
+
+Cada hecho del negocio queda registrado, en el mismo momento y en la misma transacción que el cambio que lo causó: la aprobación de un plan, el inicio y el fin de la corrida, cada actividad iniciada y terminada, los incidentes, las propuestas de replanificación y su decisión. El registro solo se agrega: un evento no se modifica ni se borra. Solo se lee.
+
+- `GET /expeditions/{id}/events` devuelve el historial del plan: los eventos del original, de todas sus revisiones (también borradores) y de sus propuestas, en orden. Consultar por el id de una revisión da el mismo resultado que por el del original. 404 si el plan no existe.
+- `GET /events` devuelve los eventos de todos los planes.
+- `GET /events/{eventId}` devuelve uno. 404 si no existe.
+
+Los dos primeros paginan (`page`, `size`, `Link`, como el resto) en orden ascendente de `sequence` y aceptan `type`, que se puede repetir (`?type=RunStarted&type=RunFinished`) y filtra por tipo. Un `type` que no es uno de los ocho nombres de abajo, o un `page` o `size` inválidos, responden 400.
+
+`EventResponse`:
+
+| Campo | Tipo | Nota |
+|---|---|---|
+| `id` | UUID | Identidad del evento registrado |
+| `sequence` | número | Orden global: crece con cada evento y no se repite |
+| `type` | string | Uno de los ocho tipos de abajo |
+| `expeditionId` | UUID | Plan sobre el que ocurrió: el aprobado, o el original para la propuesta, y la raíz para la corrida |
+| `occurredAt` | ISO-8601 | Cuándo ocurrió el hecho |
+| `recordedAt` | ISO-8601 | Cuándo se registró |
+| `payload` | objeto | Depende de `type`; una clave opcional ausente no se envía |
+
+| `type` | `payload` |
+|---|---|
+| `ExpeditionApproved` | `{version, supersededId?}`: `supersededId` es el plan que reemplaza, si es una revisión |
+| `RunStarted` | `{}` |
+| `ActivityStarted` | `{activityId}` |
+| `ActivityCompleted` | `{activityId, startedAt, result, consumed}`: `consumed` es `{consumableId: cantidad}` |
+| `IncidentReported` | `{incidentId, activityId?, description}` |
+| `RunFinished` | `{}` |
+| `ReplanProposed` | `{proposalId, suggestedId, incidentId}` |
+| `ReplanDecided` | `{proposalId, decision, decidedBy}`: `decision` es `ACCEPTED` o `REJECTED` |
+
+Ejemplo: `GET /v1/events?type=ReplanDecided&size=1`
+
+```json
+{
+  "items": [{
+    "id": "54997468-1be8-4b6e-b699-d745e16835eb",
+    "sequence": 5,
+    "type": "ReplanDecided",
+    "expeditionId": "6a106ecf-6f82-417b-ae90-3712d19d5969",
+    "occurredAt": "2026-11-09T00:22:33.201Z",
+    "recordedAt": "2026-11-09T00:22:33.205Z",
+    "payload": {"proposalId": "…", "decision": "ACCEPTED", "decidedBy": "…"}
+  }],
+  "page": 0, "size": 1, "totalItems": 1, "totalPages": 1
+}
+```
+
+Errores: 404 plan o evento desconocido; 400 `page`, `size` o `type` inválidos o un UUID mal formado. Con `memory` el registro no sobrevive al cierre de la aplicación.
