@@ -3,6 +3,8 @@ package edu.itba.fieldops.api.error;
 import edu.itba.fieldops.api.expedition.ExpeditionsController;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.expedition.ExpeditionStatus;
+import edu.itba.fieldops.domain.event.DeliveryStatus;
+import edu.itba.fieldops.domain.event.InvalidDeliveryTransition;
 import edu.itba.fieldops.domain.expedition.InvalidAssignment;
 import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.identity.ExpeditionId;
@@ -89,7 +91,8 @@ class ApiErrorsTest {
                 }, 422),
                 Arguments.of(new InvalidExpeditionTransition(ExpeditionStatus.DRAFT, "approve"), 409),
                 Arguments.of(new ExpeditionNotApprovable("critical validation issues remain"), 409),
-                Arguments.of(new InvalidActivityExecution("activity is outside its window"), 409)
+                Arguments.of(new InvalidActivityExecution("activity is outside its window"), 409),
+                Arguments.of(new InvalidDeliveryTransition("replan-on-incident", DeliveryStatus.PENDING), 409)
         );
     }
 

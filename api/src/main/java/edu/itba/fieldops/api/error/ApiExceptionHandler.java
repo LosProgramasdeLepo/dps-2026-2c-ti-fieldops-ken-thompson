@@ -1,5 +1,6 @@
 package edu.itba.fieldops.api.error;
 
+import edu.itba.fieldops.domain.event.InvalidDeliveryTransition;
 import edu.itba.fieldops.domain.expedition.ExpeditionNotApprovable;
 import edu.itba.fieldops.domain.expedition.InvalidExpeditionTransition;
 import edu.itba.fieldops.domain.shared.DomainException;
@@ -36,7 +37,12 @@ public final class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, "Unprocessable Content", error.getMessage());
     }
 
-    @ExceptionHandler({InvalidExpeditionTransition.class, ExpeditionNotApprovable.class, InvalidActivityExecution.class})
+    @ExceptionHandler({
+            InvalidExpeditionTransition.class,
+            ExpeditionNotApprovable.class,
+            InvalidActivityExecution.class,
+            InvalidDeliveryTransition.class
+    })
     ResponseEntity<ProblemDetail> conflict(DomainException error) {
         return problem(HttpStatus.CONFLICT, "Conflict", error.getMessage());
     }
